@@ -1,0 +1,9 @@
+# Ignore node_modules and other common dependencies
+node_modules/
+.env
+*.log
+dist/
+build/
+__pycache__/
+*.pyc
+.DS_Store

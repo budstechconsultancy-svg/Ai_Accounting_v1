@@ -1,0 +1,1659 @@
+import React, { useState, useEffect } from 'react';
+import type { Ledger, LedgerGroupMaster, VoucherTypeMaster } from '../src/types';
+import Icon from './Icon';
+
+interface MastersPageProps {
+  ledgers: Ledger[];
+  ledgerGroups: LedgerGroupMaster[];
+  onAddLedger: (ledger: Ledger) => void;
+  onUpdateLedger?: (idOrName: number | string, ledger: Partial<Ledger>) => void;
+  onDeleteLedger?: (idOrName: number | string) => void;
+
+  onAddLedgerGroup: (group: LedgerGroupMaster) => void;
+  onUpdateLedgerGroup?: (idOrName: number | string, group: Partial<LedgerGroupMaster>) => void;
+  onDeleteLedgerGroup?: (idOrName: number | string) => void;
+
+  voucherTypes?: VoucherTypeMaster[];
+  onAddVoucherType?: (voucherType: Omit<VoucherTypeMaster, 'id' | 'tenantId' | 'createdAt' | 'updatedAt'>) => void;
+  permissions: string[];
+}
+
+
+type MasterTab = 'Ledgers' | 'LedgerGroups' | 'Vouchers';
+
+const MastersPage: React.FC<MastersPageProps> = ({
+  ledgers,
+  ledgerGroups,
+  onAddLedger,
+  onUpdateLedger,
+  onDeleteLedger,
+  onAddLedgerGroup,
+  onUpdateLedgerGroup,
+  onDeleteLedgerGroup,
+  permissions,
+  onAddVoucherType,
+  voucherTypes = []
+}) => {
+  const allTabs: { id: MasterTab; label: string; perm: string }[] = [
+    { id: 'Ledgers', label: 'Ledgers', perm: 'MASTERS_LEDGERS' },
+    { id: 'LedgerGroups', label: 'Groups', perm: 'MASTERS_LEDGER_GROUPS' },
+    { id: 'Vouchers', label: 'Vouchers', perm: 'MASTERS_VOUCHER_CONFIG' }
+  ];
+
+  const availableTabs = allTabs.filter(tab => permissions.includes(tab.perm));
+  // Fallback: If no permissions found but user is here (e.g. legacy), maybe allow all? 
+  // User asked for strict access. But let's handle "Admin" who might have 'MASTERS' but not granular?
+  // MyTokenObtainPairSerializer adds granular for Owner too. So strict check is fine.
+
+  const [activeTab, setActiveTab] = useState<MasterTab>(availableTabs.length > 0 ? availableTabs[0].id : 'Ledgers');
+
+  // Update active tab if permissions change
+  useEffect(() => {
+    if (availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
+      setActiveTab(availableTabs[0].id);
+    }
+  }, [permissions]);
+
+  if (availableTabs.length === 0) {
+    return <div className="p-8 text-center text-gray-500">You do not have permission to view any content in this module.</div>;
+  }
+
+  // State for Create Ledger
+  const [ledgerName, setLedgerName] = useState('');
+  const [ledgerGroup, setLedgerGroup] = useState<string>('');
+  const [selectedLedger, setSelectedLedger] = useState<Ledger | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [ledgerSearchQuery, setLedgerSearchQuery] = useState('');
+
+  // State for Secured Loans additional fields
+  const [loanAccountNumber, setLoanAccountNumber] = useState('');
+  const [panGstin, setPanGstin] = useState('');
+  const [lenderName, setLenderName] = useState('');
+  const [loanAmount, setLoanAmount] = useState('');
+  const [interestType, setInterestType] = useState('');
+  const [interestRate, setInterestRate] = useState('');
+  const [tenure, setTenure] = useState('');
+
+  // State for Bank OD/CC Accounts additional fields
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [gstinPan, setGstinPan] = useState('');
+  const [enableBankReconciliation, setEnableBankReconciliation] = useState(false);
+  const [bankName, setBankName] = useState('');
+  const [ifscCode, setIfscCode] = useState('');
+  const [branch, setBranch] = useState('');
+  const [bankingCurrency, setBankingCurrency] = useState('');
+
+  // State for Trade Payables additional fields
+  const [referenceWiseTracking, setReferenceWiseTracking] = useState('');
+  const [creditPeriod, setCreditPeriod] = useState('');
+
+  // State for Tangible assets additional fields
+  const [isDepreciationPerIncomeTax, setIsDepreciationPerIncomeTax] = useState('');
+  const [depreciationPercentage, setDepreciationPercentage] = useState('');
+
+  // State for Intangible Assets additional fields
+  const [isAmortizationPerIncomeTax, setIsAmortizationPerIncomeTax] = useState('');
+  const [amortizationPercentage, setAmortizationPercentage] = useState('');
+
+  // State for Investments in preference shares additional fields
+  const [companyCIN, setCompanyCIN] = useState('');
+  const [dividendRate, setDividendRate] = useState('');
+
+  // State for Investments in equity instruments additional fields
+  const [equityInstrumentsCIN, setEquityInstrumentsCIN] = useState('');
+
+  // State for Investments in debentures or bonds
+  const [debentureBondCIN, setDebentureBondCIN] = useState('');
+  const [debentureBondInterestRate, setDebentureBondInterestRate] = useState('');
+  const [debentureBondMaturityDate, setDebentureBondMaturityDate] = useState('');
+
+  // State for Inventories additional fields
+  const [inventoryType, setInventoryType] = useState('');
+  const [inventoryValuationMethod, setInventoryValuationMethod] = useState('');
+
+  // State for Create Ledger Group
+  const [groupName, setGroupName] = useState('');
+  const [groupUnder, setGroupUnder] = useState<string>('');
+  const [selectedGroup, setSelectedGroup] = useState<LedgerGroupMaster | null>(null);
+  const [isEditModeGroup, setIsEditModeGroup] = useState(false);
+  const [groupSearchQuery, setGroupSearchQuery] = useState('');
+
+  // State for Vouchers
+  const [newVoucherType, setNewVoucherType] = useState('');
+  const [salesNumbering, setSalesNumbering] = useState({ enableAuto: true, prefix: 'INV-', suffix: '/24-25', nextNumber: 1, padding: 4, preview: '' });
+  const [purchaseNumbering, setPurchaseNumbering] = useState({ enableAuto: true, prefix: 'PO-', suffix: '/24-25', nextNumber: 1, padding: 4, preview: '' });
+
+  const handleLedgerSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ledgerName.trim()) return;
+    // Require inventory fields if group is Inventories
+    if (ledgerGroup === 'Inventories') {
+      if (!inventoryType.trim() || !inventoryValuationMethod.trim()) {
+        alert('Please fill in all required inventory fields.');
+        return;
+      }
+    }
+
+    if (isEditMode && selectedLedger) {
+      // Update existing ledger
+      if (onUpdateLedger) {
+        const identifier = selectedLedger.id || selectedLedger.name;
+        const updateData: Partial<Ledger> = {
+          name: ledgerName.trim(),
+          group: ledgerGroup
+        };
+
+        // Add loan fields if ledger is a loan type
+        if (ledgerGroup === 'Secured Loans' || ledgerGroup === 'Unsecured Loans' ||
+          ledgerGroup === 'Secured Loans (Short term)' || ledgerGroup === 'Unsecured Loans (Short term)') {
+          updateData.loanAccountNumber = loanAccountNumber;
+          updateData.panGstin = panGstin;
+          updateData.lenderName = lenderName;
+          updateData.loanAmount = loanAmount;
+          updateData.interestType = interestType;
+          updateData.interestRate = interestRate;
+          updateData.tenure = tenure;
+        }
+
+        // Add bank fields if ledger is a bank account type
+        if (ledgerGroup === 'Bank OD/CC Accounts') {
+          updateData.bankAccountNumber = bankAccountNumber;
+          updateData.gstinPan = gstinPan;
+          updateData.enableBankReconciliation = enableBankReconciliation;
+          updateData.bankName = bankName;
+          updateData.ifscCode = ifscCode;
+          updateData.branch = branch;
+          updateData.bankingCurrency = bankingCurrency;
+        }
+
+        // Add trade payables fields if ledger is trade payables type
+        if (ledgerGroup === 'Trade Payables') {
+          updateData.referenceWiseTracking = referenceWiseTracking;
+          updateData.creditPeriod = creditPeriod;
+        }
+
+        // Add tangible assets fields if ledger is tangible assets type
+        if (ledgerGroup === 'Tangible assets') {
+          updateData.isDepreciationPerIncomeTax = isDepreciationPerIncomeTax;
+          updateData.depreciationPercentage = depreciationPercentage;
+        }
+
+        // Add intangible assets fields if ledger is intangible assets type
+        if (ledgerGroup === 'Intangible Assets') {
+          updateData.isAmortizationPerIncomeTax = isAmortizationPerIncomeTax;
+          updateData.amortizationPercentage = amortizationPercentage;
+        }
+
+        // Add investments in preference shares fields
+        if (ledgerGroup === 'Investments in preference shares' || ledgerGroup === 'Investments in preference shares (Current)') {
+          updateData.companyCIN = companyCIN;
+          updateData.dividendRate = dividendRate;
+        }
+        // Add investments in equity instruments fields
+        if (ledgerGroup === 'Investments in equity instruments' || ledgerGroup === 'Investments in equity instruments (Current)') {
+          updateData.equityInstrumentsCIN = equityInstrumentsCIN;
+        }
+
+        // Add investments in debentures or bonds fields
+        if (
+          ledgerGroup === 'Investments in debentures or bonds' ||
+          ledgerGroup === 'Investments in debentures or bonds (Current)'
+        ) {
+          updateData.debentureBondCIN = debentureBondCIN;
+          updateData.debentureBondInterestRate = debentureBondInterestRate;
+          updateData.debentureBondMaturityDate = debentureBondMaturityDate;
+        }
+
+        // Add inventory fields if ledger is inventories type
+        if (ledgerGroup === 'Inventories') {
+          updateData.inventoryType = inventoryType;
+          updateData.inventoryValuationMethod = inventoryValuationMethod;
+        }
+        console.log('Updating ledger:', identifier, updateData);
+        onUpdateLedger(identifier, updateData);
+      } else {
+        console.warn('No update handler available');
+      }
+      setIsEditMode(false);
+      setSelectedLedger(null);
+    } else {
+      // Create new ledger
+      if (!ledgers.find(l => l.name.toLowerCase() === ledgerName.trim().toLowerCase())) {
+        const newLedger: Ledger = {
+          name: ledgerName.trim(),
+          group: ledgerGroup
+        };
+
+        // Add loan fields if ledger is a loan type
+        if (ledgerGroup === 'Secured Loans' || ledgerGroup === 'Unsecured Loans' ||
+          ledgerGroup === 'Secured Loans (Short term)' || ledgerGroup === 'Unsecured Loans (Short term)') {
+          newLedger.loanAccountNumber = loanAccountNumber;
+          newLedger.panGstin = panGstin;
+          newLedger.lenderName = lenderName;
+          newLedger.loanAmount = loanAmount;
+          newLedger.interestType = interestType;
+          newLedger.interestRate = interestRate;
+          newLedger.tenure = tenure;
+        }
+
+        // Add bank fields if ledger is a bank account type
+        if (ledgerGroup === 'Bank OD/CC Accounts') {
+          newLedger.bankAccountNumber = bankAccountNumber;
+          newLedger.gstinPan = gstinPan;
+          newLedger.enableBankReconciliation = enableBankReconciliation;
+          newLedger.bankName = bankName;
+          newLedger.ifscCode = ifscCode;
+          newLedger.branch = branch;
+          newLedger.bankingCurrency = bankingCurrency;
+        }
+
+        // Add trade payables fields if ledger is trade payables type
+        if (ledgerGroup === 'Trade Payables') {
+          newLedger.referenceWiseTracking = referenceWiseTracking;
+          newLedger.creditPeriod = creditPeriod;
+        }
+
+        // Add tangible assets fields if ledger is tangible assets type
+        if (ledgerGroup === 'Tangible assets') {
+          newLedger.isDepreciationPerIncomeTax = isDepreciationPerIncomeTax;
+          newLedger.depreciationPercentage = depreciationPercentage;
+        }
+
+        // Add intangible assets fields if ledger is intangible assets type
+        if (ledgerGroup === 'Intangible Assets') {
+          newLedger.isAmortizationPerIncomeTax = isAmortizationPerIncomeTax;
+          newLedger.amortizationPercentage = amortizationPercentage;
+        }
+
+        // Add investments in preference shares fields
+        if (ledgerGroup === 'Investments in preference shares' || ledgerGroup === 'Investments in preference shares (Current)') {
+          newLedger.companyCIN = companyCIN;
+          newLedger.dividendRate = dividendRate;
+        }
+        // Add investments in equity instruments fields
+        if (ledgerGroup === 'Investments in equity instruments' || ledgerGroup === 'Investments in equity instruments (Current)') {
+          newLedger.equityInstrumentsCIN = equityInstrumentsCIN;
+        }
+
+        // Add investments in debentures or bonds fields
+        if (
+          ledgerGroup === 'Investments in debentures or bonds' ||
+          ledgerGroup === 'Investments in debentures or bonds (Current)'
+        ) {
+          newLedger.debentureBondCIN = debentureBondCIN;
+          newLedger.debentureBondInterestRate = debentureBondInterestRate;
+          newLedger.debentureBondMaturityDate = debentureBondMaturityDate;
+        }
+
+        // Add inventory fields if ledger is inventories type
+        if (ledgerGroup === 'Inventories') {
+          newLedger.inventoryType = inventoryType;
+          newLedger.inventoryValuationMethod = inventoryValuationMethod;
+        }
+        console.log('Creating new ledger:', newLedger);
+        onAddLedger(newLedger);
+      }
+    }
+    // Reset form
+    setLedgerName('');
+    setLedgerGroup('');
+    setLoanAccountNumber('');
+    setPanGstin('');
+    setLenderName('');
+    setLoanAmount('');
+    setInterestType('');
+    setInterestRate('');
+    setTenure('');
+    setBankAccountNumber('');
+    setGstinPan('');
+    setEnableBankReconciliation(false);
+    setBankName('');
+    setIfscCode('');
+    setBranch('');
+    setBankingCurrency('');
+    setDebentureBondCIN('');
+    setDebentureBondInterestRate('');
+    setDebentureBondMaturityDate('');
+    setInventoryType('');
+    setInventoryValuationMethod('');
+  };
+
+  const handleEditLedger = () => {
+    if (!selectedLedger) {
+      alert('Please select a ledger first by clicking the radio button.');
+      return;
+    }
+    console.log('Editing ledger:', selectedLedger);
+    setLedgerName(selectedLedger.name);
+    setLedgerGroup(selectedLedger.group);
+
+    // Populate loan fields if they exist
+    if (selectedLedger.loanAccountNumber) setLoanAccountNumber(selectedLedger.loanAccountNumber);
+    if (selectedLedger.panGstin) setPanGstin(selectedLedger.panGstin);
+    if (selectedLedger.lenderName) setLenderName(selectedLedger.lenderName);
+    if (selectedLedger.loanAmount) setLoanAmount(selectedLedger.loanAmount);
+    if (selectedLedger.interestType) setInterestType(selectedLedger.interestType);
+    if (selectedLedger.interestRate) setInterestRate(selectedLedger.interestRate);
+    if (selectedLedger.tenure) setTenure(selectedLedger.tenure);
+
+    // Populate bank fields if they exist
+    if (selectedLedger.bankAccountNumber) setBankAccountNumber(selectedLedger.bankAccountNumber);
+    if (selectedLedger.gstinPan) setGstinPan(selectedLedger.gstinPan);
+    if (selectedLedger.enableBankReconciliation !== undefined) setEnableBankReconciliation(selectedLedger.enableBankReconciliation);
+    if (selectedLedger.bankName) setBankName(selectedLedger.bankName);
+    if (selectedLedger.ifscCode) setIfscCode(selectedLedger.ifscCode);
+    if (selectedLedger.branch) setBranch(selectedLedger.branch);
+    if (selectedLedger.bankingCurrency) setBankingCurrency(selectedLedger.bankingCurrency);
+
+    // Populate trade payables fields if they exist
+    if (selectedLedger.referenceWiseTracking) setReferenceWiseTracking(selectedLedger.referenceWiseTracking);
+    if (selectedLedger.creditPeriod) setCreditPeriod(selectedLedger.creditPeriod);
+
+    // Populate tangible assets fields if they exist
+    if (selectedLedger.isDepreciationPerIncomeTax) setIsDepreciationPerIncomeTax(selectedLedger.isDepreciationPerIncomeTax);
+    if (selectedLedger.depreciationPercentage) setDepreciationPercentage(selectedLedger.depreciationPercentage);
+
+    // Populate intangible assets fields if they exist
+    if (selectedLedger.isAmortizationPerIncomeTax) setIsAmortizationPerIncomeTax(selectedLedger.isAmortizationPerIncomeTax);
+    if (selectedLedger.amortizationPercentage) setAmortizationPercentage(selectedLedger.amortizationPercentage);
+
+    // Populate investments in preference shares fields if they exist
+    if (selectedLedger.companyCIN) setCompanyCIN(selectedLedger.companyCIN);
+    if (selectedLedger.dividendRate) setDividendRate(selectedLedger.dividendRate);
+    // Populate investments in equity instruments fields if they exist
+    if (selectedLedger.equityInstrumentsCIN) setEquityInstrumentsCIN(selectedLedger.equityInstrumentsCIN);
+
+    // Populate investments in debentures or bonds fields if they exist
+    if (selectedLedger.debentureBondCIN) setDebentureBondCIN(selectedLedger.debentureBondCIN);
+    if (selectedLedger.debentureBondInterestRate) setDebentureBondInterestRate(selectedLedger.debentureBondInterestRate);
+    if (selectedLedger.debentureBondMaturityDate) setDebentureBondMaturityDate(selectedLedger.debentureBondMaturityDate);
+
+    // Populate inventory fields if they exist
+    if (selectedLedger.inventoryType) setInventoryType(selectedLedger.inventoryType);
+    if (selectedLedger.inventoryValuationMethod) setInventoryValuationMethod(selectedLedger.inventoryValuationMethod);
+
+    setIsEditMode(true);
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteLedger = () => {
+    if (!selectedLedger) {
+      alert('Please select a ledger first by clicking the radio button.');
+      return;
+    }
+
+    const confirmMessage = `Are you sure you want to delete "${selectedLedger.name}"?`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    console.log('Deleting ledger:', selectedLedger);
+
+    if (onDeleteLedger) {
+      try {
+        const identifier = selectedLedger.id || selectedLedger.name;
+        console.log('Deleting with identifier:', identifier);
+        onDeleteLedger(identifier);
+        setSelectedLedger(null);
+        // Clear form if we were editing this ledger
+        if (isEditMode && ledgerName === selectedLedger.name) {
+          setLedgerName('');
+          setLedgerGroup('Sundry Debtors');
+          setIsEditMode(false);
+        }
+      } catch (error) {
+        console.error('Error deleting ledger:', error);
+        alert('Failed to delete ledger. Please try again.');
+      }
+    } else {
+      console.warn('Cannot delete ledger: missing delete handler');
+      alert('Delete function is not available.');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setSelectedLedger(null);
+    setLedgerName('');
+    setLedgerGroup('');
+    setLoanAccountNumber('');
+    setPanGstin('');
+    setLenderName('');
+    setLoanAmount('');
+    setInterestType('');
+    setInterestRate('');
+    setTenure('');
+    setBankAccountNumber('');
+    setGstinPan('');
+    setEnableBankReconciliation(false);
+    setBankName('');
+    setIfscCode('');
+    setBranch('');
+    setBankingCurrency('');
+    setInventoryType('');
+    setInventoryValuationMethod('');
+  };
+
+  const handleGroupSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!groupName.trim()) return;
+
+    // Validate: Check for duplicate group names (case-insensitive)
+    const trimmedGroupName = groupName.trim();
+    const isDuplicate = ledgerGroups.some(
+      g => g.name.toLowerCase() === trimmedGroupName.toLowerCase() &&
+        (!isEditModeGroup || g.name !== selectedGroup?.name)
+    );
+
+    if (isDuplicate) {
+      alert(`Group "${trimmedGroupName}" already exists. Please use a different name.`);
+      return;
+    }
+
+    if (isEditModeGroup && selectedGroup) {
+      if (onUpdateLedgerGroup) {
+        const identifier = selectedGroup.id || selectedGroup.name;
+        console.log('Updating group:', identifier, { name: trimmedGroupName, under: groupUnder });
+        onUpdateLedgerGroup(identifier as number, { name: trimmedGroupName, under: groupUnder });
+      }
+      setIsEditModeGroup(false);
+      setSelectedGroup(null);
+    } else {
+      // Create new group
+      console.log('Creating new group:', { name: trimmedGroupName, under: groupUnder });
+      onAddLedgerGroup({ name: trimmedGroupName, under: groupUnder });
+    }
+    // Reset form
+    setGroupName('');
+    setGroupUnder('');
+  };
+
+  const handleEditGroup = () => {
+    if (!selectedGroup) {
+      alert('Please select a group first by clicking the radio button.');
+      return;
+    }
+    console.log('Editing group:', selectedGroup);
+    setGroupName(selectedGroup.name);
+    setGroupUnder(selectedGroup.under);
+    setIsEditModeGroup(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteGroup = () => {
+    if (!selectedGroup) {
+      alert('Please select a group first by clicking the radio button.');
+      return;
+    }
+
+    const confirmMessage = `Are you sure you want to delete "${selectedGroup.name}"?`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    console.log('Deleting group:', selectedGroup);
+
+    if (onDeleteLedgerGroup) {
+      try {
+        const identifier = selectedGroup.id || selectedGroup.name;
+        onDeleteLedgerGroup(identifier as number);
+        setSelectedGroup(null);
+        if (isEditModeGroup && groupName === selectedGroup.name) {
+          setGroupName('');
+          setGroupUnder('Current Assets');
+          setIsEditModeGroup(false);
+        }
+      } catch (error) {
+        console.error('Error deleting group:', error);
+        alert('Failed to delete group. Please try again.');
+      }
+    } else {
+      console.warn('Cannot delete group: missing delete handler');
+      alert('Delete function is not available.');
+    }
+  };
+
+  const handleCancelEditGroup = () => {
+    setIsEditModeGroup(false);
+    setSelectedGroup(null);
+    setGroupName('');
+    setGroupUnder('');
+  };
+
+  const handleAddVoucherType = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newVoucherType.trim() && onAddVoucherType) {
+      onAddVoucherType({ name: newVoucherType.trim(), description: '' });
+      setNewVoucherType('');
+    }
+  };
+
+  const renderLedgers = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-300">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Create Ledger</h3>
+        <form onSubmit={handleLedgerSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="ledgerName" className="block text-sm font-medium text-gray-500 mb-1">Ledger Name</label>
+            <input
+              type="text"
+              id="ledgerName"
+              value={ledgerName}
+              onChange={(e) => setLedgerName(e.target.value)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              required
+            />
+          </div>
+
+          {/* Group Selection with Dropdown Filters */}
+          <div>
+            <label className="block text-sm font-medium text-gray-500 mb-2">Group</label>
+            <div className="grid grid-cols-2 gap-3">
+              {['NPO Funds', 'Owners\' Funds', 'Liability', 'Asset', 'Income', 'Expenditure'].map((group) => (
+                <select
+                  key={group}
+                  value={ledgerGroup === group ? group : ''}
+                  onChange={(e) => setLedgerGroup(e.target.value)}
+                  className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                >
+                  <option value="">{group}</option>
+                  {ledgerGroups.filter(g => g.name.includes(group)).map(g => (
+                    <option key={g.id || g.name} value={g.name}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              ))}
+            </div>
+          </div>
+
+
+          {/* Conditional fields for Secured Loans */}
+          {(ledgerGroup === 'Secured Loans' || ledgerGroup === 'Unsecured Loans' || ledgerGroup === 'Secured Loans (Short term)' || ledgerGroup === 'Unsecured Loans (Short term)') && (
+            <>
+              <div>
+                <label htmlFor="loanAccountNumber" className="block text-sm font-medium text-gray-500 mb-1">
+                  Loan Account Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="loanAccountNumber"
+                  value={loanAccountNumber}
+                  onChange={(e) => setLoanAccountNumber(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter alphanumeric account number"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="panGstin" className="block text-sm font-medium text-gray-500 mb-1">
+                  PAN/GSTIN <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="panGstin"
+                  value={panGstin}
+                  onChange={(e) => setPanGstin(e.target.value.toUpperCase())}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter PAN or GSTIN"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="lenderName" className="block text-sm font-medium text-gray-500 mb-1">Lender Name</label>
+                <input
+                  type="text"
+                  id="lenderName"
+                  value={lenderName}
+                  onChange={(e) => setLenderName(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter lender name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="loanAmount" className="block text-sm font-medium text-gray-500 mb-1">
+                  Loan Amount <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  id="loanAmount"
+                  value={loanAmount}
+                  onChange={(e) => setLoanAmount(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter loan amount"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Interest Type</label>
+                <div className="space-y-2">
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      id="fixedInterest"
+                      name="interestType"
+                      value="Fixed"
+                      checked={interestType === 'Fixed'}
+                      onChange={(e) => setInterestType(e.target.value)}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      required
+                    />
+                    <label htmlFor="fixedInterest" className="ml-2 text-sm text-gray-700">Fixed</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      id="floatingInterest"
+                      name="interestType"
+                      value="Floating"
+                      checked={interestType === 'Floating'}
+                      onChange={(e) => setInterestType(e.target.value)}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="floatingInterest" className="ml-2 text-sm text-gray-700">Floating</label>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="interestRate" className="block text-sm font-medium text-gray-500 mb-1">
+                  Interest Rate (%) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  id="interestRate"
+                  value={interestRate}
+                  onChange={(e) => setInterestRate(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter interest rate"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="tenure" className="block text-sm font-medium text-gray-500 mb-1">Tenure (Months)</label>
+                <input
+                  type="number"
+                  id="tenure"
+                  value={tenure}
+                  onChange={(e) => setTenure(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter tenure in months"
+                  min="1"
+                  required
+                />
+              </div>
+            </>
+          )}
+
+          {/* Conditional fields for Bank OD/CC Accounts */}
+          {ledgerGroup === 'Bank OD/CC Accounts' && (
+            <>
+              <div>
+                <label htmlFor="bankAccountNumber" className="block text-sm font-medium text-gray-500 mb-1">
+                  Bank Account Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  id="bankAccountNumber"
+                  value={bankAccountNumber}
+                  onChange={(e) => setBankAccountNumber(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter bank account number"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="gstinPan" className="block text-sm font-medium text-gray-500 mb-1">GSTIN/PAN</label>
+                <input
+                  type="text"
+                  id="gstinPan"
+                  value={gstinPan}
+                  onChange={(e) => setGstinPan(e.target.value.toUpperCase())}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter GSTIN or PAN"
+                />
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="enableBankReconciliation"
+                  checked={enableBankReconciliation}
+                  onChange={(e) => setEnableBankReconciliation(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  required
+                />
+                <label htmlFor="enableBankReconciliation" className="ml-2 text-sm font-medium text-gray-700">
+                  Enable Bank Reconciliation <span className="text-red-500">*</span>
+                </label>
+              </div>
+
+              <div>
+                <label htmlFor="bankName" className="block text-sm font-medium text-gray-500 mb-1">Bank Name</label>
+                <input
+                  type="text"
+                  id="bankName"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter bank name"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="ifscCode" className="block text-sm font-medium text-gray-500 mb-1">
+                  IFSC Code <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="ifscCode"
+                  value={ifscCode}
+                  onChange={(e) => setIfscCode(e.target.value.toUpperCase())}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter IFSC code"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="branch" className="block text-sm font-medium text-gray-500 mb-1">
+                  Branch <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="branch"
+                  value={branch}
+                  onChange={(e) => setBranch(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter branch name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="bankingCurrency" className="block text-sm font-medium text-gray-500 mb-1">
+                  Banking Currency <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="bankingCurrency"
+                  value={bankingCurrency}
+                  onChange={(e) => setBankingCurrency(e.target.value)}
+                  className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  required
+                >
+                  <option value="">Select currency</option>
+                  <option value="INR">INR - Indian Rupee</option>
+                  <option value="USD">USD - US Dollar</option>
+                  <option value="EUR">EUR - Euro</option>
+                  <option value="GBP">GBP - British Pound</option>
+                  <option value="AED">AED - UAE Dirham</option>
+                  <option value="SGD">SGD - Singapore Dollar</option>
+                </select>
+              </div>
+            </>
+          )}
+
+          {/* Conditional fields for Trade Payables */}
+          {ledgerGroup === 'Trade Payables' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Reference-wise Tracking</label>
+                <div className="space-y-2">
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      id="refTrackingYes"
+                      name="referenceWiseTracking"
+                      value="Yes"
+                      checked={referenceWiseTracking === 'Yes'}
+                      onChange={(e) => setReferenceWiseTracking(e.target.value)}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="refTrackingYes" className="ml-2 text-sm text-gray-700">Yes</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      id="refTrackingNo"
+                      name="referenceWiseTracking"
+                      value="No"
+                      checked={referenceWiseTracking === 'No'}
+                      onChange={(e) => setReferenceWiseTracking(e.target.value)}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="refTrackingNo" className="ml-2 text-sm text-gray-700">No</label>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="creditPeriod" className="block text-sm font-medium text-gray-500 mb-1">Please enter credit period</label>
+                <input
+                  type="number"
+                  id="creditPeriod"
+                  value={creditPeriod}
+                  onChange={(e) => setCreditPeriod(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter credit period (in days)"
+                  min="0"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Conditional fields for Inventories */}
+          {ledgerGroup === 'Inventories' && (
+            <>
+              <div>
+                <label htmlFor="inventoryType" className="block text-sm font-medium text-gray-500 mb-1">
+                  Specify type of inventory <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="inventoryType"
+                  value={inventoryType}
+                  onChange={(e) => setInventoryType(e.target.value)}
+                  className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  required
+                >
+                  <option value="">Select inventory type</option>
+                  <option value="Raw Materials">Raw Materials</option>
+                  <option value="Work in Progress (WIP)">Work in Progress (WIP)</option>
+                  <option value="Finished Goods">Finished Goods</option>
+                  <option value="Trading Goods">Trading Goods</option>
+                  <option value="Consumables">Consumables</option>
+                  <option value="Packing Materials">Packing Materials</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="inventoryValuationMethod" className="block text-sm font-medium text-gray-500 mb-1">
+                  Specify valuation method <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="inventoryValuationMethod"
+                  value={inventoryValuationMethod}
+                  onChange={(e) => setInventoryValuationMethod(e.target.value)}
+                  className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  required
+                >
+                  <option value="">Select valuation method</option>
+                  <option value="FIFO (First In, First Out)">FIFO (First In, First Out)</option>
+                  <option value="LIFO (Last In, First Out)">LIFO (Last In, First Out)</option>
+                  <option value="Weighted Average">Weighted Average</option>
+                  <option value="Specific Identification">Specific Identification</option>
+                </select>
+              </div>
+            </>
+          )}
+
+          {/* Conditional fields for Tangible assets */}
+          {ledgerGroup === 'Tangible assets' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">
+                  Is depreciation calculated as per Income Tax Act? <span className="text-red-500">*</span>
+                </label>
+                <div className="space-y-2">
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      id="depreciationYes"
+                      name="isDepreciationPerIncomeTax"
+                      value="Yes"
+                      checked={isDepreciationPerIncomeTax === 'Yes'}
+                      onChange={(e) => setIsDepreciationPerIncomeTax(e.target.value)}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      required
+                    />
+                    <label htmlFor="depreciationYes" className="ml-2 text-sm text-gray-700">Yes</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      id="depreciationNo"
+                      name="isDepreciationPerIncomeTax"
+                      value="No"
+                      checked={isDepreciationPerIncomeTax === 'No'}
+                      onChange={(e) => setIsDepreciationPerIncomeTax(e.target.value)}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="depreciationNo" className="ml-2 text-sm text-gray-700">No</label>
+                  </div>
+                </div>
+              </div>
+
+              {isDepreciationPerIncomeTax === 'Yes' && (
+                <div>
+                  <label htmlFor="depreciationPercentage" className="block text-sm font-medium text-gray-500 mb-1">
+                    Confirm the depreciation percentage <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="depreciationPercentage"
+                    value={depreciationPercentage}
+                    onChange={(e) => setDepreciationPercentage(e.target.value)}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="Enter depreciation percentage"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    required
+                  />
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => alert('Update Fixed Assets Register functionality coming soon!')}
+                className="inline-flex items-center justify-center w-full px-4 py-2 border border-blue-600 text-sm font-medium rounded-md shadow-sm text-blue-600 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Icon name="file-text" className="w-4 h-4 mr-2" />
+                Update Fixed Assets Register
+              </button>
+            </>
+          )}
+
+          {/* Conditional fields for Intangible Assets */}
+          {ledgerGroup === 'Intangible Assets' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">
+                  Is amortization calculated as per Income Tax Act? <span className="text-red-500">*</span>
+                </label>
+                <div className="space-y-2">
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      id="amortizationYes"
+                      name="isAmortizationPerIncomeTax"
+                      value="Yes"
+                      checked={isAmortizationPerIncomeTax === 'Yes'}
+                      onChange={(e) => setIsAmortizationPerIncomeTax(e.target.value)}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      required
+                    />
+                    <label htmlFor="amortizationYes" className="ml-2 text-sm text-gray-700">Yes</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      id="amortizationNo"
+                      name="isAmortizationPerIncomeTax"
+                      value="No"
+                      checked={isAmortizationPerIncomeTax === 'No'}
+                      onChange={(e) => setIsAmortizationPerIncomeTax(e.target.value)}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="amortizationNo" className="ml-2 text-sm text-gray-700">No</label>
+                  </div>
+                </div>
+              </div>
+
+              {isAmortizationPerIncomeTax === 'Yes' && (
+                <div>
+                  <label htmlFor="amortizationPercentage" className="block text-sm font-medium text-gray-500 mb-1">
+                    Confirm the percentage <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="amortizationPercentage"
+                    value={amortizationPercentage}
+                    onChange={(e) => setAmortizationPercentage(e.target.value)}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="Enter amortization percentage"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    required
+                  />
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => alert('Update Fixed Assets Register functionality coming soon!')}
+                className="inline-flex items-center justify-center w-full px-4 py-2 border border-blue-600 text-sm font-medium rounded-md shadow-sm text-blue-600 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Icon name="file-text" className="w-4 h-4 mr-2" />
+                Update Fixed Assets Register
+              </button>
+            </>
+          )}
+
+          {/* Conditional fields for Investments in preference shares */}
+          {(ledgerGroup === 'Investments in preference shares' || ledgerGroup === 'Investments in preference shares (Current)') && (
+            <>
+              <div>
+                <label htmlFor="companyCIN" className="block text-sm font-medium text-gray-500 mb-1">Provide Company's CIN</label>
+                <input
+                  type="text"
+                  id="companyCIN"
+                  value={companyCIN}
+                  onChange={(e) => setCompanyCIN(e.target.value.toUpperCase())}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter Company's CIN"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="dividendRate" className="block text-sm font-medium text-gray-500 mb-1">Dividend Rate (%)</label>
+                <input
+                  type="number"
+                  id="dividendRate"
+                  value={dividendRate}
+                  onChange={(e) => setDividendRate(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter dividend rate"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Conditional fields for Investments in debentures or bonds */}
+          {(ledgerGroup === 'Investments in debentures or bonds' || ledgerGroup === 'Investments in debentures or bonds (Current)') && (
+            <>
+              <div>
+                <label htmlFor="debentureBondCIN" className="block text-sm font-medium text-gray-500 mb-1">
+                  Provide Company's CIN <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="debentureBondCIN"
+                  value={debentureBondCIN}
+                  onChange={(e) => setDebentureBondCIN(e.target.value.toUpperCase())}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter Company's CIN"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="debentureBondInterestRate" className="block text-sm font-medium text-gray-500 mb-1">
+                  Interest Rate (%) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  id="debentureBondInterestRate"
+                  value={debentureBondInterestRate}
+                  onChange={(e) => setDebentureBondInterestRate(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter interest rate"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="debentureBondMaturityDate" className="block text-sm font-medium text-gray-500 mb-1">
+                  Maturity Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  id="debentureBondMaturityDate"
+                  value={debentureBondMaturityDate}
+                  onChange={(e) => setDebentureBondMaturityDate(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  required
+                />
+              </div>
+            </>
+          )}
+          {/* Conditional fields for Investments in equity instruments */}
+          {(ledgerGroup === 'Investments in equity instruments' || ledgerGroup === 'Investments in equity instruments (Current)') && (
+            <>
+              <div>
+                <label htmlFor="equityInstrumentsCIN" className="block text-sm font-medium text-gray-500 mb-1">Provide Company's CIN</label>
+                <input
+                  type="text"
+                  id="equityInstrumentsCIN"
+                  value={equityInstrumentsCIN}
+                  onChange={(e) => setEquityInstrumentsCIN(e.target.value.toUpperCase())}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter Company's CIN"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Conditional fields for Capital work-in-progress and Intangible assets under development */}
+          {(ledgerGroup === 'Capital work-in-progress' || ledgerGroup === 'Intangible assets under development') && (
+            <>
+              <button
+                type="button"
+                onClick={() => alert('Update Fixed Assets Register functionality coming soon!')}
+                className="inline-flex items-center justify-center w-full px-4 py-2 border border-blue-600 text-sm font-medium rounded-md shadow-sm text-blue-600 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Icon name="file-text" className="w-4 h-4 mr-2" />
+                Update Fixed Assets Register
+              </button>
+            </>
+          )}
+
+          <button
+            type="submit"
+            className={`inline-flex items-center justify-center w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${isEditMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+          >
+            <Icon name={isEditMode ? "save" : "plus"} className="w-4 h-4 mr-2" />
+            {isEditMode ? 'Update Ledger' : 'Create Ledger'}
+          </button>
+
+          {isEditMode && (
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="mt-2 inline-flex items-center justify-center w-full px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+            >
+              Cancel Edit
+            </button>
+          )}
+        </form>
+      </div>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-300">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">Existing Ledgers</h3>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search ledgers..."
+              value={ledgerSearchQuery}
+              onChange={(e) => setLedgerSearchQuery(e.target.value)}
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Icon name="search" className="h-5 w-5 text-gray-400" />
+            </div>
+            {ledgerSearchQuery && (
+              <button
+                onClick={() => setLedgerSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              >
+                <Icon name="x" className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="max-h-96 overflow-y-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50 sticky top-0">
+              <tr>
+                <th scope="col" className="w-12 px-6 py-3"></th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ledger Name</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group</th>
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {ledgers.filter(ledger =>
+                ledger.name.toLowerCase().includes(ledgerSearchQuery.toLowerCase()) ||
+                ledger.group.toLowerCase().includes(ledgerSearchQuery.toLowerCase())
+              ).map(ledger => {
+                const isSelected = selectedLedger?.name === ledger.name;
+
+                return (
+                  <tr
+                    key={ledger.id || ledger.name}
+                    className={`transition-colors ${isSelected
+                      ? 'bg-blue-50 hover:bg-blue-100'
+                      : 'hover:bg-gray-50'
+                      }`}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="radio"
+                        name="selectedLedger"
+                        value={ledger.name}
+                        checked={isSelected}
+                        onChange={() => {
+                          console.log('Selected ledger:', ledger);
+                          setSelectedLedger(ledger);
+                        }}
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        aria-label={`Select ${ledger.name}`}
+                      />
+                    </td>
+                    <td
+                      className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer"
+                      onClick={() => {
+                        console.log('Name cell clicked, selecting:', ledger);
+                        setSelectedLedger(ledger);
+                      }}
+                    >
+                      {ledger.name}
+                    </td>
+                    <td
+                      className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer"
+                      onClick={() => setSelectedLedger(ledger)}
+                    >
+                      {ledger.group}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      {isSelected ? (
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            onClick={handleEditLedger}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            style={{ lineHeight: '1' }}
+                            aria-label="Edit selected ledger"
+                          >
+                            <Icon name="edit" className="w-4 h-4 flex-shrink-0" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={handleDeleteLedger}
+                            className="inline-flex items-center justify-center w-10 h-10 rounded-md text-white bg-red-600 hover:bg-red-700 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            aria-label="Delete selected ledger"
+                            title="Delete"
+                          >
+                            <Icon name="trash" className="w-5 h-5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs italic">Select to edit</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderLedgerGroups = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-300">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Create Group</h3>
+        <form onSubmit={handleGroupSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="groupName" className="block text-sm font-medium text-gray-500 mb-1">
+              Group Name
+            </label>
+            <input
+              type="text"
+              id="groupName"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              placeholder="Enter group name"
+              className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="groupUnder" className="block text-sm font-medium text-gray-500 mb-1">Under</label>
+            <select
+              id="groupUnder"
+              value={groupUnder}
+              onChange={(e) => setGroupUnder(e.target.value)}
+              className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+              required
+            >
+              <option value="">Select Parent Group</option>
+
+              {ledgerGroups.length > 0 && (
+                ledgerGroups.map(g => (
+                  <option key={g.id || g.name} value={g.name}>
+                    {g.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+          <button
+            type="submit"
+            className={`inline-flex items-center justify-center w-full px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${isEditModeGroup ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+          >
+            <Icon name={isEditModeGroup ? "save" : "plus"} className="w-4 h-4 mr-2" />
+            {isEditModeGroup ? 'Update Group' : 'Create Group'}
+          </button>
+          {isEditModeGroup && (
+            <button
+              type="button"
+              onClick={handleCancelEditGroup}
+              className="mt-2 inline-flex items-center justify-center w-full px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+            >
+              Cancel Edit
+            </button>
+          )}
+        </form>
+      </div>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-300">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">Existing Groups</h3>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search groups..."
+              value={groupSearchQuery}
+              onChange={(e) => setGroupSearchQuery(e.target.value)}
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Icon name="search" className="h-5 w-5 text-gray-400" />
+            </div>
+            {groupSearchQuery && (
+              <button
+                onClick={() => setGroupSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              >
+                <Icon name="x" className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="max-h-96 overflow-y-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50 sticky top-0">
+              <tr>
+                <th scope="col" className="w-12 px-6 py-3"></th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group Name</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Under</th>
+                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {ledgerGroups.filter(group =>
+                group.name.toLowerCase().includes(groupSearchQuery.toLowerCase()) ||
+                (group.under && group.under.toLowerCase().includes(groupSearchQuery.toLowerCase()))
+              ).map(group => {
+                const isSelected = selectedGroup?.name === group.name;
+
+                return (
+                  <tr
+                    key={group.id || group.name}
+                    className={`transition-colors ${isSelected
+                      ? 'bg-blue-50 hover:bg-blue-100'
+                      : 'hover:bg-gray-50'
+                      }`}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="radio"
+                        name="selectedGroup"
+                        value={group.name}
+                        checked={isSelected}
+                        onChange={() => {
+                          console.log('Selected group:', group);
+                          setSelectedGroup(group);
+                        }}
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        aria-label={`Select ${group.name}`}
+                      />
+                    </td>
+                    <td
+                      className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer"
+                      onClick={() => {
+                        console.log('Name cell clicked, selecting:', group);
+                        setSelectedGroup(group);
+                      }}
+                    >
+                      {group.name}
+                    </td>
+                    <td
+                      className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer"
+                      onClick={() => setSelectedGroup(group)}
+                    >
+                      {group.under ? (
+                        <span className="text-gray-900 font-medium">{group.under}</span>
+                      ) : (
+                        <span className="text-gray-400 italic">Primary</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      {isSelected ? (
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            onClick={handleEditGroup}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            style={{ lineHeight: '1' }}
+                            aria-label="Edit selected group"
+                          >
+                            <Icon name="edit" className="w-4 h-4 flex-shrink-0" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={handleDeleteGroup}
+                            className="inline-flex items-center justify-center w-10 h-10 rounded-md text-white bg-red-600 hover:bg-red-700 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            aria-label="Delete selected group"
+                            title="Delete"
+                          >
+                            <Icon name="trash" className="w-5 h-5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs italic">Select to edit</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Update preview for sales
+  useEffect(() => {
+    const padded = salesNumbering.nextNumber.toString().padStart(salesNumbering.padding, '0');
+    let newPreview = '';
+    if (salesNumbering.enableAuto) {
+      newPreview = padded + (salesNumbering.suffix || '');
+    }
+    setSalesNumbering(prev => ({ ...prev, preview: newPreview }));
+  }, [salesNumbering.enableAuto, salesNumbering.nextNumber, salesNumbering.padding, salesNumbering.suffix]);
+
+  // Update preview for purchase
+  useEffect(() => {
+    const padded = purchaseNumbering.nextNumber.toString().padStart(purchaseNumbering.padding, '0');
+    let newPreview = '';
+    if (purchaseNumbering.enableAuto) {
+      newPreview = (purchaseNumbering.prefix || '') + padded + (purchaseNumbering.suffix || '');
+    }
+    setPurchaseNumbering(prev => ({ ...prev, preview: newPreview }));
+  }, [purchaseNumbering.enableAuto, purchaseNumbering.prefix, purchaseNumbering.nextNumber, purchaseNumbering.padding, purchaseNumbering.suffix]);
+
+  const renderVouchers = () => (
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-300">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Create Voucher Type</h3>
+          <form onSubmit={handleAddVoucherType} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Voucher Type Name</label>
+              <input
+                type="text"
+                value={newVoucherType}
+                onChange={e => setNewVoucherType(e.target.value)}
+                placeholder="e.g. Sales Invoice, Purchase Order"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">
+              + Create Voucher Type
+            </button>
+          </form>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-300">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Existing Voucher Types</h3>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {voucherTypes.length === 0 && <p className="text-gray-400 text-center py-4">No voucher types created yet</p>}
+            {voucherTypes.map(vt => (
+              <div key={vt} className="p-3 bg-gray-50 border border-gray-200 rounded flex justify-between">
+                <span>{vt}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-300">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Sales Invoices Numbering</h3>
+          <form className="space-y-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="salesEnableAuto"
+                checked={salesNumbering.enableAuto}
+                onChange={e => setSalesNumbering({ ...salesNumbering, enableAuto: e.target.checked })}
+              />
+              <label htmlFor="salesEnableAuto" className="ml-2 text-sm font-medium text-gray-500">Enable Auto Numbering</label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Prefix</label>
+              <input
+                type="text"
+                value={salesNumbering.prefix || ''}
+                onChange={e => setSalesNumbering({ ...salesNumbering, prefix: e.target.value })}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Suffix</label>
+              <input
+                type="text"
+                value={salesNumbering.suffix || ''}
+                onChange={e => setSalesNumbering({ ...salesNumbering, suffix: e.target.value })}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Next Number</label>
+              <input
+                type="number"
+                value={salesNumbering.nextNumber}
+                onChange={e => setSalesNumbering({ ...salesNumbering, nextNumber: parseInt(e.target.value) || 1 })}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Padding</label>
+              <input
+                type="number"
+                value={salesNumbering.padding}
+                onChange={e => setSalesNumbering({ ...salesNumbering, padding: parseInt(e.target.value) || 0 })}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Preview</label>
+              <input
+                type="text"
+                value={salesNumbering.preview}
+                readOnly
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+              />
+            </div>
+          </form>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-300">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Purchase Vouchers Numbering</h3>
+          <form className="space-y-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="purchaseEnableAuto"
+                checked={purchaseNumbering.enableAuto}
+                onChange={e => setPurchaseNumbering({ ...purchaseNumbering, enableAuto: e.target.checked })}
+              />
+              <label htmlFor="purchaseEnableAuto" className="ml-2 text-sm font-medium text-gray-500">Enable Auto Numbering</label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Prefix</label>
+              <input
+                type="text"
+                value={purchaseNumbering.prefix || ''}
+                onChange={e => setPurchaseNumbering({ ...purchaseNumbering, prefix: e.target.value })}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Suffix</label>
+              <input
+                type="text"
+                value={purchaseNumbering.suffix || ''}
+                onChange={e => setPurchaseNumbering({ ...purchaseNumbering, suffix: e.target.value })}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Next Number</label>
+              <input
+                type="number"
+                value={purchaseNumbering.nextNumber}
+                onChange={e => setPurchaseNumbering({ ...purchaseNumbering, nextNumber: parseInt(e.target.value) || 1 })}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Padding</label>
+              <input
+                type="number"
+                value={purchaseNumbering.padding}
+                onChange={e => setPurchaseNumbering({ ...purchaseNumbering, padding: parseInt(e.target.value) || 0 })}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-500 mb-1">Preview</label>
+              <input
+                type="text"
+                value={purchaseNumbering.preview}
+                readOnly
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+              />
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Accounting Masters</h2>
+
+      <div className="mb-6">
+        <nav className="flex space-x-8" aria-label="Tabs">
+          {availableTabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`${activeTab === tab.id
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {activeTab === 'Ledgers' ? renderLedgers() : activeTab === 'LedgerGroups' ? renderLedgerGroups() : renderVouchers()}
+    </div>
+  );
+};
+
+export default MastersPage;
