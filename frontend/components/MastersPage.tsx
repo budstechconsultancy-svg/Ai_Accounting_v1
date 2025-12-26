@@ -122,6 +122,8 @@ const MastersPage: React.FC<MastersPageProps> = ({
   const [newVoucherType, setNewVoucherType] = useState('');
   const [salesNumbering, setSalesNumbering] = useState({ enableAuto: true, prefix: 'INV-', suffix: '/24-25', nextNumber: 1, padding: 4, preview: '' });
   const [purchaseNumbering, setPurchaseNumbering] = useState({ enableAuto: true, prefix: 'PO-', suffix: '/24-25', nextNumber: 1, padding: 4, preview: '' });
+  const [selectedVoucher, setSelectedVoucher] = useState<string>('sales');
+  const [updateCustomerMaster, setUpdateCustomerMaster] = useState<string>('no');
 
   const handleLedgerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1471,164 +1473,367 @@ const MastersPage: React.FC<MastersPageProps> = ({
     setPurchaseNumbering(prev => ({ ...prev, preview: newPreview }));
   }, [purchaseNumbering.enableAuto, purchaseNumbering.prefix, purchaseNumbering.nextNumber, purchaseNumbering.padding, purchaseNumbering.suffix]);
 
-  const renderVouchers = () => (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-300">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Create Voucher Type</h3>
-          <form onSubmit={handleAddVoucherType} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Voucher Type Name</label>
-              <input
-                type="text"
-                value={newVoucherType}
-                onChange={e => setNewVoucherType(e.target.value)}
-                placeholder="e.g. Sales Invoice, Purchase Order"
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">
-              + Create Voucher Type
-            </button>
-          </form>
-        </div>
+  const renderVouchers = () => {
+    const voucherButtons = [
+      { id: 'sales', label: 'Sales' },
+      { id: 'credit-note', label: 'Credit Note' },
+      { id: 'receipts', label: 'Receipts' },
+      { id: 'purchases', label: 'Purchases' },
+      { id: 'debit-note', label: 'Debit Note' },
+      { id: 'payments', label: 'Payments' },
+      { id: 'expenses', label: 'Expenses' },
+      { id: 'journal', label: 'Journal' },
+      { id: 'contra', label: 'Contra' }
+    ];
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-300">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Existing Voucher Types</h3>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {voucherTypes.length === 0 && <p className="text-gray-400 text-center py-4">No voucher types created yet</p>}
-            {voucherTypes.map(vt => (
-              <div key={vt} className="p-3 bg-gray-50 border border-gray-200 rounded flex justify-between">
-                <span>{vt}</span>
-              </div>
-            ))}
+    const handleVoucherClick = (voucherId: string) => {
+      console.log(`Clicked voucher: ${voucherId}`);
+      setSelectedVoucher(voucherId);
+      // TODO: Add navigation or action logic here
+    };
+
+    // Get today's date in YYYY-MM-DD format for min date restriction
+    const today = new Date().toISOString().split('T')[0];
+
+    // Calculate financial year end (31st March)
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1; // January is 0
+    // If we're past March (month > 3), financial year end is next year's March 31st
+    const financialYearEndYear = currentMonth > 3 ? currentYear + 1 : currentYear;
+    const financialYearEnd = `${financialYearEndYear}-03-31`;
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-300">
+          <div className="grid grid-cols-3 gap-4 max-w-3xl mx-auto">
+            {voucherButtons.map((voucher) => {
+              const isSelected = selectedVoucher === voucher.id;
+              return (
+                <button
+                  key={voucher.id}
+                  onClick={() => handleVoucherClick(voucher.id)}
+                  className={`flex items-center justify-center px-6 py-5 text-base font-semibold rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 focus:outline-none border-2 ${isSelected
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 border-blue-600'
+                    : 'bg-white text-blue-600 border-blue-600 hover:bg-blue-50'
+                    }`}
+                >
+                  {voucher.label}
+                </button>
+              );
+            })}
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-300">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Sales Invoices Numbering</h3>
-          <form className="space-y-4">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="salesEnableAuto"
-                checked={salesNumbering.enableAuto}
-                onChange={e => setSalesNumbering({ ...salesNumbering, enableAuto: e.target.checked })}
-              />
-              <label htmlFor="salesEnableAuto" className="ml-2 text-sm font-medium text-gray-500">Enable Auto Numbering</label>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Prefix</label>
-              <input
-                type="text"
-                value={salesNumbering.prefix || ''}
-                onChange={e => setSalesNumbering({ ...salesNumbering, prefix: e.target.value })}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Suffix</label>
-              <input
-                type="text"
-                value={salesNumbering.suffix || ''}
-                onChange={e => setSalesNumbering({ ...salesNumbering, suffix: e.target.value })}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Next Number</label>
-              <input
-                type="number"
-                value={salesNumbering.nextNumber}
-                onChange={e => setSalesNumbering({ ...salesNumbering, nextNumber: parseInt(e.target.value) || 1 })}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Padding</label>
-              <input
-                type="number"
-                value={salesNumbering.padding}
-                onChange={e => setSalesNumbering({ ...salesNumbering, padding: parseInt(e.target.value) || 0 })}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Preview</label>
-              <input
-                type="text"
-                value={salesNumbering.preview}
-                readOnly
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
-              />
-            </div>
-          </form>
-        </div>
+        {/* Sales Voucher Form */}
+        {selectedVoucher === 'sales' && (
+          <div className="bg-white p-8 rounded-lg shadow-sm border-2 border-green-400">
+            <h3 className="text-xl font-bold text-gray-800 mb-6">Sales</h3>
+            <form className="space-y-6">
+              {/* Voucher Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Voucher Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full max-w-md px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="Enter voucher name"
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-500">Data Validation: Text</p>
+              </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-300">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Purchase Vouchers Numbering</h3>
-          <form className="space-y-4">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="purchaseEnableAuto"
-                checked={purchaseNumbering.enableAuto}
-                onChange={e => setPurchaseNumbering({ ...purchaseNumbering, enableAuto: e.target.checked })}
-              />
-              <label htmlFor="purchaseEnableAuto" className="ml-2 text-sm font-medium text-gray-500">Enable Auto Numbering</label>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Prefix</label>
-              <input
-                type="text"
-                value={purchaseNumbering.prefix || ''}
-                onChange={e => setPurchaseNumbering({ ...purchaseNumbering, prefix: e.target.value })}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Suffix</label>
-              <input
-                type="text"
-                value={purchaseNumbering.suffix || ''}
-                onChange={e => setPurchaseNumbering({ ...purchaseNumbering, suffix: e.target.value })}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Next Number</label>
-              <input
-                type="number"
-                value={purchaseNumbering.nextNumber}
-                onChange={e => setPurchaseNumbering({ ...purchaseNumbering, nextNumber: parseInt(e.target.value) || 1 })}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Padding</label>
-              <input
-                type="number"
-                value={purchaseNumbering.padding}
-                onChange={e => setPurchaseNumbering({ ...purchaseNumbering, padding: parseInt(e.target.value) || 0 })}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">Preview</label>
-              <input
-                type="text"
-                value={purchaseNumbering.preview}
-                readOnly
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
-              />
-            </div>
-          </form>
-        </div>
+              {/* Enable Automatic Numbering Series */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="enableAutoNumbering"
+                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                />
+                <label htmlFor="enableAutoNumbering" className="ml-2 text-sm font-medium text-gray-700">
+                  Enable Automatic Numbering Series
+                </label>
+              </div>
+
+              {/* Prefix and Suffix */}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Prefix <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="e.g., INV-"
+                    pattern="[a-zA-Z0-9/-]*"
+                    title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
+                    required
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Alphanumeric (With / Slash and - Hyphen)</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Suffix <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="e.g., /24-25"
+                    pattern="[a-zA-Z0-9/-]*"
+                    title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
+                    required
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Alphanumeric (With / Slash and - Hyphen)</p>
+                </div>
+              </div>
+
+              {/* Start From and Required Digits */}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Start From
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="1"
+                    min="1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Required Digits
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="4"
+                    min="1"
+                  />
+                </div>
+              </div>
+
+              {/* Effective Period */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Effective Period: <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">From <span className="text-red-500">*</span></label>
+                    <input
+                      type="date"
+                      min={today}
+                      className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">To <span className="text-red-500">*</span></label>
+                    <input
+                      type="date"
+                      min={today}
+                      max={financialYearEnd}
+                      className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Update Customer Master */}
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Update Customer Master: Yes/No
+                </label>
+                <div className="flex items-center space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="updateCustomerMaster"
+                      value="yes"
+                      checked={updateCustomerMaster === 'yes'}
+                      onChange={(e) => setUpdateCustomerMaster(e.target.value)}
+                      className="w-4 h-4 text-green-600 focus:ring-green-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Yes</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="updateCustomerMaster"
+                      value="no"
+                      checked={updateCustomerMaster === 'no'}
+                      onChange={(e) => setUpdateCustomerMaster(e.target.value)}
+                      className="w-4 h-4 text-green-600 focus:ring-green-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">No</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* If Yes, Include from existing series - Only show if Yes is selected */}
+              {updateCustomerMaster === 'yes' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Include from existing series:
+                  </label>
+                  <div className="relative max-w-md">
+                    <select className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none bg-white">
+                      <option value="">Drop down list to have the existing list of series</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <div className="flex justify-end pt-4">
+                <button
+                  type="submit"
+                  className="px-8 py-3 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors duration-200"
+                >
+                  Post & Close
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Other Vouchers Form - For all vouchers except Sales */}
+        {selectedVoucher !== 'sales' && (
+          <div className="bg-white p-8 rounded-lg shadow-sm border-2 border-green-400">
+            <h3 className="text-xl font-bold text-gray-800 mb-6">
+              {voucherButtons.find(v => v.id === selectedVoucher)?.label}
+            </h3>
+            <form className="space-y-6">
+              {/* Voucher Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Voucher Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full max-w-sm px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="Enter voucher name"
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-500">Data Validation: Text</p>
+              </div>
+
+              {/* Enable Automatic Numbering Series */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="otherEnableAutoNumbering"
+                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                />
+                <label htmlFor="otherEnableAutoNumbering" className="ml-2 text-sm font-medium text-gray-700">
+                  Enable Automatic Numbering Series
+                </label>
+              </div>
+
+              {/* Prefix and Suffix */}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Prefix <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder=""
+                    pattern="[a-zA-Z0-9/-]*"
+                    title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
+                    required
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Alphanumeric (With / Slash and - Hyphen)</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Suffix <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder=""
+                    pattern="[a-zA-Z0-9/-]*"
+                    title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
+                    required
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Alphanumeric (With / Slash and - Hyphen)</p>
+                </div>
+              </div>
+
+              {/* Start From and Required Digits */}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Start From
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder=""
+                    min="1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Required Digits
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder=""
+                    min="1"
+                  />
+                </div>
+              </div>
+
+              {/* Effective Period */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Effective Period: <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">From <span className="text-red-500">*</span></label>
+                    <input
+                      type="date"
+                      min={today}
+                      className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">To <span className="text-red-500">*</span></label>
+                    <input
+                      type="date"
+                      min={today}
+                      max={financialYearEnd}
+                      className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex justify-end pt-4">
+                <button
+                  type="submit"
+                  className="px-8 py-3 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors duration-200"
+                >
+                  Post & Close
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div>
