@@ -1,0 +1,345 @@
+
+import React, { useState, useRef, useEffect } from 'react';
+import type { CompanyDetails } from '../src/types';
+import { apiService } from '../src/services';
+
+interface SettingsPageProps {
+  companyDetails: CompanyDetails;
+  onSave: (details: CompanyDetails) => void;
+}
+
+const indianStates = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana",
+  "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh",
+  "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan",
+  "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttarakhand", "Uttar Pradesh", "West Bengal",
+  "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli", "Daman and Diu", "Delhi",
+  "Lakshadweep", "Puducherry"
+];
+
+const SettingsPage: React.FC<SettingsPageProps> = ({ companyDetails, onSave }) => {
+  const [details, setDetails] = useState<CompanyDetails>(companyDetails);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Load existing company settings from database
+  useEffect(() => {
+    const loadCompanySettings = async () => {
+      try {
+        setIsLoading(true);
+        const existingSettings = await apiService.getCompanyDetails();
+
+        if (existingSettings && Object.keys(existingSettings).length > 0) {
+          // Use existing settings from database
+          setDetails(existingSettings);
+        } else {
+          // Pre-fill with signup data if no settings exist
+          const signupCompanyName = localStorage.getItem('companyName') || '';
+          const signupEmail = localStorage.getItem('signupEmail') || '';
+
+          setDetails(prev => ({
+            ...prev,
+            name: prev.name || signupCompanyName,
+            email: prev.email || signupEmail,
+          }));
+        }
+      } catch (error) {
+        console.warn('Failed to load company settings:', error);
+        // Pre-fill with signup data as fallback
+        const signupCompanyName = localStorage.getItem('companyName') || '';
+        const signupEmail = localStorage.getItem('signupEmail') || '';
+
+        setDetails(prev => ({
+          ...prev,
+          name: prev.name || signupCompanyName,
+          email: prev.email || signupEmail,
+        }));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadCompanySettings();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setDetails({
+      ...details,
+      [name]: value
+    });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setLogoFile(e.target.files[0]);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (logoFile) {
+        // If there's a logo, we must Use FormData
+        // The current apiService.saveCompanyDetails uses JSON.stringify, so we can't use it directly for files.
+        // We'll create a FormData object and call a new/modified method or handle it here if direct access.
+
+        // But apiService is available. Let's assume we update apiService to handle FormData for company settings.
+        await apiService.saveCompanyDetails({ ...details, logoFile });
+      } else {
+        // JSON update
+        await apiService.saveCompanyDetails(details);
+      }
+      onSave(details);
+      setIsSaved(true);
+      setIsEditMode(false);
+      setTimeout(() => setIsSaved(false), 3000);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    }
+  };
+
+  const handleEdit = () => {
+    setIsEditMode(true);
+  };
+
+  const handleCancel = () => {
+    setIsEditMode(false);
+    // Reload original settings
+    window.location.reload();
+  };
+
+
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Page Title */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+      </div>
+
+      {/* Main Settings Card */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <div className="space-y-10">
+          {/* Company Information Section */}
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
+              Company Information
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Company Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={details.name}
+                  onChange={handleChange}
+                  disabled={!isEditMode}
+                  className={`w-full px-4 py-3 border rounded-lg transition-colors ${isEditMode
+                    ? 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                    : 'border-gray-200 bg-gray-50 text-gray-700 cursor-not-allowed'
+                    }`}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Company Logo
+                </label>
+                <input
+                  type="file"
+                  onChange={handleFileChange}
+                  disabled={!isEditMode}
+                  accept="image/*"
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Address
+                </label>
+                <textarea
+                  name="address"
+                  rows={4}
+                  value={details.address}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                  placeholder="Enter company address"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Information Section */}
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
+              Contact Information
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={details.email || ''}
+                  onChange={handleChange}
+                  disabled={!isEditMode}
+                  className={`w-full px-4 py-3 border rounded-lg transition-colors ${isEditMode
+                    ? 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                    : 'border-gray-200 bg-gray-50 text-gray-700 cursor-not-allowed'
+                    }`}
+                  placeholder="company@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={details.phone || ''}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="+91 9876543210"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Website
+                </label>
+                <input
+                  type="url"
+                  name="website"
+                  value={details.website || ''}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="https://www.company.com"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Tax & Legal Information Section */}
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
+              Tax & Legal Information
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  GSTIN
+                </label>
+                <input
+                  type="text"
+                  name="gstin"
+                  value={details.gstin}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="22AAAAA0000A1Z5"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  State
+                </label>
+                <select
+                  name="state"
+                  value={details.state}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+                >
+                  <option value="">Select State</option>
+                  {indianStates.map(state => (
+                    <option key={state} value={state}>{state}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  PAN
+                </label>
+                <input
+                  type="text"
+                  name="pan"
+                  value={details.pan || ''}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="AAAAA0000A"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  CIN
+                </label>
+                <input
+                  type="text"
+                  name="cin"
+                  value={details.cin || ''}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="U12345MH2020PLC123456"
+                />
+              </div>
+            </div>
+          </div>
+
+
+        </div>
+
+        {/* Action Buttons */}
+        <div className="mt-10 pt-6 border-t border-gray-200">
+          <div className="flex justify-end gap-3">
+            {isSaved && (
+              <div className="mr-4 flex items-center text-sm text-green-600">
+                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                Settings saved successfully!
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleEdit}
+              disabled={isEditMode}
+              className={`px-6 py-3 font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors shadow-sm ${isEditMode
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500'
+                }`}
+            >
+              Edit Settings
+            </button>
+
+            <button
+              type="submit"
+              onClick={handleSubmit}
+              className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors shadow-sm"
+            >
+              Save
+            </button>
+
+            {isEditMode && (
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="px-6 py-3 bg-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors shadow-sm"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SettingsPage;
