@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Icon from './Icon';
+import LedgerQuestions from './LedgerQuestions';
 
 interface HierarchyRow {
     id: number;
@@ -55,6 +56,7 @@ interface LedgerCreationWizardProps {
         sub_group_3: string | null;
         ledger_type: string | null;
         parent_ledger_id?: number | null;
+        question_answers?: Record<number, any>;
     }) => void;
 }
 
@@ -67,6 +69,7 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
     const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
     const [subGroup3Input, setSubGroup3Input] = useState('');
     const [ledgerTypeInput, setLedgerTypeInput] = useState('');
+    const [questionAnswers, setQuestionAnswers] = useState<Record<number, any>>({});
 
     // Convert tenant ledger to hierarchy row format
     const convertLedgerToHierarchy = (ledger: Ledger, allLedgers: Ledger[]): HierarchyRow => {
@@ -309,6 +312,8 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
             ...node,
             fullPath: partialPath
         });
+        // Reset answers when selection changes
+        setQuestionAnswers({});
     };
 
     const renderTree = (nodes: TreeNode[], parentPath = '', level = 0): React.ReactElement[] => {
@@ -388,7 +393,8 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
             sub_group_2: selectedNode.fullPath.sub_group_2,
             sub_group_3: finalSubGroup3 || null,
             ledger_type: finalLedgerType || null,
-            parent_ledger_id: selectedNode.fullPath.parent_ledger_id || null
+            parent_ledger_id: selectedNode.fullPath.parent_ledger_id || null,
+            question_answers: questionAnswers // Pass collected answers
         };
 
         // Call parent's onCreateLedger
@@ -398,6 +404,7 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
         setSubGroup3Input('');
         setLedgerTypeInput('');
         setSelectedNode(null);
+        setQuestionAnswers({}); // Reset answers
 
         // Refetch data after a short delay to get the newly created ledger with real ID
         setTimeout(async () => {
@@ -527,10 +534,10 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
                                 />
                             </div>
 
-                            {/* Ledger Name - INPUT */}
+                            {/* Ledger Type - INPUT */}
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                                    Ledger Name
+                                    Ledger Type
                                 </label>
                                 <input
                                     type="text"
@@ -545,6 +552,14 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
                                 />
                             </div>
                         </div>
+
+                        {/* DYNAMIC QUESTIONS SECTION */}
+                        {selectedNode?.fullPath.sub_group_1 && (
+                            <LedgerQuestions
+                                selectedLedgerType={selectedNode.fullPath.sub_group_1}
+                                onAnswersChange={setQuestionAnswers}
+                            />
+                        )}
 
                         {/* Create Ledger Button */}
                         <div className="mt-6">

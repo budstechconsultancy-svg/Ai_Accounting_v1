@@ -22,11 +22,12 @@ class HttpClient {
             headers.set('Content-Type', 'application/json');
         }
 
-        // Add Auth Token
-        const token = localStorage.getItem('token');
-        if (token) {
-            headers.set('Authorization', `Bearer ${token}`);
-        }
+        // REMOVED: Bearer token injection. We rely on HttpOnly cookies for security.
+        // The backend CustomJWTAuthentication prefers cookies if header is absent.
+        // const token = localStorage.getItem('token');
+        // if (token) {
+        //     headers.set('Authorization', `Bearer ${token}`);
+        // }
 
         const response = await fetch(url, {
             ...options,
@@ -35,6 +36,33 @@ class HttpClient {
         });
 
         if (!response.ok) {
+            // Handle 401 Unauthorized - Attempt Token Refresh
+            if (response.status === 401 && !endpoint.includes('/auth/')) {
+                try {
+                    console.log('🔄 Access token expired. Attempting refresh...');
+                    const refreshResponse = await fetch(`${this.baseURL}/api/auth/refresh/`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include'
+                    });
+
+                    if (refreshResponse.ok) {
+                        console.log('✅ Token refresh successful. Retrying request...');
+                        // Retry original request (cookies are automatically sent)
+                        return this.request<T>(endpoint, options);
+                    } else {
+                        console.error('❌ Token refresh failed. Logging out.');
+                        this.clearAuthData();
+                        window.location.href = '/login';
+                        throw new Error('Session expired');
+                    }
+                } catch (e) {
+                    this.clearAuthData();
+                    window.location.href = '/login';
+                    throw e; // Re-throw
+                }
+            }
+
             const errorText = await response.text().catch(() => '');
             throw new Error(errorText || `API request failed: ${response.status} ${response.statusText}`);
         }

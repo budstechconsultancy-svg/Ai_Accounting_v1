@@ -89,6 +89,7 @@ export interface Ledger {
   inventoryType?: string;
   inventoryValuationMethod?: string;
   cashLocation?: string;
+  question_answers?: Record<number, any>;
 }
 
 export interface Unit {

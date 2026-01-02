@@ -578,7 +578,8 @@ const MastersPage: React.FC<MastersPageProps> = ({
                 sub_group_2: data.sub_group_2 || undefined,
                 sub_group_3: data.sub_group_3 || undefined,
                 ledger_type: data.ledger_type || undefined,
-                parent_ledger_id: data.parent_ledger_id || undefined
+                parent_ledger_id: data.parent_ledger_id || undefined,
+                question_answers: data.question_answers
               };
 
               // Directly add the ledger
