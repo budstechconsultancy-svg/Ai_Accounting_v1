@@ -10,11 +10,7 @@ import logging
 
 from .models import PendingRegistration, User, Tenant
 # REMOVED: Role - no longer using roles table
-from .serializers import RegisterInitiateSerializer, VerifyOTPAndCreateUserSerializer
-# from .otp_utils import create_otp_for_phone, validate_otp, check_rate_limit # REMOVED
-from otp.utils import create_otp, verify_otp
-from otp.services import send_otp_sms
-# from .otp_service import send_otp_sms # REMOVED as we will log to console for now per instructions
+from .serializers import RegisterInitiateSerializer, CreateUserSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -68,53 +64,36 @@ class RegisterInitiateView(APIView):
             }
         )
         
-        # Generate OTP for phone
-        otp_plain = create_otp(phone, 'signup')
         
-        # Send OTP via SMS (Twilio or console fallback)
-        send_otp_sms(phone, otp_plain)
-        
-        # Mask phone for response
+        # Mask phone for logging
         if len(phone) > 4:
             masked_phone = phone[:2] + '*' * (len(phone) - 4) + phone[-2:]
         else:
             masked_phone = '*' * len(phone)
-        
-        logger.info(f"📝 Registration initiated for {data['username']} - OTP sent to {masked_phone}")
+
+        logger.info(f"📝 Registration initiated for {data['username']} - Phone: {masked_phone}")
         
         return Response({
             'success': True,
-            'message': f'OTP sent to {masked_phone}',
+            'message': f'Registration data saved for {masked_phone}',
             'phone': phone,
-            'expires_in_seconds': 300  # 5 minutes
         }, status=status.HTTP_200_OK)
 
 
-class VerifyOTPAndCreateUserView(APIView):
+class CreateUserView(APIView):
     """
-    Step 2: Verify OTP and create user account
-    POST /api/auth/verify-otp-and-create-user
+    Create user account directly without OTP verification
+    POST /api/auth/create-account
     """
     permission_classes = [AllowAny]
     
     def post(self, request):
-        serializer = VerifyOTPAndCreateUserSerializer(data=request.data)
+        serializer = CreateUserSerializer(data=request.data)
         
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         phone = serializer.validated_data['phone']
-        otp = serializer.validated_data['otp']
-        
-        # Validate OTP
-        if otp == '123456':
-            success, message = True, "OTP Verified (Bypass for Testing)"
-        else:
-            success, message = verify_otp(phone, 'signup', otp)
-        
-        if not success:
-            logger.warning(f"❌ OTP verification failed for {phone}: {message}")
-            return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
         
         from django.db import transaction
 

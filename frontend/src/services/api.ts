@@ -17,8 +17,7 @@ import type {
     VoucherTypeMaster,
     VoucherNumbering,
     UserTable,
-    RoleModulesData,
-    OTPVerificationResponse
+    RoleModulesData
 } from '../types';
 
 class ApiService {
@@ -330,6 +329,14 @@ class ApiService {
     async login(email: string, username: string, password: string) {
         const data = await httpClient.post<any>('/api/auth/login/', { email, username, password });
 
+        // Explicitly save tokens to localStorage to ensure Authorization header is sent
+        if (data.access) {
+            localStorage.setItem('token', data.access);
+        }
+        if (data.refresh) {
+            localStorage.setItem('refreshToken', data.refresh);
+        }
+
         if (data.user) {
             httpClient.saveAuthData({
                 tenant_id: data.user?.tenant_id || data.tenant_id,
@@ -381,16 +388,8 @@ class ApiService {
         window.location.href = '/login';
     }
 
-    async sendOTP(phone: string) {
-        return httpClient.post('/api/otp/request/', { phone });
-    }
-
-    async verifyOTP(phone: string, otp: string) {
-        return httpClient.post('/api/otp/verify/', { phone, otp });
-    }
-
-    async verifyOTPAndCreateUser(phone: string, otp: string) {
-        return httpClient.post<OTPVerificationResponse>('/api/auth/verify-otp-and-create-user/', { phone, otp });
+    async createUserAccount(phone: string) {
+        return httpClient.post<any>('/api/auth/create-account/', { phone });
     }
 
     async checkUserStatus() {

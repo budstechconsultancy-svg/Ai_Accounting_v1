@@ -4,6 +4,7 @@ import Icon from './Icon';
 import { validateHsnCode } from '../src/services/validationService';
 import type { HsnValidationResult } from '../src/services/validationService';
 import StockMassUploadModal from './StockMassUploadModal';
+import InventoryReportsPage from './inventory-reports/InventoryReportsPage';
 
 
 interface InventoryPageProps {
@@ -27,7 +28,7 @@ interface InventoryPageProps {
   permissions: string[];
 }
 
-type InventoryTab = 'Items' | 'Groups' | 'Units';
+type InventoryCategory = 'Operations' | 'Products' | 'Reporting' | 'Configuration';
 
 const InventoryPage: React.FC<InventoryPageProps> = ({
   units, stockGroups, stockItems,
@@ -37,23 +38,28 @@ const InventoryPage: React.FC<InventoryPageProps> = ({
   onUpdateUnit, onDeleteUnit,
   permissions
 }) => {
-  const allTabs: { id: InventoryTab; label: string; perm: string }[] = [
-    { id: 'Items', label: 'Items', perm: 'INVENTORY_ITEMS' },
-    { id: 'Groups', label: 'Stock Groups', perm: 'INVENTORY_STOCK_GROUPS' },
-    { id: 'Units', label: 'Units', perm: 'INVENTORY_UNITS' }
+  const categories: { id: InventoryCategory; label: string; perm: string }[] = [
+    { id: 'Operations', label: 'Operations', perm: 'INVENTORY_OPERATIONS' },
+    { id: 'Products', label: 'Products', perm: 'INVENTORY_PRODUCTS' },
+    { id: 'Reporting', label: 'Reporting', perm: 'INVENTORY_REPORTS' },
+    { id: 'Configuration', label: 'Configuration', perm: 'INVENTORY_CONFIG' }
   ];
 
-  const availableTabs = allTabs.filter(tab => permissions.includes(tab.perm));
+  // For backward compatibility while permissions are being updated
+  const availableCategories = categories.filter(cat =>
+    permissions.includes(cat.perm) || permissions.includes('INVENTORY') || permissions.includes('OWNER')
+  );
 
-  const [activeTab, setActiveTab] = useState<InventoryTab>(availableTabs.length > 0 ? availableTabs[0].id : 'Items');
+  const [activeCategory, setActiveCategory] = useState<InventoryCategory>(availableCategories.length > 0 ? availableCategories[0].id : 'Operations');
+  const [activeTab, setActiveTab] = useState<string>('');
 
   useEffect(() => {
-    if (availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
-      setActiveTab(availableTabs[0].id);
+    if (availableCategories.length > 0 && !availableCategories.find(c => c.id === activeCategory)) {
+      setActiveCategory(availableCategories[0].id);
     }
   }, [permissions]);
 
-  if (availableTabs.length === 0) {
+  if (availableCategories.length === 0) {
     return <div className="p-8 text-center text-gray-500">You do not have permission to view any content in this module.</div>;
   }
 
@@ -428,25 +434,115 @@ const InventoryPage: React.FC<InventoryPageProps> = ({
       `}</style>
 
       <div className="mb-6 border-b border-gray-200">
-        <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-          {availableTabs.map(tab => (
+        <nav className="-mb-px flex space-x-8" aria-label="Inventory Categories">
+          {availableCategories.map(cat => (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`${activeTab === tab.id
+              key={cat.id}
+              onClick={() => {
+                setActiveCategory(cat.id);
+                // Reset activeTab to default for that category
+                if (cat.id === 'Operations') setActiveTab('Overview');
+                else if (cat.id === 'Products') setActiveTab('Products');
+                else if (cat.id === 'Reporting') setActiveTab('Stock');
+                else if (cat.id === 'Configuration') setActiveTab('Warehouses');
+              }}
+              className={`${activeCategory === cat.id
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm`}
+                } whitespace-nowrap py-3 px-1 border-b-2 font-bold text-sm uppercase tracking-wider`}
             >
-              {tab.label}
+              {cat.label}
             </button>
           ))}
         </nav>
       </div>
 
-      {activeTab === 'Items' && renderItems()}
-      {activeTab === 'Groups' && renderSimpleMaster('Stock Group', 'Group', groupName, setGroupName, handleGroupSubmit, stockGroups, editingGroupId, setEditingGroupId, () => { }, onDeleteStockGroup || (() => { }))}
-      {activeTab === 'Units' && renderUnitForm()}
+      {/* Sub-navigation for the active category */}
+      <div className="mb-6 flex space-x-4">
+        {activeCategory === 'Operations' && (
+          <>
+            <button onClick={() => setActiveTab('Overview')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeTab === 'Overview' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Overview</button>
+            <button onClick={() => setActiveTab('Transfers')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeTab === 'Transfers' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Transfers</button>
+            <button onClick={() => setActiveTab('Adjustments')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeTab === 'Adjustments' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Physical Inventory</button>
+          </>
+        )}
+        {activeCategory === 'Products' && (
+          <>
+            <button onClick={() => setActiveTab('Products')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeTab === 'Products' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Products</button>
+            <button onClick={() => setActiveTab('Variants')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeTab === 'Variants' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Product Variants</button>
+          </>
+        )}
+        {activeCategory === 'Reporting' && (
+          <>
+            <button onClick={() => setActiveTab('Stock')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeTab === 'Stock' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Stock</button>
+            <button onClick={() => setActiveTab('Moves')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeTab === 'Moves' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Stock Moves</button>
+            <button onClick={() => setActiveTab('Valuation')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeTab === 'Valuation' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Valuation</button>
+          </>
+        )}
+        {activeCategory === 'Configuration' && (
+          <>
+            <button onClick={() => setActiveTab('Warehouses')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeTab === 'Warehouses' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Warehouses</button>
+            <button onClick={() => setActiveTab('Locations')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeTab === 'Locations' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Locations</button>
+            <button onClick={() => setActiveTab('Units')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeTab === 'Units' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Units</button>
+            <button onClick={() => setActiveTab('Groups')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeTab === 'Groups' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Product Groups</button>
+          </>
+        )}
+      </div>
+
+      {/* Operations Views */}
+      {activeCategory === 'Operations' && activeTab === 'Overview' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+            <h4 className="font-bold text-gray-800 mb-4 border-b pb-2">Receipts</h4>
+            <div className="flex justify-between items-center bg-blue-50 p-4 rounded-md">
+              <span className="text-blue-700 font-medium">To Process</span>
+              <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold">5</span>
+            </div>
+            <button className="w-full mt-4 text-sm text-blue-600 font-medium hover:underline text-left">View Operation →</button>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+            <h4 className="font-bold text-gray-800 mb-4 border-b pb-2">Internal Transfers</h4>
+            <div className="flex justify-between items-center bg-orange-50 p-4 rounded-md">
+              <span className="text-orange-700 font-medium">To Process</span>
+              <span className="bg-orange-600 text-white px-3 py-1 rounded-full text-xs font-bold">2</span>
+            </div>
+            <button className="w-full mt-4 text-sm text-orange-600 font-medium hover:underline text-left">View Operation →</button>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+            <h4 className="font-bold text-gray-800 mb-4 border-b pb-2">Delivery Orders</h4>
+            <div className="flex justify-between items-center bg-green-50 p-4 rounded-md">
+              <span className="text-green-700 font-medium">To Process</span>
+              <span className="bg-green-600 text-white px-3 py-1 rounded-full text-xs font-bold">12</span>
+            </div>
+            <button className="w-full mt-4 text-sm text-green-600 font-medium hover:underline text-left">View Operation →</button>
+          </div>
+        </div>
+      )}
+
+      {/* Products Views */}
+      {activeCategory === 'Products' && activeTab === 'Products' && renderItems()}
+      {activeCategory === 'Products' && activeTab === 'Variants' && (
+        <div className="bg-white p-12 rounded-lg shadow-sm border border-slate-200 text-center">
+          <p className="text-gray-500 italic">No variants defined. Enable variants in settings to use this feature.</p>
+        </div>
+      )}
+
+      {/* Reporting Views */}
+      {activeCategory === 'Reporting' && <InventoryReportsPage />}
+
+      {/* Configuration Views */}
+      {activeCategory === 'Configuration' && activeTab === 'Units' && renderUnitForm()}
+      {activeCategory === 'Configuration' && activeTab === 'Groups' && renderSimpleMaster('Stock Group', 'Group', groupName, setGroupName, handleGroupSubmit, stockGroups, editingGroupId, setEditingGroupId, () => { }, onDeleteStockGroup || (() => { }))}
+      {activeCategory === 'Configuration' && activeTab === 'Warehouses' && (
+        <div className="bg-white p-12 rounded-lg shadow-sm border border-slate-200 text-center">
+          <p className="text-gray-500 italic">Warehouse management coming soon. Using default Warehouse (WH).</p>
+        </div>
+      )}
+      {activeCategory === 'Configuration' && activeTab === 'Locations' && (
+        <div className="bg-white p-12 rounded-lg shadow-sm border border-slate-200 text-center">
+          <p className="text-gray-500 italic">Location hierarchy (WH/Stock, WH/Output) coming soon.</p>
+        </div>
+      )}
 
       {isMassUploadOpen && (
         <StockMassUploadModal

@@ -17,6 +17,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, onLogout, co
     { name: 'Masters', icon: <Icon name="masters" />, role: 'MASTERS' },
     { name: 'Inventory', icon: <Icon name="inventory" />, role: 'INVENTORY' },
     { name: 'Vouchers', icon: <Icon name="vouchers" />, role: 'VOUCHERS' },
+    { name: 'Vendor Portal', icon: <Icon name="users" /> },
+    { name: 'Customer Portal', icon: <Icon name="users" /> },
+    { name: 'Payroll', icon: <Icon name="users" /> },
     { name: 'Reports', icon: <Icon name="reports" />, role: 'REPORTS' },
     { name: 'Settings', icon: <Icon name="settings" />, role: 'SETTINGS' },
     { name: 'Users & Roles', icon: <Icon name="users" />, role: 'USERS' },
@@ -36,7 +39,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, onLogout, co
       <div className="h-16 flex items-center px-6 border-b border-slate-200">
         <h1 className="text-xl font-bold text-blue-600 truncate" title={companyName}>{companyName || 'Your Company Name'}</h1>
       </div>
-      <nav className="flex-1 px-4 py-4 space-y-2">
+      <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = currentPage === item.name;
           return (

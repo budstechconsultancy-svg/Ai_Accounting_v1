@@ -4,6 +4,8 @@ from .views import (
     MasterLedgerGroupViewSet, MasterLedgerViewSet, MasterVoucherConfigViewSet,
     MasterHierarchyRawViewSet, VoucherViewSet, JournalEntryViewSet
 )
+from .views_questions import LedgerQuestionsView, LedgerCreateWithQuestionsView
+
 
 router = routers.DefaultRouter()
 
@@ -24,4 +26,9 @@ router.register('journal-entries', JournalEntryViewSet, basename='journal-entrie
 
 urlpatterns = [
     path('', include(router.urls)),
+    
+    # Questions System endpoints
+    path('ledgers/questions/', LedgerQuestionsView.as_view(), name='ledger-questions'),
+    path('ledgers/create-with-questions/', LedgerCreateWithQuestionsView.as_view(), name='ledger-create-with-questions'),
 ]
+

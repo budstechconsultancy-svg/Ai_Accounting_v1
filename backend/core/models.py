@@ -189,23 +189,4 @@ class PendingRegistration(models.Model):
         return f"Pending: {self.username} ({self.phone})"
 
 
-# OTP Verification Model (Simplified)
 
-class OTP(models.Model):
-    """Store OTP securely with expiry and usage tracking"""
-    phone = models.CharField(max_length=15, db_index=True)
-    otp_hash = models.CharField(max_length=255)  # Bcrypt hash of OTP
-    expires_at = models.DateTimeField()  # Set to 5 minutes from creation
-    is_used = models.BooleanField(default=False)
-    attempt_count = models.IntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        db_table = 'otps'
-        indexes = [
-            models.Index(fields=['phone', 'is_used']),
-            models.Index(fields=['expires_at']),
-        ]
-    
-    def __str__(self):
-        return f"OTP for {self.phone} - {'Used' if self.is_used else 'Active'}"

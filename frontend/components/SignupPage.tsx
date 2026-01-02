@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from './Icon';
 import { apiService } from '../src/services';
 
@@ -32,45 +32,13 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSwitchToLogin, onBack }) => {
     }
   }, []);
 
-  // OTP state
-  const [step, setStep] = useState<'details' | 'plan' | 'otp-verification'>('details');
-  const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
-  const [countdown, setCountdown] = useState(300); // 5 minutes in seconds
-  const [resendCooldown, setResendCooldown] = useState(0);
+  // Step state - only 'details' and 'plan' now
+  const [step, setStep] = useState<'details' | 'plan'>('details');
 
   // UI state
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-
-  // Refs for OTP inputs
-  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  // Countdown timer for OTP expiry
-  useEffect(() => {
-    if (step === 'otp-verification' && countdown > 0) {
-      const timer = setInterval(() => {
-        setCountdown(prev => prev - 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [step, countdown]);
-
-  // Resend cooldown timer
-  useEffect(() => {
-    if (resendCooldown > 0) {
-      const timer = setInterval(() => {
-        setResendCooldown(prev => prev - 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [resendCooldown]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,7 +65,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSwitchToLogin, onBack }) => {
     setLoading(true);
 
     try {
-      // Register user and send OTP (backend handles both in one call now)
+      // Register user - backend now creates account directly
       const response = await apiService.register({
         username,
         companyName,
@@ -108,137 +76,47 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSwitchToLogin, onBack }) => {
         logoFile
       });
 
-      console.log('Registration initiated:', response);
+      console.log('Registration response:', response);
 
-      // Backend automatically sends OTP, so just show success and move to verification
-      setSuccessMessage(`Registration successful! OTP sent to ${(response as any).phone || phone}`);
-      setStep('otp-verification');
-      setCountdown(300);
-      setResendCooldown(60);
+      // Create user account directly
+      const accountResponse = await apiService.createUserAccount(phone);
 
-      // Focus first OTP input
-      setTimeout(() => {
-        otpInputRefs.current[0]?.focus();
-      }, 100);
-    } catch (err: any) {
-      console.error('Registration error:', err);
-      setError(err?.message || 'Registration failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOTPChange = (index: number, value: string) => {
-    // Only allow digits
-    if (value && !/^\d$/.test(value)) return;
-
-    const newOtpDigits = [...otpDigits];
-    newOtpDigits[index] = value;
-    setOtpDigits(newOtpDigits);
-
-    // Auto-focus next input
-    if (value && index < 5) {
-      otpInputRefs.current[index + 1]?.focus();
-    }
-
-    // Auto-submit when all digits entered
-    if (newOtpDigits.every(digit => digit !== '')) {
-      handleVerifyOTP(newOtpDigits.join(''));
-    }
-  };
-
-  const handleOTPKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
-      otpInputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handleOTPPaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').trim();
-
-    if (/^\d{6}$/.test(pastedData)) {
-      const digits = pastedData.split('');
-      setOtpDigits(digits);
-      otpInputRefs.current[5]?.focus();
-      // Auto-submit
-      handleVerifyOTP(pastedData);
-    }
-  };
-
-  const handleVerifyOTP = async (otpValue?: string) => {
-    const otp = otpValue || otpDigits.join('');
-
-    if (otp.length !== 6) {
-      setError('Please enter all 6 digits');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      // Use verifyOTPAndCreateUser for new registration
-      const response = await apiService.verifyOTPAndCreateUser(phone, otp);
-
-      console.log('User created and logged in:', response);
+      console.log('Account created:', accountResponse);
 
       // Check if response includes JWT tokens (auto-login)
-      if (response.access && response.refresh) {
+      if (accountResponse.access && accountResponse.refresh) {
         // Auto-login successful - save tokens
-        localStorage.setItem('token', response.access);
-        localStorage.setItem('refreshToken', response.refresh);
+        localStorage.setItem('token', accountResponse.access);
+        localStorage.setItem('refreshToken', accountResponse.refresh);
 
         // Save user data
-        if (response.user) {
-          localStorage.setItem('user', JSON.stringify(response.user));
-          localStorage.setItem('companyName', response.user.company_name || companyName);
+        if (accountResponse.user) {
+          localStorage.setItem('user', JSON.stringify(accountResponse.user));
+          localStorage.setItem('companyName', accountResponse.user.company_name || companyName);
         }
 
         // Save permissions
-        if (response.permissions) {
-          localStorage.setItem('permissions', JSON.stringify(response.permissions));
+        if (accountResponse.permissions) {
+          localStorage.setItem('permissions', JSON.stringify(accountResponse.permissions));
         }
 
         setSuccessMessage('Registration successful! Redirecting to dashboard...');
 
-        // Redirect to dashboard (reload page to trigger App.tsx to read tokens)
+        // Redirect to dashboard
         setTimeout(() => {
           window.location.href = '/';
         }, 1500);
       } else {
         // Fallback: redirect to login if no tokens
-        setSuccessMessage('Phone verified! Redirecting to login...');
+        setSuccessMessage('Account created! Redirecting to login...');
         localStorage.setItem('companyName', companyName);
         setTimeout(() => {
           onSwitchToLogin();
         }, 1500);
       }
     } catch (err: any) {
-      console.error('OTP verification error:', err);
-      setError(err?.message || 'Invalid OTP. Please try again.');
-      setOtpDigits(['', '', '', '', '', '']);
-      otpInputRefs.current[0]?.focus();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendOTP = async () => {
-    if (resendCooldown > 0) return;
-
-    setLoading(true);
-    setError('');
-
-    try {
-      await apiService.sendOTP(phone);
-      setSuccessMessage('New OTP sent successfully!');
-      setCountdown(300);
-      setResendCooldown(60);
-      setOtpDigits(['', '', '', '', '', '']);
-      otpInputRefs.current[0]?.focus();
-    } catch (err: any) {
-      setError(err?.message || 'Failed to resend OTP.');
+      console.error('Registration error:', err);
+      setError(err?.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -300,87 +178,6 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSwitchToLogin, onBack }) => {
       </div>
     );
   };
-
-  // OTP Verification Step
-  if (step === 'otp-verification') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center relative bg-slate-100">
-        <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg">
-          <div>
-            <h1 className="text-3xl font-bold text-center text-blue-600">Verify Phone Number</h1>
-            <p className="mt-2 text-center text-sm text-gray-600">
-              Enter the 6-digit code sent to {phone}
-            </p>
-          </div>
-
-          <div className="space-y-6">
-            {/* OTP Input */}
-            <div className="flex justify-center gap-2">
-              {otpDigits.map((digit, index) => (
-                <input
-                  key={index}
-                  ref={el => otpInputRefs.current[index] = el}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  onChange={e => handleOTPChange(index, e.target.value)}
-                  onKeyDown={e => handleOTPKeyDown(index, e)}
-                  onPaste={index === 0 ? handleOTPPaste : undefined}
-                  className="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none transition-colors"
-                  disabled={loading}
-                />
-              ))}
-            </div>
-
-            {/* Countdown Timer */}
-            <div className="text-center">
-              <p className="text-sm text-gray-600">
-                {countdown > 0 ? (
-                  <>Time remaining: <span className="font-semibold text-blue-600">{formatTime(countdown)}</span></>
-                ) : (
-                  <span className="text-red-600 font-semibold">OTP expired</span>
-                )}
-              </p>
-            </div>
-
-            {error && <p className="text-sm text-red-600 text-center">{error}</p>}
-            {successMessage && <p className="text-sm text-green-600 text-center">{successMessage}</p>}
-
-            {/* Verify Button */}
-            <button
-              onClick={() => handleVerifyOTP()}
-              disabled={loading || otpDigits.some(d => !d)}
-              className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Verifying...' : 'Verify Phone Number'}
-            </button>
-
-            {/* Resend OTP */}
-            <div className="text-center">
-              <button
-                onClick={handleResendOTP}
-                disabled={resendCooldown > 0 || loading}
-                className="text-sm text-blue-600 hover:text-blue-500 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
-              >
-                {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP'}
-              </button>
-            </div>
-
-            {/* Skip for now */}
-            <div className="text-center">
-              <button
-                onClick={() => onSwitchToLogin()}
-                className="text-sm text-gray-600 hover:text-gray-800"
-              >
-                Skip verification and login →
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Step 1: Details
   if (step === 'details') {
@@ -522,7 +319,6 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSwitchToLogin, onBack }) => {
     );
   }
 
-  // Registration Form Step - (Legacy block, kept for safety but technically unreachable now)
   return null;
 };
 

@@ -7,8 +7,7 @@ from .views import (
     SettingsUsersView
 )
 from .admin_views import AdminSubscriptionsView, AdminUserStatusView
-# from .otp_views import SendOTPView, VerifyOTPView # REMOVED
-from .registration_views import RegisterInitiateView, VerifyOTPAndCreateUserView
+from .registration_views import RegisterInitiateView, CreateUserView
 # REMOVED: permission_views - no longer using permission tables
 # from .permission_views import PermissionModulesListView, RolePermissionsView
 from .reports_views import (
@@ -20,13 +19,9 @@ router = routers.DefaultRouter()
 router.register('company-settings', CompanySettingsViewSet, basename='company-settings')
 
 urlpatterns = [
-    # New OTP-based Registration Flow
+    # Registration Flow
     path('auth/register/', RegisterInitiateView.as_view(), name='register-initiate'),
-    path('auth/verify-otp-and-create-user/', VerifyOTPAndCreateUserView.as_view(), name='verify-otp-and-create-user'),
-    
-    # OTP Verification (for existing users) - MOVED TO NEW OTP APP
-    # path('auth/send-otp', SendOTPView.as_view(), name='send-otp'), # REMOVED
-    # path('auth/verify-otp', VerifyOTPView.as_view(), name='verify-otp'), # REMOVED
+    path('auth/create-account/', CreateUserView.as_view(), name='create-account'),
     
     path('auth/check-status/', check_status, name='check-status'),
     path('health/', health_check, name='health'), # /api/health

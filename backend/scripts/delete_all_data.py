@@ -33,7 +33,6 @@ def delete_all_data():
         'users',
         'tenants',
         'pending_registrations',
-        'otps',
     ]
     
     with connection.cursor() as cursor:

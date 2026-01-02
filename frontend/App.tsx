@@ -9,6 +9,9 @@ import VouchersPage from './components/VouchersPage';
 import ReportsPage from './components/ReportsPage';
 import SettingsPage from './components/SettingsPage';
 import UsersAndRolesPage from './components/UsersAndRolesPage';
+import VendorPortalPage from './components/VendorPortalPage';
+import CustomerPortalPage from './components/CustomerPortalPage';
+import PayrollPage from './components/PayrollPage';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
 import Modal from './components/Modal';
@@ -111,12 +114,7 @@ const App: React.FC = () => {
   // Deactivation modal state
   const [showDeactivationModal, setShowDeactivationModal] = useState(false);
 
-  // Cache keys for tenant data
-  const getCacheKeys = (tenantId: string) => ({
-    // Only keeping essential UI state or small prefs if needed
-    // companyDetails: `tenant_${tenantId}_companyDetails`, // Removed large data
-    lastUpdated: `tenant_${tenantId}_lastUpdated`
-  });
+  const handleNavigate = (page: Page) => setCurrentPage(page);
 
   // Load cached tenant data - DATA CACHING DISABLED FOR PRODUCTION
   const loadCachedData = useCallback((tenantId: string) => {
@@ -434,7 +432,6 @@ const App: React.FC = () => {
     */
   }, [isLoggedIn, handleLogout]);
 
-  const handleNavigate = (page: Page) => setCurrentPage(page);
 
   // --- Data mutation handlers --- (all include Authorization header when token present)
   const handleAddLedger = useCallback(async (ledger: Ledger) => {
@@ -896,6 +893,9 @@ const App: React.FC = () => {
       /></ErrorBoundary>; // Available for all plans
       case 'Settings': return <SettingsPage companyDetails={companyDetails} onSave={handleSaveSettings} />; // Available for all plans
       case 'Users & Roles': return <UsersAndRolesPage />; // Available for all plans
+      case 'Vendor Portal': return <VendorPortalPage />;
+      case 'Customer Portal': return <CustomerPortalPage />;
+      case 'Payroll': return <PayrollPage />;
       case 'MassUploadResult': return <MassUploadResultPage
         results={massUploadResult || []}
         onDone={() => { setCurrentPage('Vouchers'); setMassUploadResult(null); }}
@@ -912,10 +912,16 @@ const App: React.FC = () => {
     if (view === "signup") return <SignupPage onSwitchToLogin={() => setView("login")} onBack={() => window.location.href = (import.meta as any).env.VITE_LANDING_URL || 'http://localhost:3000'} />;
     return <LoginPage onLogin={handleLogin} onSwitchToSignup={() => setView("signup")} onBack={() => window.location.href = (import.meta as any).env.VITE_LANDING_URL || 'http://localhost:3000'} />;
   }
-
   return (
     <div className="flex h-screen bg-slate-100">
-      <Sidebar currentPage={currentPage} onNavigate={handleNavigate} onLogout={handleLogout} companyName={companyDetails.name} userPlan={userPlan} permissions={permissions} />
+      <Sidebar
+        currentPage={currentPage}
+        onNavigate={handleNavigate}
+        onLogout={handleLogout}
+        companyName={companyDetails.name}
+        userPlan={userPlan}
+        permissions={permissions}
+      />
       <main className="flex-1 ml-64 p-8 overflow-y-auto">
         {renderPage()}
       </main>
