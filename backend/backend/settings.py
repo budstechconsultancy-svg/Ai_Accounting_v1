@@ -32,7 +32,6 @@ INSTALLED_APPS = [
     'inventory',
     'rest_framework_simplejwt',
     'django_rq',
-    'otp',
     'reports',
 ]
 

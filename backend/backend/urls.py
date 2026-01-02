@@ -42,10 +42,6 @@ urlpatterns = [
     # Inventory - mapped to /api/ and /api/inventory/
     path('api/', include('inventory.urls')),
     path('api/inventory/', include('inventory.urls')),
-    
-    # OTP Service
-    # OTP Service
-    path('api/otp/', include('otp.urls')),
 
     # Reports
     path('api/reports/', include('reports.urls')),

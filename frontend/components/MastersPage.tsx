@@ -559,10 +559,12 @@ const MastersPage: React.FC<MastersPageProps> = ({
     }
   };
 
+
   const renderLedgers = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="w-full">
+
+      {/* Create Ledger - RIGHT COLUMN */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-300">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Create Ledger</h3>
         <form onSubmit={handleLedgerSubmit} className="space-y-4">
           {/* Progressive Ledger Selection Wizard */}
           <LedgerCreationWizard
@@ -576,7 +578,8 @@ const MastersPage: React.FC<MastersPageProps> = ({
                 sub_group_2: data.sub_group_2 || undefined,
                 sub_group_3: data.sub_group_3 || undefined,
                 ledger_type: data.ledger_type || undefined,
-                parent_ledger_id: data.parent_ledger_id || undefined
+                parent_ledger_id: data.parent_ledger_id || undefined,
+                question_answers: data.question_answers
               };
 
               // Directly add the ledger
@@ -1183,116 +1186,6 @@ const MastersPage: React.FC<MastersPageProps> = ({
           )}
 
         </form>
-      </div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-300">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">Existing Ledgers</h3>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search ledgers..."
-              value={ledgerSearchQuery}
-              onChange={(e) => setLedgerSearchQuery(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Icon name="search" className="h-5 w-5 text-gray-400" />
-            </div>
-            {ledgerSearchQuery && (
-              <button
-                onClick={() => setLedgerSearchQuery('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              >
-                <Icon name="x" className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="max-h-96 overflow-y-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0">
-              <tr>
-                <th scope="col" className="w-12 px-6 py-3"></th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ledger Name</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group</th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {ledgers.filter(ledger =>
-                ledger.name.toLowerCase().includes(ledgerSearchQuery.toLowerCase()) ||
-                ledger.group.toLowerCase().includes(ledgerSearchQuery.toLowerCase())
-              ).map(ledger => {
-                const isSelected = selectedLedger?.name === ledger.name;
-
-                return (
-                  <tr
-                    key={ledger.id || ledger.name}
-                    className={`transition-colors ${isSelected
-                      ? 'bg-blue-50 hover:bg-blue-100'
-                      : 'hover:bg-gray-50'
-                      } `}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <input
-                        type="radio"
-                        name="selectedLedger"
-                        value={ledger.name}
-                        checked={isSelected}
-                        onChange={() => {
-                          console.log('Selected ledger:', ledger);
-                          setSelectedLedger(ledger);
-                        }}
-                        className="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                        aria-label={`Select ${ledger.name} `}
-                      />
-                    </td>
-                    <td
-                      className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer"
-                      onClick={() => {
-                        console.log('Name cell clicked, selecting:', ledger);
-                        setSelectedLedger(ledger);
-                      }}
-                    >
-                      {ledger.name}
-                    </td>
-                    <td
-                      className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer"
-                      onClick={() => setSelectedLedger(ledger)}
-                    >
-                      {ledger.group}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {isSelected ? (
-                        <div className="inline-flex items-center gap-2">
-                          <button
-                            onClick={handleEditLedger}
-                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            style={{ lineHeight: '1' }}
-                            aria-label="Edit selected ledger"
-                          >
-                            <Icon name="edit" className="w-4 h-4 flex-shrink-0" />
-                            Edit
-                          </button>
-                          <button
-                            onClick={handleDeleteLedger}
-                            className="inline-flex items-center justify-center w-10 h-10 rounded-md text-white bg-red-600 hover:bg-red-700 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                            aria-label="Delete selected ledger"
-                            title="Delete"
-                          >
-                            <Icon name="trash" className="w-5 h-5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-xs italic">Select to edit</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
       </div>
     </div>
   );

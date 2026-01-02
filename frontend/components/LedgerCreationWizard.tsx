@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Icon from './Icon';
+import LedgerQuestions from './LedgerQuestions';
 
 interface HierarchyRow {
     id: number;
@@ -55,6 +56,7 @@ interface LedgerCreationWizardProps {
         sub_group_3: string | null;
         ledger_type: string | null;
         parent_ledger_id?: number | null;
+        question_answers?: Record<number, any>;
     }) => void;
 }
 
@@ -65,7 +67,9 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
     const [treeData, setTreeData] = useState<TreeNode[]>([]);
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
-    const [customName, setCustomName] = useState('');
+    const [subGroup3Input, setSubGroup3Input] = useState('');
+    const [ledgerTypeInput, setLedgerTypeInput] = useState('');
+    const [questionAnswers, setQuestionAnswers] = useState<Record<number, any>>({});
 
     // Convert tenant ledger to hierarchy row format
     const convertLedgerToHierarchy = (ledger: Ledger, allLedgers: Ledger[]): HierarchyRow => {
@@ -89,7 +93,18 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
                 };
             }
         }
+
         // Regular custom ledger (no parent)
+        // Determine if ledger name duplicates the deepest hierarchy level
+        // If so, we treat the ledger as residing AT that level, not below it.
+        let ledgerLevelVal: string | null = ledger.name;
+
+        if (!ledger.ledger_type) {
+            if (ledger.sub_group_3 === ledger.name) ledgerLevelVal = null;
+            else if (!ledger.sub_group_3 && ledger.sub_group_2 === ledger.name) ledgerLevelVal = null;
+            else if (!ledger.sub_group_3 && !ledger.sub_group_2 && ledger.sub_group_1 === ledger.name) ledgerLevelVal = null;
+        }
+
         return {
             id: ledger.id,
             type_of_business_1: null,
@@ -99,7 +114,7 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
             sub_group_1_1: ledger.sub_group_1,
             sub_group_2_1: ledger.sub_group_2,
             sub_group_3_1: ledger.sub_group_3,
-            ledger_1: ledger.name,
+            ledger_1: ledgerLevelVal,
             custom_ledger: null,
             code: null,
             isCustom: true
@@ -157,6 +172,14 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
             // Skip rows that represent nested custom ledgers (they have custom_ledger filled)
             if (row.custom_ledger) return;
 
+            // Determine deepest level for this row to correctly place the "Custom" marker
+            let maxLevel = -1;
+            if (row.ledger_1) maxLevel = 5;
+            else if (row.sub_group_3_1) maxLevel = 4;
+            else if (row.sub_group_2_1) maxLevel = 3;
+            else if (row.sub_group_1_1) maxLevel = 2;
+            else if (row.group_1) maxLevel = 1;
+
             const levels = [
                 { key: 'major_group_1', value: row.major_group_1, level: 0 },
                 { key: 'group_1', value: row.group_1, level: 1 },
@@ -176,7 +199,9 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
                 currentPath = currentPath ? `${currentPath}>${level.value}` : level.value;
 
                 if (!tree.has(currentPath)) {
-                    const isCustomLedger = level.level === 5 && row.isCustom;
+                    // Check if this node is the custom ledger itself
+                    // It must be at the deepest level of the row, and the row must be custom
+                    const isCustomLedger = row.isCustom && level.level === maxLevel;
                     const ledgerId = isCustomLedger ? row.id : undefined;
 
                     const node: TreeNode = {
@@ -287,6 +312,8 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
             ...node,
             fullPath: partialPath
         });
+        // Reset answers when selection changes
+        setQuestionAnswers({});
     };
 
     const renderTree = (nodes: TreeNode[], parentPath = '', level = 0): React.ReactElement[] => {
@@ -303,7 +330,12 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
                     <div
                         className={`flex items-center py-1.5 px-2 cursor-pointer hover:bg-gray-100 rounded transition-colors ${isSelected ? 'bg-blue-100 text-blue-700 font-medium border-l-2 border-blue-500' : ''
                             } ${node.isCustom ? 'text-blue-600' : ''}`}
-                        onClick={() => selectNodeForPreview(node)}
+                        onClick={() => {
+                            selectNodeForPreview(node);
+                            // Reset inputs when selection changes
+                            setSubGroup3Input('');
+                            setLedgerTypeInput('');
+                        }}
                         onDoubleClick={() => {
                             if (hasChildren) {
                                 toggleNode(nodePath);
@@ -335,28 +367,44 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!customName.trim() || !selectedNode) {
-            alert('Please enter a ledger name and select a hierarchy level from the tree.');
+
+        // Determine values based on selection + inputs
+        const finalSubGroup3 = selectedNode?.fullPath.sub_group_3 || subGroup3Input.trim();
+        const finalLedgerType = selectedNode?.fullPath.ledger_type || ledgerTypeInput.trim();
+
+        // The Name is the most specific new value provided
+        let finalName = '';
+        if (ledgerTypeInput.trim()) {
+            finalName = ledgerTypeInput.trim();
+        } else if (subGroup3Input.trim()) {
+            finalName = subGroup3Input.trim();
+        }
+
+        if (!finalName || !selectedNode) {
+            alert('Please enter a name in Sub Group 3 or Ledger Type fields.');
             return;
         }
 
         const newLedgerData = {
-            customName: customName,
+            customName: finalName,
             group: selectedNode.fullPath.group,
             category: selectedNode.fullPath.category,
             sub_group_1: selectedNode.fullPath.sub_group_1,
             sub_group_2: selectedNode.fullPath.sub_group_2,
-            sub_group_3: selectedNode.fullPath.sub_group_3,
-            ledger_type: selectedNode.fullPath.ledger_type,
-            parent_ledger_id: selectedNode.fullPath.parent_ledger_id || null
+            sub_group_3: finalSubGroup3 || null,
+            ledger_type: finalLedgerType || null,
+            parent_ledger_id: selectedNode.fullPath.parent_ledger_id || null,
+            question_answers: questionAnswers // Pass collected answers
         };
 
         // Call parent's onCreateLedger
         onCreateLedger(newLedgerData);
 
         // Reset form immediately
-        setCustomName('');
+        setSubGroup3Input('');
+        setLedgerTypeInput('');
         setSelectedNode(null);
+        setQuestionAnswers({}); // Reset answers
 
         // Refetch data after a short delay to get the newly created ledger with real ID
         setTimeout(async () => {
@@ -388,6 +436,10 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
 
     if (loading) return <div className="text-gray-500 text-sm">Loading hierarchy...</div>;
 
+    // Helper to determine if input should be disabled (value comes from parent hierarchy)
+    const isSubGroup3Fixed = !!selectedNode?.fullPath.sub_group_3;
+    const isLedgerTypeFixed = !!selectedNode?.fullPath.ledger_type;
+
     return (
         <div className="bg-white rounded-lg border border-gray-200 space-y-4">
             <div className="p-4 border-b border-gray-200">
@@ -397,134 +449,131 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
                 </h4>
             </div>
 
-            <div className="px-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Ledger Type
-                </label>
-                <div className="border border-gray-300 rounded-md p-3 max-h-80 overflow-y-auto bg-gray-50">
-                    {treeData.length > 0 ? (
-                        renderTree(treeData)
-                    ) : (
-                        <div className="text-gray-500 text-sm">No hierarchy data available</div>
-                    )}
+            <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column: Hierarchy Tree */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Ledger Type
+                    </label>
+                    <div className="border border-gray-300 rounded-md p-3 max-h-[32rem] overflow-y-auto bg-gray-50">
+                        {treeData.length > 0 ? (
+                            renderTree(treeData)
+                        ) : (
+                            <div className="text-gray-500 text-sm">No hierarchy data available</div>
+                        )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                        <strong>Single click</strong> to select any level. <strong>Double click</strong> to expand/collapse categories.
+                        <br />
+                        <span className="text-blue-600">★ Blue items</span> are your custom ledgers. Click them to create nested ledgers!
+                    </p>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                    <strong>Single click</strong> to select any level. <strong>Double click</strong> to expand/collapse categories.
-                    <br />
-                    <span className="text-blue-600">★ Blue items</span> are your custom ledgers. Click them to create nested ledgers!
-                </p>
-            </div>
 
-            {true && (
-                <div className="px-4 pb-4">
+                {/* Right Column: Preview & Form */}
+                <div>
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                         <h5 className="text-sm font-semibold text-gray-700 mb-4">Ledger Preview</h5>
 
-                        {/* Ledger Name Input */}
-                        <div className="mb-4">
-                            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                                Ledger Name <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                value={customName}
-                                onChange={e => setCustomName(e.target.value)}
-                                placeholder="Enter ledger name"
-                                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                            />
-                        </div>
-
-                        {/* Hierarchy Details Grid - Only show fields with values */}
-                        <div className="grid grid-cols-2 gap-4 mb-4">
+                        {/* Hierarchy Details Grid */}
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-4 mb-4">
                             {/* Category */}
-                            {selectedNode?.fullPath.category && (
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                                        Category
-                                    </label>
-                                    <div className="text-sm font-medium text-gray-800">
-                                        {selectedNode.fullPath.category}
-                                    </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+                                    Category
+                                </label>
+                                <div className="text-sm font-medium text-gray-800 py-2 border-b border-gray-100">
+                                    {selectedNode?.fullPath.category || '-'}
                                 </div>
-                            )}
+                            </div>
 
                             {/* Group */}
-                            {selectedNode?.fullPath.group && (
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                                        Group
-                                    </label>
-                                    <div className="text-sm font-medium text-gray-800">
-                                        {selectedNode.fullPath.group}
-                                    </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+                                    Group
+                                </label>
+                                <div className="text-sm font-medium text-gray-800 py-2 border-b border-gray-100">
+                                    {selectedNode?.fullPath.group || '-'}
                                 </div>
-                            )}
+                            </div>
 
                             {/* Sub Group 1 */}
-                            {selectedNode?.fullPath.sub_group_1 && (
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                                        Sub Group 1
-                                    </label>
-                                    <div className="text-sm font-medium text-gray-800">
-                                        {selectedNode.fullPath.sub_group_1}
-                                    </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+                                    Sub Group 1
+                                </label>
+                                <div className="text-sm font-medium text-gray-800 py-2 border-b border-gray-100">
+                                    {selectedNode?.fullPath.sub_group_1 || '-'}
                                 </div>
-                            )}
+                            </div>
 
                             {/* Sub Group 2 */}
-                            {selectedNode?.fullPath.sub_group_2 && (
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                                        Sub Group 2
-                                    </label>
-                                    <div className="text-sm font-medium text-gray-800">
-                                        {selectedNode.fullPath.sub_group_2}
-                                    </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+                                    Sub Group 2
+                                </label>
+                                <div className="text-sm font-medium text-gray-800 py-2 border-b border-gray-100">
+                                    {selectedNode?.fullPath.sub_group_2 || '-'}
                                 </div>
-                            )}
+                            </div>
 
-                            {/* Sub Group 3 */}
-                            {selectedNode?.fullPath.sub_group_3 && (
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                                        Sub Group 3
-                                    </label>
-                                    <div className="text-sm font-medium text-gray-800">
-                                        {selectedNode.fullPath.sub_group_3}
-                                    </div>
-                                </div>
-                            )}
+                            {/* Sub Group 3 - INPUT */}
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+                                    Sub Group 3
+                                </label>
+                                <input
+                                    type="text"
+                                    value={isSubGroup3Fixed ? selectedNode?.fullPath.sub_group_3! : subGroup3Input}
+                                    onChange={(e) => !isSubGroup3Fixed && setSubGroup3Input(e.target.value)}
+                                    disabled={!selectedNode || isSubGroup3Fixed}
+                                    className={`w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedNode || isSubGroup3Fixed
+                                        ? 'bg-gray-100 text-gray-600 border-gray-200'
+                                        : 'bg-white border-gray-300'
+                                        }`}
+                                    placeholder={!selectedNode ? '-' : (isSubGroup3Fixed ? '' : 'Enter Name')}
+                                />
+                            </div>
 
-                            {/* Ledger Type / Parent Ledger */}
-                            {selectedNode?.fullPath.ledger_type && (
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                                        {selectedNode.isCustom ? 'Parent Ledger' : 'Ledger Type'}
-                                    </label>
-                                    <div className={`text-sm font-medium ${selectedNode.isCustom ? 'text-blue-600' : 'text-gray-800'}`}>
-                                        {selectedNode.fullPath.ledger_type}
-                                        {selectedNode.isCustom && ' ★'}
-                                    </div>
-                                </div>
-                            )}
+                            {/* Ledger Type - INPUT */}
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
+                                    Ledger Type
+                                </label>
+                                <input
+                                    type="text"
+                                    value={isLedgerTypeFixed ? selectedNode?.fullPath.ledger_type! : ledgerTypeInput}
+                                    onChange={(e) => !isLedgerTypeFixed && setLedgerTypeInput(e.target.value)}
+                                    disabled={!selectedNode || isLedgerTypeFixed}
+                                    className={`w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedNode || isLedgerTypeFixed
+                                        ? 'bg-gray-100 text-gray-600 border-gray-200'
+                                        : 'bg-white border-gray-300'
+                                        }`}
+                                    placeholder={!selectedNode ? '-' : (isLedgerTypeFixed ? '' : 'Enter Name')}
+                                />
+                            </div>
                         </div>
 
-                        {/* Create Button */}
-                        <button
-                            type="button"
-                            onClick={handleSubmit}
-                            disabled={!selectedNode || !customName.trim()}
-                            className={`w-full px-4 py-2.5 rounded font-medium transition-colors ${selectedNode && customName.trim()
-                                ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
-                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                }`}
-                        >
-                            {selectedNode?.isCustom ? 'Create Nested Ledger' : 'Create Ledger'}
-                        </button>
+                        {/* DYNAMIC QUESTIONS SECTION */}
+                        {selectedNode?.fullPath.sub_group_1 && (
+                            <LedgerQuestions
+                                selectedLedgerType={selectedNode.fullPath.sub_group_1}
+                                onAnswersChange={setQuestionAnswers}
+                            />
+                        )}
+
+                        {/* Create Ledger Button */}
+                        <div className="mt-6">
+                            <button
+                                type="button"
+                                onClick={handleSubmit}
+                                className="w-full bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors"
+                            >
+                                Create Ledger
+                            </button>
+                        </div>
                     </div>
                 </div>
-            )}
+            </div>
 
         </div>
     );

@@ -4,6 +4,7 @@ from .models import (
     MasterLedgerGroup, MasterLedger, MasterVoucherConfig, MasterHierarchyRaw,
     Voucher, JournalEntry
 )
+from .models_question import Answer, Question
 
 # ============================================================================
 # MASTER SERIALIZERS
@@ -21,6 +22,8 @@ class MasterLedgerGroupSerializer(TenantModelSerializerMixin, serializers.ModelS
 
 
 class MasterLedgerSerializer(TenantModelSerializerMixin, serializers.ModelSerializer):
+    question_answers = serializers.JSONField(source='additional_data', required=False, allow_null=True)
+
     class Meta:
         model = MasterLedger
         fields = [
@@ -29,6 +32,7 @@ class MasterLedgerSerializer(TenantModelSerializerMixin, serializers.ModelSerial
             'sub_group_1', 'sub_group_2', 'sub_group_3', 'ledger_type',
             'gstin', 'registration_type', 'state',
             'extended_data',
+            'question_answers', # Maps to additional_data
             'parent_ledger_id',
             'tenant_id', 'created_at', 'updated_at'
         ]
@@ -46,6 +50,72 @@ class MasterLedgerSerializer(TenantModelSerializerMixin, serializers.ModelSerial
             'extended_data': {'required': False, 'allow_null': True},
             'parent_ledger_id': {'required': False, 'allow_null': True},
         }
+
+    def create(self, validated_data):
+        # Extract question answers (mapped from 'question_answers' to 'additional_data' via source)
+        question_answers = validated_data.get('additional_data', {})
+        print(f"DEBUG: MasterLedger Create - Answers: {question_answers}")
+        
+        # Create the ledger first
+        instance = super().create(validated_data)
+        
+        # Save answers to Answer table
+        if question_answers and isinstance(question_answers, dict):
+            tenant_id = instance.tenant_id
+            for q_id, ans_text in question_answers.items():
+                if not ans_text:
+                    continue
+                try:
+                    # Frontend keys are expected to be Question IDs (strings)
+                    question_obj = Question.objects.get(id=q_id)
+                    # Refresh to ensure code is populated if assigned by signals
+                    if not instance.code:
+                        instance.refresh_from_db()
+                        
+                    Answer.objects.create(
+                        ledger_code=instance.code,
+                        sub_group_1_1=question_obj.sub_group_1_1,
+                        sub_group_1_2=question_obj.sub_group_1_2,
+                        question=question_obj.question,
+                        answer=ans_text,
+                        tenant_id=tenant_id
+                    )
+                    print(f"DEBUG: Saved Answer for Q:{q_id} Ledger:{instance.id}")
+                except Exception as e:
+                    # Ignore invalids or duplicates
+                    print(f"DEBUG: Failed to save answer: {e}")
+                    pass
+                    
+        return instance
+
+    def update(self, instance, validated_data):
+        question_answers = validated_data.get('additional_data', {})
+        print(f"DEBUG: MasterLedger Update - Answers: {question_answers}")
+        
+        # Update Master Ledger fields
+        instance = super().update(instance, validated_data)
+        
+        # Update Answers
+        if question_answers and isinstance(question_answers, dict):
+            tenant_id = instance.tenant_id
+            for q_id, ans_text in question_answers.items():
+                if not ans_text: continue
+                try:
+                    question_obj = Question.objects.get(id=q_id)
+                    Answer.objects.update_or_create(
+                        ledger_code=instance.code,
+                        sub_group_1_2=question_obj.sub_group_1_2,
+                        defaults={
+                            'sub_group_1_1': question_obj.sub_group_1_1,
+                            'question': question_obj.question,
+                            'answer': ans_text,
+                            'tenant_id': tenant_id
+                        }
+                    )
+                except Exception as e:
+                    print(f"DEBUG: Failed to update answer: {e}")
+                    pass
+        return instance
 
 
 class MasterVoucherConfigSerializer(TenantModelSerializerMixin, serializers.ModelSerializer):

@@ -107,6 +107,13 @@ class MasterLedger(BaseModel):
         db_column='ledger_code',
         help_text="Auto-generated code based on hierarchy position"
     )
+    
+    # Dynamic question answers (NEW FIELD for questions system)
+    additional_data = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Stores answers to dynamic questions (e.g., opening balance, GSTIN, credit limit)"
+    )
 
     class Meta:
         db_table = 'master_ledgers'

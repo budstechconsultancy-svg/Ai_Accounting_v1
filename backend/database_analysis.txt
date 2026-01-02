@@ -1,0 +1,29 @@
+DATABASE ANALYSIS REPORT
+================================================================================
+
+Total tables: 16
+Tables with data: 16
+Empty tables: 0
+
+TABLES WITH DATA:
+--------------------------------------------------------------------------------
+master_hierarchy_raw                                      595 rows
+auth_permission                                           113 rows
+master_ledgers                                            105 rows
+questions                                                  85 rows
+django_migrations                                          60 rows
+master_ledger_groups                                       56 rows
+django_content_type                                        29 rows
+master_accounts                                            24 rows
+hierarchy_question_mapping                                 23 rows
+tenants                                                    20 rows
+master_questions                                           14 rows
+users                                                       8 rows
+inventory_stock_groups                                      4 rows
+tenant_users                                                2 rows
+pending_registrations                                       1 rows
+tenant_ledgers                                              1 rows
+
+
+EMPTY TABLES:
+--------------------------------------------------------------------------------

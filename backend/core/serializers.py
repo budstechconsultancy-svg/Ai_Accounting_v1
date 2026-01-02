@@ -82,31 +82,7 @@ class CompanySettingsSerializer(serializers.ModelSerializer):
         return ", ".join(parts) if parts else ""
 
 
-# OTP Verification Serializers (Simplified)
 
-class SendOTPSerializer(serializers.Serializer):
-    """Serializer for sending OTP to phone number"""
-    phone = serializers.CharField(max_length=15)
-    
-    def validate_phone(self, value):
-        import re
-        if not re.match(r'^\+?[1-9]\d{1,14}$', value):
-            raise serializers.ValidationError("Invalid phone number format")
-        # Check if phone exists in users
-        if not User.objects.filter(phone=value).exists():
-            raise serializers.ValidationError("Phone number not registered")
-        return value
-
-
-class VerifyOTPSerializer(serializers.Serializer):
-    """Serializer for verifying OTP"""
-    phone = serializers.CharField(max_length=15)
-    otp = serializers.CharField(max_length=6, min_length=6)
-    
-    def validate_otp(self, value):
-        if not value.isdigit():
-            raise serializers.ValidationError("OTP must be 6 digits")
-        return value
 
 
 # Registration Flow Serializers
@@ -140,12 +116,6 @@ class RegisterInitiateSerializer(serializers.Serializer):
         return value
 
 
-class VerifyOTPAndCreateUserSerializer(serializers.Serializer):
-    """Serializer for verifying OTP and creating user account"""
+class CreateUserSerializer(serializers.Serializer):
+    """Serializer for creating user account from pending registration"""
     phone = serializers.CharField(max_length=15)
-    otp = serializers.CharField(max_length=6, min_length=6)
-    
-    def validate_otp(self, value):
-        if not value.isdigit():
-            raise serializers.ValidationError("OTP must be 6 digits")
-        return value

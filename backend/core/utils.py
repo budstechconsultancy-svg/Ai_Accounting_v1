@@ -13,6 +13,10 @@ class TenantQuerysetMixin:
             # Fallback to request.tenant_id (set by TenantMiddleware)
             if not tid:
                 tid = getattr(self.request, 'tenant_id', None)
+            
+            # TEMPORARY: Use default tenant_id=1 for development if no tenant found
+            if not tid:
+                tid = 1
                 
             if tid:
                 return qs.filter(tenant_id=tid)
@@ -35,6 +39,9 @@ class TenantModelSerializerMixin:
         user = getattr(request, 'user', None)
         if user and user.is_authenticated and hasattr(user, 'tenant_id'):
             validated_data['tenant_id'] = user.tenant_id
+        else:
+            # TEMPORARY: Use default tenant_id=1 for development
+            validated_data['tenant_id'] = 1
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
@@ -42,6 +49,9 @@ class TenantModelSerializerMixin:
         user = getattr(request, 'user', None)
         if user and user.is_authenticated and hasattr(user, 'tenant_id'):
             validated_data['tenant_id'] = user.tenant_id
+        else:
+            # TEMPORARY: Use default tenant_id=1 for development
+            validated_data['tenant_id'] = 1
         return super().update(instance, validated_data)
 
 class IsTenantMember(permissions.BasePermission):

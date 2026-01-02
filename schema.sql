@@ -323,41 +323,44 @@ CREATE TABLE IF NOT EXISTS `stock_movements` (
   CONSTRAINT `stock_movements_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+
+
 -- ============================================================================
--- OTP AND REGISTRATION TABLES
+-- QUESTIONS SYSTEM
 -- ============================================================================
 
--- OTPs
-CREATE TABLE IF NOT EXISTS `otps` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `phone` varchar(15) NOT NULL,
-  `otp_hash` varchar(255) NOT NULL,
-  `expires_at` datetime(6) NOT NULL,
-  `is_used` tinyint(1) NOT NULL DEFAULT '0',
-  `attempt_count` int NOT NULL DEFAULT '0',
-  `created_at` datetime(6) NOT NULL,
+-- Questions Table (Imported from CSV)
+-- Stores questions for dynamic ledger creation forms
+CREATE TABLE IF NOT EXISTS `questions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `sub_group_1_1` varchar(255) DEFAULT NULL COMMENT 'Sub-group 1 level 1 from hierarchy',
+  `sub_group_1_2` varchar(50) DEFAULT NULL COMMENT 'Sub-group 1 level 2 (question code)',
+  `question` text DEFAULT NULL COMMENT 'The question text',
+  `condition_rule` varchar(255) DEFAULT NULL COMMENT 'Condition rules for displaying the question',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `otps_phone_idx` (`phone`),
-  KEY `otps_expires_at_idx` (`expires_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  
+  KEY `questions_sub_group_1_2_idx` (`sub_group_1_2`),
+  KEY `questions_sub_group_1_1_idx` (`sub_group_1_1`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+COMMENT='Questions imported from CSV - maps questions to hierarchy nodes';
 
--- Pending Registrations
-CREATE TABLE IF NOT EXISTS `pending_registrations` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `username` varchar(100) NOT NULL,
-  `email` varchar(255) DEFAULT NULL,
-  `phone` varchar(15) NOT NULL,
-  `password_hash` varchar(255) NOT NULL,
-  `company_name` varchar(255) NOT NULL,
-  `selected_plan` varchar(50) NOT NULL,
-  `logo_path` varchar(500) DEFAULT NULL,
-  `expires_at` datetime(6) NOT NULL,
-  `created_at` datetime(6) NOT NULL,
+-- Answers Table
+-- Stores user responses to dynamic questions
+CREATE TABLE IF NOT EXISTS `answers` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `ledger_code` varchar(255) DEFAULT NULL COMMENT 'Code of the ledger this answer belongs to',
+  `sub_group_1_1` varchar(255) DEFAULT NULL COMMENT 'Copied from questions table',
+  `sub_group_1_2` varchar(255) DEFAULT NULL COMMENT 'Copied from questions table',
+  `question` text DEFAULT NULL COMMENT 'The question text copied from questions table',
+  `answer` text DEFAULT NULL COMMENT 'User provided answer',
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant UUID',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `pending_registrations_phone_unique` (`phone`),
-  KEY `pending_registrations_phone_idx` (`phone`),
-  KEY `pending_registrations_expires_at_idx` (`expires_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  KEY `answers_ledger_code_idx` (`ledger_code`),
+  KEY `answers_tenant_id_idx` (`tenant_id`),
+  KEY `answers_sub_group_1_2_idx` (`sub_group_1_2`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+COMMENT='Stores user answers to dynamic questions for each ledger';
 
 -- ============================================================================
 -- END OF SCHEMA
