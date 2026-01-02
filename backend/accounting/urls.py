@@ -35,4 +35,3 @@ urlpatterns = [
     path('ledgers/questions/', LedgerQuestionsView.as_view(), name='ledger-questions'),
     path('ledgers/create-with-questions/', LedgerCreateWithQuestionsView.as_view(), name='ledger-create-with-questions'),
 ]
-

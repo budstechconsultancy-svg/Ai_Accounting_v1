@@ -1,4 +1,4 @@
-export type Page = 'Dashboard' | 'Masters' | 'Inventory' | 'Vouchers' | 'Reports' | 'Settings' | 'Users & Roles' | 'MassUploadResult';
+export type Page = 'Dashboard' | 'Masters' | 'Inventory' | 'Vouchers' | 'Reports' | 'Settings' | 'Users & Roles' | 'MassUploadResult' | 'Vendor Portal' | 'Customer Portal' | 'Payroll';
 
 export interface CompanyDetails {
   name: string;
@@ -163,6 +163,8 @@ export interface ContraVoucher extends BaseVoucher {
 
 export interface JournalEntry {
   ledger: string;
+  note: string;
+  refNo: string;
   debit: number;
   credit: number;
 }

@@ -1416,17 +1416,25 @@ const MastersPage: React.FC<MastersPageProps> = ({
 
     return (
       <div className="space-y-6">
-        {/* Voucher Type Buttons - Clean Design */}
-        <div className="grid grid-cols-3 gap-4 max-w-4xl">
-          {voucherButtons.map((voucher) => {
+        {/* Select Voucher Type Header */}
+        <div className="text-center mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">Select Voucher Type</h2>
+        </div>
+
+        {/* Voucher Type Buttons - Horizontal Strip */}
+        <div className="flex flex-wrap gap-3 justify-center items-center">
+          {voucherButtons.map((voucher, index) => {
             const isSelected = selectedVoucher === voucher.id;
+            const isSales = voucher.id === 'sales';
             return (
               <button
                 key={voucher.id}
                 onClick={() => handleVoucherClick(voucher.id)}
-                className={`px-6 py-4 text-base font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isSelected
-                  ? 'bg-blue-600 text-white border-2 border-blue-600'
-                  : 'bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50'
+                className={`px-6 py-3 text-sm font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${isSelected && isSales
+                  ? 'bg-teal-600 text-white border-2 border-teal-600 focus:ring-teal-500'
+                  : isSelected
+                    ? 'bg-teal-600 text-white border-2 border-teal-600 focus:ring-teal-500'
+                    : 'bg-white text-teal-600 border-2 border-teal-300 hover:border-teal-500 hover:bg-teal-50 focus:ring-teal-500'
                   }`}
               >
                 {voucher.label}
@@ -1435,310 +1443,374 @@ const MastersPage: React.FC<MastersPageProps> = ({
           })}
         </div>
 
-        {/* Sales Voucher Form */}
+        {/* Sales Voucher Form with Existing Vouchers Table */}
         {selectedVoucher === 'sales' && (
-          <div className="bg-white p-8 rounded-lg shadow-sm border-2 border-green-400">
-            <h3 className="text-xl font-bold text-gray-800 mb-6">Sales</h3>
-            <form className="space-y-6">
-              {/* Voucher Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Voucher Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  className="w-full max-w-md px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Enter voucher name"
-                  required
-                />
-                <p className="mt-1 text-xs text-gray-500">Data Validation: Text</p>
-              </div>
-
-              {/* Enable Automatic Numbering Series */}
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="enableAutoNumbering"
-                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                />
-                <label htmlFor="enableAutoNumbering" className="ml-2 text-sm font-medium text-gray-700">
-                  Enable Automatic Numbering Series
-                </label>
-              </div>
-
-              {/* Prefix and Suffix */}
-              <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column - Sales Voucher Configuration */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border-2 border-teal-400">
+              <h3 className="text-xl font-bold text-gray-800 mb-6">Sales</h3>
+              <form className="space-y-6">
+                {/* Voucher Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Prefix <span className="text-red-500">*</span>
+                    Voucher Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="e.g., INV-"
-                    pattern="[a-zA-Z0-9/-]*"
-                    title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
+                    className="w-full max-w-md px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Enter voucher name"
                     required
                   />
-                  <p className="mt-1 text-xs text-gray-500">Alphanumeric (With / Slash and - Hyphen)</p>
+                  <p className="mt-1 text-xs text-gray-500">Data Validation: Text</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Suffix <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="e.g., /24-25"
-                    pattern="[a-zA-Z0-9/-]*"
-                    title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
-                    required
-                  />
-                  <p className="mt-1 text-xs text-gray-500">Alphanumeric (With / Slash and - Hyphen)</p>
-                </div>
-              </div>
 
-              {/* Start From and Required Digits */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Start From
-                  </label>
+                {/* Enable Automatic Numbering Series */}
+                <div className="flex items-center">
                   <input
-                    type="number"
-                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="1"
-                    min="1"
+                    type="checkbox"
+                    id="enableAutoNumbering"
+                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Required Digits
+                  <label htmlFor="enableAutoNumbering" className="ml-2 text-sm font-medium text-gray-700">
+                    Enable Automatic Numbering Series
                   </label>
-                  <input
-                    type="number"
-                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="4"
-                    min="1"
-                  />
                 </div>
-              </div>
 
-              {/* Effective Period */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Effective Period: <span className="text-red-500">*</span>
-                </label>
+                {/* Prefix and Suffix */}
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">From <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Prefix <span className="text-red-500">*</span>
+                    </label>
                     <input
-                      type="date"
-                      min={today}
+                      type="text"
                       className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., INV-"
+                      pattern="[a-zA-Z0-9/-]*"
+                      title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
                       required
+                    />
+                    <p className="mt-1 text-xs text-gray-500">Alphanumeric (With / Slash and - Hyphen)</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Suffix <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., /24-25"
+                      pattern="[a-zA-Z0-9/-]*"
+                      title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
+                      required
+                    />
+                    <p className="mt-1 text-xs text-gray-500">Alphanumeric (With / Slash and - Hyphen)</p>
+                  </div>
+                </div>
+
+                {/* Start From and Required Digits */}
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Start From
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="1"
+                      min="1"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">To <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Required Digits
+                    </label>
                     <input
-                      type="date"
-                      min={today}
-                      max={financialYearEnd}
+                      type="number"
                       className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      required
+                      placeholder="4"
+                      min="1"
                     />
                   </div>
                 </div>
-              </div>
 
-              {/* Update Customer Master */}
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700">
-                  Update Customer Master: Yes/No
-                </label>
-                <div className="flex items-center space-x-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="updateCustomerMaster"
-                      value="yes"
-                      checked={updateCustomerMaster === 'yes'}
-                      onChange={(e) => setUpdateCustomerMaster(e.target.value)}
-                      className="w-4 h-4 text-green-600 focus:ring-green-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Yes</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="updateCustomerMaster"
-                      value="no"
-                      checked={updateCustomerMaster === 'no'}
-                      onChange={(e) => setUpdateCustomerMaster(e.target.value)}
-                      className="w-4 h-4 text-green-600 focus:ring-green-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">No</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* If Yes, Include from existing series - Only show if Yes is selected */}
-              {updateCustomerMaster === 'yes' && (
+                {/* Effective Period */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Include from existing series:
+                    Effective Period: <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative max-w-md">
-                    <select className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none bg-white">
-                      <option value="">Drop down list to have the existing list of series</option>
-                    </select>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">From <span className="text-red-500">*</span></label>
+                      <input
+                        type="date"
+                        min={today}
+                        className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">To <span className="text-red-500">*</span></label>
+                      <input
+                        type="date"
+                        min={today}
+                        max={financialYearEnd}
+                        className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Submit Button */}
-              <div className="flex justify-end pt-4">
-                <button
-                  type="submit"
-                  className="px-8 py-3 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors duration-200"
-                >
-                  Post & Close
-                </button>
+                {/* Update Customer Master */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Update Customer Master: Yes/No
+                  </label>
+                  <div className="flex items-center space-x-4">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="updateCustomerMaster"
+                        value="yes"
+                        checked={updateCustomerMaster === 'yes'}
+                        onChange={(e) => setUpdateCustomerMaster(e.target.value)}
+                        className="w-4 h-4 text-green-600 focus:ring-green-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">Yes</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="updateCustomerMaster"
+                        value="no"
+                        checked={updateCustomerMaster === 'no'}
+                        onChange={(e) => setUpdateCustomerMaster(e.target.value)}
+                        className="w-4 h-4 text-green-600 focus:ring-green-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">No</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* If Yes, Include from existing series - Only show if Yes is selected */}
+                {updateCustomerMaster === 'yes' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Include from existing series:
+                    </label>
+                    <div className="relative max-w-md">
+                      <select className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none bg-white">
+                        <option value="">Drop down list to have the existing list of series</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Submit Button */}
+                <div className="flex justify-end pt-4">
+                  <button
+                    type="submit"
+                    className="px-8 py-3 bg-teal-600 text-white font-semibold rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors duration-200"
+                  >
+                    Save
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Right Column - Existing Vouchers */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Existing Vouchers</h3>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">SELECT</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">VOUCHER NAME</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">VOUCHER SERIES PREVIEW (LAST SERIES)</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">EFFECTIVE FROM</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">EFFECTIVE TO</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Empty State */}
+                    <tr>
+                      <td colSpan={6} className="px-3 py-12 text-center">
+                        <p className="text-sm text-gray-400">No vouchers configured yet</p>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-            </form>
+            </div>
           </div>
         )}
 
         {/* Other Vouchers Form - For all vouchers except Sales */}
         {selectedVoucher !== 'sales' && (
-          <div className="bg-white p-8 rounded-lg shadow-sm border-2 border-green-400">
-            <h3 className="text-xl font-bold text-gray-800 mb-6">
-              {voucherButtons.find(v => v.id === selectedVoucher)?.label}
-            </h3>
-            <form className="space-y-6">
-              {/* Voucher Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Voucher Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  className="w-full max-w-sm px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Enter voucher name"
-                  required
-                />
-                <p className="mt-1 text-xs text-gray-500">Data Validation: Text</p>
-              </div>
-
-              {/* Enable Automatic Numbering Series */}
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="otherEnableAutoNumbering"
-                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                />
-                <label htmlFor="otherEnableAutoNumbering" className="ml-2 text-sm font-medium text-gray-700">
-                  Enable Automatic Numbering Series
-                </label>
-              </div>
-
-              {/* Prefix and Suffix */}
-              <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column - Voucher Configuration */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border-2 border-teal-400">
+              <h3 className="text-xl font-bold text-gray-800 mb-6">
+                {voucherButtons.find(v => v.id === selectedVoucher)?.label}
+              </h3>
+              <form className="space-y-6">
+                {/* Voucher Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Prefix <span className="text-red-500">*</span>
+                    Voucher Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder=""
-                    pattern="[a-zA-Z0-9/-]*"
-                    title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
+                    className="w-full max-w-sm px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    placeholder="Enter voucher name"
                     required
                   />
-                  <p className="mt-1 text-xs text-gray-500">Alphanumeric (With / Slash and - Hyphen)</p>
+                  <p className="mt-1 text-xs text-gray-500">Data Validation: Text</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Suffix <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder=""
-                    pattern="[a-zA-Z0-9/-]*"
-                    title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
-                    required
-                  />
-                  <p className="mt-1 text-xs text-gray-500">Alphanumeric (With / Slash and - Hyphen)</p>
-                </div>
-              </div>
 
-              {/* Start From and Required Digits */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Start From
-                  </label>
+                {/* Enable Automatic Numbering Series */}
+                <div className="flex items-center">
                   <input
-                    type="number"
-                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder=""
-                    min="1"
+                    type="checkbox"
+                    id="otherEnableAutoNumbering"
+                    className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Required Digits
+                  <label htmlFor="otherEnableAutoNumbering" className="ml-2 text-sm font-medium text-gray-700">
+                    Enable Automatic Numbering Series
                   </label>
-                  <input
-                    type="number"
-                    className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder=""
-                    min="1"
-                  />
                 </div>
-              </div>
 
-              {/* Effective Period */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Effective Period: <span className="text-red-500">*</span>
-                </label>
+                {/* Prefix and Suffix */}
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">From <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Prefix <span className="text-red-500">*</span>
+                    </label>
                     <input
-                      type="date"
-                      min={today}
-                      className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      type="text"
+                      className="w-full px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      placeholder=""
+                      pattern="[a-zA-Z0-9/-]*"
+                      title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
                       required
+                    />
+                    <p className="mt-1 text-xs text-gray-500">Alphanumeric (With / Slash and - Hyphen)</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Suffix <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      placeholder=""
+                      pattern="[a-zA-Z0-9/-]*"
+                      title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
+                      required
+                    />
+                    <p className="mt-1 text-xs text-gray-500">Alphanumeric (With / Slash and - Hyphen)</p>
+                  </div>
+                </div>
+
+                {/* Start From and Required Digits */}
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Start From
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      placeholder=""
+                      min="1"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">To <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Required Digits
+                    </label>
                     <input
-                      type="date"
-                      min={today}
-                      max={financialYearEnd}
-                      className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      required
+                      type="number"
+                      className="w-full px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      placeholder=""
+                      min="1"
                     />
                   </div>
                 </div>
-              </div>
 
-              {/* Submit Button */}
-              <div className="flex justify-end pt-4">
-                <button
-                  type="submit"
-                  className="px-8 py-3 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors duration-200"
-                >
-                  Post & Close
-                </button>
+                {/* Effective Period */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Effective Period: <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">From <span className="text-red-500">*</span></label>
+                      <input
+                        type="date"
+                        min={today}
+                        className="w-full px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">To <span className="text-red-500">*</span></label>
+                      <input
+                        type="date"
+                        min={today}
+                        max={financialYearEnd}
+                        className="w-full px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <div className="flex justify-end pt-4">
+                  <button
+                    type="submit"
+                    className="px-8 py-3 bg-teal-600 text-white font-semibold rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors duration-200"
+                  >
+                    Save
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Right Column - Existing Vouchers */}
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Existing Vouchers</h3>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">SELECT</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">VOUCHER NAME</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">VOUCHER SERIES PREVIEW (LAST SERIES)</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">EFFECTIVE FROM</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">EFFECTIVE TO</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Empty State */}
+                    <tr>
+                      <td colSpan={6} className="px-3 py-12 text-center">
+                        <p className="text-sm text-gray-400">No vouchers configured yet</p>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-            </form>
+            </div>
           </div>
         )}
       </div>

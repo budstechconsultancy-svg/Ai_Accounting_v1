@@ -55,8 +55,8 @@ const MonthlyActivityChart: React.FC<{ data: { month: string; sales: number; pur
             </div>
 
             {/* Fixed height container as required */}
-            <div style={{ height: '340px' }} className="w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <div style={{ height: '340px', position: 'relative' }} className="w-full">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <LineChart
                         data={validatedData}
                         margin={{

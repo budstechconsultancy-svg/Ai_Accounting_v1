@@ -150,10 +150,24 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
   const [toAccount, setToAccount] = useState('');
 
   // Journal
-  const [entries, setEntries] = useState<JournalEntry[]>([{ ledger: '', debit: 0, credit: 0 }, { ledger: '', debit: 0, credit: 0 }]);
+  const [entries, setEntries] = useState<JournalEntry[]>([{ ledger: '', note: '', refNo: '', debit: 0, credit: 0 }, { ledger: '', note: '', refNo: '', debit: 0, credit: 0 }]);
 
   // Import feedback
   const [importSummary, setImportSummary] = useState<{ success: number, failed: number } | null>(null);
+
+  // Payment voucher specific state
+  const [paymentMode, setPaymentMode] = useState<'single' | 'bulk'>('single');
+  const [voucherNumber, setVoucherNumber] = useState('Auto-generated');
+  const [balance, setBalance] = useState(0);
+  const [supplierInvNo, setSupplierInvNo] = useState('');
+  const [paymentType, setPaymentType] = useState<'full' | 'partial'>('full');
+  const [runningBalance, setRunningBalance] = useState(0);
+  const [postingNote, setPostingNote] = useState('');
+  const [showAdvance, setShowAdvance] = useState(false);
+  const [advanceRefNo, setAdvanceRefNo] = useState('');
+  const [advanceAmount, setAdvanceAmount] = useState(0);
+  const [advanceDate, setAdvanceDate] = useState(getTodayDate());
+  const [showBulkAdvance, setShowBulkAdvance] = useState(false);
 
 
 
@@ -660,39 +674,811 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
     </>
   );
 
-  const renderSimpleForm = (type: 'Payment' | 'Receipt' | 'Contra') => (
-    <div className="max-w-md mx-auto space-y-4">
-      <div><label className="form-label">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="form-input" /></div>
-      {type !== 'Contra' && <div><label className="form-label">Account (Cash/Bank)</label><SearchableSelect value={account} onChange={setAccount} options={accountLedgers.map(l => l.name)} placeholder="Select Account" /></div>}
-      {type === 'Contra' && <>
-        <div><label className="form-label">From Account</label><SearchableSelect value={fromAccount} onChange={setFromAccount} options={accountLedgers.map(l => l.name)} placeholder="Select From Account" /></div>
-        <div><label className="form-label">To Account</label><SearchableSelect value={toAccount} onChange={setToAccount} options={accountLedgers.map(l => l.name)} placeholder="Select To Account" /></div>
-      </>}
-      {type !== 'Contra' && <div><label className="form-label">Party</label><SearchableSelect value={party} onChange={setParty} options={partyLedgers.map(l => l.name)} placeholder="Select Party" /></div>}
-      <div><label className="form-label">Amount</label><input type="number" value={simpleAmount} onChange={e => setSimpleAmount(parseFloat(e.target.value))} className="form-input" /></div>
-      <div className="relative"><label className="form-label">Narration</label><textarea value={narration} onChange={e => setNarration(e.target.value)} className="form-input w-full pr-10" rows={3}></textarea><button onClick={handleGenerateNarration} disabled={isNarrationLoading} className="absolute top-7 right-2 text-blue-500 hover:text-blue-700 disabled:text-gray-300" title="Generate Narration with AI">{isNarrationLoading ? <Icon name="spinner" className="w-5 h-5 animate-spin" /> : <Icon name="wand-sparkles" className="w-5 h-5" />}</button></div>
-    </div>
-  );
+  const renderSimpleForm = (type: 'Payment' | 'Receipt' | 'Contra') => {
+    if (type === 'Payment' || type === 'Receipt') {
+      const isPayment = type === 'Payment';
+      const labelA = isPayment ? 'Pay from' : 'Received From';
+      const labelB = isPayment ? 'Pay to' : 'Received In';
+      const labelInv = isPayment ? 'Supplier Inv. No.' : 'Inv. No.';
+      const labelFull = isPayment ? 'Pay' : 'Full receipt';
+      const labelPartial = isPayment ? 'Pay Partially' : 'Partial receipt';
+
+      return (
+        <div className="space-y-6">
+          {/* Single/Bulk Toggle */}
+          <div className="flex justify-center gap-2 mb-6">
+            <button
+              onClick={() => setPaymentMode('single')}
+              className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${paymentMode === 'single'
+                ? 'bg-teal-600 text-white'
+                : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-teal-500'
+                }`}
+            >
+              {type} Voucher - Single
+            </button>
+            <button
+              onClick={() => setPaymentMode('bulk')}
+              className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${paymentMode === 'bulk'
+                ? 'bg-teal-600 text-white'
+                : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-teal-500'
+                }`}
+            >
+              {type} Voucher - Bulk
+            </button>
+          </div>
+
+          {/* Conditional rendering based on mode */}
+          {paymentMode === 'single' ? (
+            /* Single Mode */
+            <>
+              {/* Top Row: Date, Voucher Number, Balance */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={e => setDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Voucher Number</label>
+                  <input
+                    type="text"
+                    value={voucherNumber}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Balance</label>
+                  <input
+                    type="number"
+                    value={balance}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                  />
+                </div>
+              </div>
+
+              {/* Account/Party Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{labelA}</label>
+                  <SearchableSelect
+                    value={account}
+                    onChange={setAccount}
+                    options={accountLedgers.map(l => l.name)}
+                    placeholder={`Select ${labelA}`}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{labelB}</label>
+                    <SearchableSelect
+                      value={party}
+                      onChange={setParty}
+                      options={partyLedgers.map(l => l.name)}
+                      placeholder={`Select ${labelB}`}
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvance(!showAdvance)}
+                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${showAdvance
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                        }`}
+                    >
+                      Advance
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Details Box - Conditional based on showAdvance */}
+              {showAdvance ? (
+                /* Advance Section */
+                <div className="border-2 border-gray-200 rounded-lg p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Top Row */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Advance ref. no.</label>
+                      <input
+                        type="text"
+                        value={advanceRefNo}
+                        onChange={e => setAdvanceRefNo(e.target.value)}
+                        placeholder="Enter advance reference"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                      <input
+                        type="number"
+                        value={advanceAmount}
+                        onChange={e => setAdvanceAmount(parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Bottom Row */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Posting Note</label>
+                      <textarea
+                        value={postingNote}
+                        onChange={e => setPostingNote(e.target.value)}
+                        placeholder="Enter posting note..."
+                        rows={4}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Running Balance</label>
+                      <input
+                        type="number"
+                        value={runningBalance}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Regular Details Box */
+                <div className="border-2 border-gray-200 rounded-lg p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Left Column */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">{labelInv}</label>
+                        <input
+                          type="text"
+                          value={supplierInvNo}
+                          onChange={e => setSupplierInvNo(e.target.value)}
+                          placeholder="Enter reference number"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Posting Note</label>
+                        <textarea
+                          value={postingNote}
+                          onChange={e => setPostingNote(e.target.value)}
+                          placeholder="Enter posting note..."
+                          rows={4}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Right Column */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                        <input
+                          type="number"
+                          value={simpleAmount}
+                          onChange={e => setSimpleAmount(parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                        <div className="flex items-center gap-4 mt-2">
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="paymentType"
+                              value="full"
+                              checked={paymentType === 'full'}
+                              onChange={() => setPaymentType('full')}
+                              className="w-4 h-4 text-teal-600 focus:ring-teal-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-700">{labelFull}</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="paymentType"
+                              value="partial"
+                              checked={paymentType === 'partial'}
+                              onChange={() => setPaymentType('partial')}
+                              className="w-4 h-4 text-teal-600 focus:ring-teal-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-700">{labelPartial}</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Running Balance</label>
+                        <input
+                          type="number"
+                          value={runningBalance}
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            /* Bulk Mode */
+            <>
+              {/* Top Row: Voucher Number, Account, Balance */}
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Voucher Number</label>
+                  <input
+                    type="text"
+                    value={voucherNumber}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{labelA}</label>
+                  <SearchableSelect
+                    value={account}
+                    onChange={setAccount}
+                    options={accountLedgers.map(l => l.name)}
+                    placeholder={`Select ${labelA}`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Balance</label>
+                  <input
+                    type="number"
+                    value={balance}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                  />
+                </div>
+              </div>
+
+              {/* Party Name */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">{labelB}</label>
+                <SearchableSelect
+                  value={party}
+                  onChange={setParty}
+                  options={partyLedgers.map(l => l.name)}
+                  placeholder={`Select ${labelB}`}
+                />
+              </div>
+
+              {/* Conditional rendering based on advance mode */}
+              {showBulkAdvance ? (
+                /* Bulk Advance Table */
+                <div className="border-2 border-gray-200 rounded-lg p-6">
+                  <div className="flex justify-end mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowBulkAdvance(false)}
+                      className="px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-200 text-sm font-medium"
+                    >
+                      ← Back
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Date</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">{labelB}</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Receipt Note</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Advance ref. no.</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Amount</th>
+                          <th className="px-4 py-3"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-gray-100">
+                          <td className="px-4 py-3">
+                            <input
+                              type="date"
+                              value={date}
+                              onChange={e => setDate(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <SearchableSelect
+                              value={party}
+                              onChange={setParty}
+                              options={partyLedgers.map(l => l.name)}
+                              placeholder="Select"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="text"
+                              placeholder="Receipt note"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="text"
+                              value={advanceRefNo}
+                              onChange={e => setAdvanceRefNo(e.target.value)}
+                              placeholder="Ref #"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="number"
+                              value={advanceAmount}
+                              onChange={e => setAdvanceAmount(parseFloat(e.target.value) || 0)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              type="button"
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              🗑️
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex justify-start mt-4">
+                    <button
+                      type="button"
+                      className="text-teal-600 hover:text-teal-700 text-sm font-medium flex items-center gap-1"
+                    >
+                      <span>+</span> Add Row
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4 mt-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Posting Note</label>
+                      <textarea
+                        value={postingNote}
+                        onChange={e => setPostingNote(e.target.value)}
+                        placeholder="Enter posting note..."
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>
+                      <input
+                        type="number"
+                        value={simpleAmount}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Running Balance</label>
+                      <input
+                        type="number"
+                        value={runningBalance}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Normal Bulk Table Column Layout */
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column - Details */}
+                  <div className="border-2 border-gray-200 rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-4">
+                      <h4 className="text-sm font-semibold text-gray-700">Details</h4>
+                      <button
+                        type="button"
+                        className="text-teal-600 hover:text-teal-700 text-sm font-medium flex items-center gap-1"
+                      >
+                        <span>+</span> Add Row
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase">Date</th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase">{labelB}</th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase">{labelInv}</th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase">Note</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="px-2 py-2">
+                              <input
+                                type="date"
+                                value={date}
+                                onChange={e => setDate(e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              />
+                            </td>
+                            <td className="px-2 py-2">
+                              <SearchableSelect
+                                value={party}
+                                onChange={setParty}
+                                options={partyLedgers.map(l => l.name)}
+                                placeholder="Select"
+                              />
+                            </td>
+                            <td className="px-2 py-2">
+                              <input
+                                type="text"
+                                placeholder="Ref #"
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              />
+                            </td>
+                            <td className="px-2 py-2">
+                              <input
+                                type="text"
+                                placeholder="Note"
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              />
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Posting Note</label>
+                        <textarea
+                          value={postingNote}
+                          onChange={e => setPostingNote(e.target.value)}
+                          placeholder="Enter posting note..."
+                          rows={3}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-teal-500 resize-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Total Amount</label>
+                        <input
+                          type="number"
+                          value={simpleAmount}
+                          readOnly
+                          className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-500 text-xs"
+                        />
+                        <label className="block text-xs font-medium text-gray-700 mb-1 mt-2">Running Balance</label>
+                        <input
+                          type="number"
+                          value={runningBalance}
+                          readOnly
+                          className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-500 text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column - Advance Section */}
+                  <div className="border-2 border-gray-200 rounded-lg p-4">
+                    <div className="flex justify-end mb-4">
+                      <button
+                        type="button"
+                        onClick={() => setShowBulkAdvance(true)}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-200 text-sm font-medium"
+                      >
+                        Advance
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase">Date</th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase">{labelInv}</th>
+                            <th className="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase">Amount</th>
+                            <th className="px-2 py-2 text-center text-xs font-medium text-gray-600 uppercase">{labelFull}</th>
+                            <th className="px-2 py-2 text-center text-xs font-medium text-gray-600 uppercase">{labelPartial}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="px-2 py-2">
+                              <input
+                                type="date"
+                                value={date}
+                                onChange={e => setDate(e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              />
+                            </td>
+                            <td className="px-2 py-2">
+                              <input
+                                type="text"
+                                placeholder="Ref #"
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              />
+                            </td>
+                            <td className="px-2 py-2">
+                              <input
+                                type="number"
+                                defaultValue={0}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+                              />
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <input
+                                type="checkbox"
+                                defaultChecked
+                                className="w-4 h-4 text-teal-600 focus:ring-teal-500 rounded"
+                              />
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <input
+                                type="checkbox"
+                                defaultChecked={false}
+                                className="w-4 h-4 text-teal-600 focus:ring-teal-500 rounded"
+                              />
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <p className="text-xs text-gray-500 mt-4 italic">
+                      Use this section for advance receipts. Click the "Advance" button to enable.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      );
+    }
+
+    // Custom layout for Contra voucher
+    if (type === 'Contra') {
+      return (
+        <div className="space-y-6">
+          {/* Top Row: Date and Voucher Number */}
+          <div className="grid grid-cols-2 gap-4 max-w-2xl">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <input
+                type="date"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Voucher Number</label>
+              <input
+                type="text"
+                value={voucherNumber}
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+              />
+            </div>
+          </div>
+
+          {/* Main Form Container */}
+          <div className="border-2 border-gray-200 rounded-lg p-6 max-w-6xl">
+            {/* Paid from */}
+            <div className="grid grid-cols-[160px_1fr_auto_120px] gap-4 items-center mb-4">
+              <label className="text-sm font-medium text-gray-700">Paid from</label>
+              <SearchableSelect
+                value={fromAccount}
+                onChange={setFromAccount}
+                options={accountLedgers.map(l => l.name)}
+                placeholder="Select Account"
+              />
+              <div></div>
+              <div className="text-right">
+                <div className="text-xs text-gray-500 mb-1">Balance</div>
+                <input
+                  type="text"
+                  value="xxxxxxx"
+                  readOnly
+                  className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-500 text-sm text-center"
+                />
+              </div>
+            </div>
+
+            {/* Received in */}
+            <div className="grid grid-cols-[160px_1fr_auto_120px] gap-4 items-center mb-4">
+              <label className="text-sm font-medium text-gray-700">Received in</label>
+              <SearchableSelect
+                value={toAccount}
+                onChange={setToAccount}
+                options={accountLedgers.map(l => l.name)}
+                placeholder="Select Account"
+              />
+              <div></div>
+              <div className="text-right">
+                <input
+                  type="text"
+                  value="xxxxxxx"
+                  readOnly
+                  className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-500 text-sm text-center"
+                />
+              </div>
+            </div>
+
+            {/* Amount */}
+            <div className="grid grid-cols-[160px_1fr] gap-4 items-center">
+              <label className="text-sm font-medium text-gray-700">Amount</label>
+              <input
+                type="number"
+                value={simpleAmount}
+                onChange={e => setSimpleAmount(parseFloat(e.target.value) || 0)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Posting Note */}
+          <div className="max-w-2xl">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Posting Note:</label>
+            <textarea
+              value={narration}
+              onChange={e => setNarration(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={4}
+              placeholder="Enter posting note..."
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // Original simple form for other types (shouldn't reach here)
+    return (
+      <div className="max-w-md mx-auto space-y-4">
+        <div><label className="form-label">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="form-input" /></div>
+        {type !== 'Contra' && <div><label className="form-label">Account (Cash/Bank)</label><SearchableSelect value={account} onChange={setAccount} options={accountLedgers.map(l => l.name)} placeholder="Select Account" /></div>}
+        {type === 'Contra' && <>
+          <div><label className="form-label">From Account</label><SearchableSelect value={fromAccount} onChange={setFromAccount} options={accountLedgers.map(l => l.name)} placeholder="Select From Account" /></div>
+          <div><label className="form-label">To Account</label><SearchableSelect value={toAccount} onChange={setToAccount} options={accountLedgers.map(l => l.name)} placeholder="Select To Account" /></div>
+        </>}
+        {type !== 'Contra' && <div><label className="form-label">Party</label><SearchableSelect value={party} onChange={setParty} options={partyLedgers.map(l => l.name)} placeholder="Select Party" /></div>}
+        <div><label className="form-label">Amount</label><input type="number" value={simpleAmount} onChange={e => setSimpleAmount(parseFloat(e.target.value))} className="form-input" /></div>
+        <div className="relative"><label className="form-label">Narration</label><textarea value={narration} onChange={e => setNarration(e.target.value)} className="form-input w-full pr-10" rows={3}></textarea><button onClick={handleGenerateNarration} disabled={isNarrationLoading} className="absolute top-7 right-2 text-blue-500 hover:text-blue-700 disabled:text-gray-300" title="Generate Narration with AI">{isNarrationLoading ? <Icon name="spinner" className="w-5 h-5 animate-spin" /> : <Icon name="wand-sparkles" className="w-5 h-5" />}</button></div>
+      </div>
+    );
+  };
 
   const renderJournalForm = () => (
     <>
-      <div className="mb-4 w-48"><label className="form-label">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="form-input" /></div>
-      <table className="min-w-full"><thead className="bg-gray-50"><tr><th className="table-header">By/To</th><th className="table-header">Ledger</th><th className="table-header w-40">Debit</th><th className="table-header w-40">Credit</th><th className="w-12"></th></tr></thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {entries.map((entry, index) => (<tr key={index}>
-            <td className="px-4 py-2 text-sm text-gray-500">{index === 0 ? 'By (Dr)' : 'To (Cr)'}</td>
-            <td><SearchableSelect value={entry.ledger} onChange={(val) => handleEntryChange(index, 'ledger', val)} options={allLedgers.map(l => l.name)} placeholder="Select Ledger" /></td>
-            <td><input type="number" value={entry.debit} onChange={e => handleEntryChange(index, 'debit', parseFloat(e.target.value) || 0)} className="table-input" /></td>
-            <td><input type="number" value={entry.credit} onChange={e => handleEntryChange(index, 'credit', parseFloat(e.target.value) || 0)} className="table-input" /></td>
-            <td><button onClick={() => handleRemoveEntryRow(index)} className="text-red-500 hover:text-red-700 p-1"><Icon name="trash" className="w-4 h-4" /></button></td>
-          </tr>))}
-        </tbody>
-        <tfoot className="bg-gray-50 font-semibold"><tr><td colSpan={2} className="px-4 py-2 text-right">Total</td><td className="px-4 py-2">{totalDebit.toFixed(2)}</td><td className="px-4 py-2">{totalCredit.toFixed(2)}</td><td></td></tr></tfoot>
-      </table>
-      <button onClick={handleAddEntryRow} className="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"><Icon name="plus" className="w-4 h-4 mr-1" /> Add Row</button>
-      <div className="mt-6 space-y-4">
-        <div className="relative"><label className="form-label">Narration</label><textarea value={narration} onChange={e => setNarration(e.target.value)} className="form-input w-full pr-10" rows={3}></textarea><button onClick={handleGenerateNarration} disabled={isNarrationLoading} className="absolute top-7 right-2 text-blue-500 hover:text-blue-700 disabled:text-gray-300" title="Generate Narration with AI">{isNarrationLoading ? <Icon name="spinner" className="w-5 h-5 animate-spin" /> : <Icon name="wand-sparkles" className="w-5 h-5" />}</button></div>
-        {!isJournalBalanced && totalDebit > 0 && <p className="text-red-500 text-sm mt-2">Totals do not match!</p>}
+      {/* Top Row: Date and Voucher Number */}
+      <div className="grid grid-cols-2 gap-4 mb-6 max-w-md">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Voucher Number</label>
+          <input
+            type="text"
+            value={voucherNumber}
+            readOnly
+            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+          />
+        </div>
+      </div>
+
+      {/* Journal Entries Table */}
+      <div className="border-2 border-gray-200 rounded-lg p-6">
+        <table className="min-w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="table-header">Ledger</th>
+              <th className="table-header">Note</th>
+              <th className="table-header w-32">Ref. No.</th>
+              <th className="table-header w-40">Debit</th>
+              <th className="table-header w-40">Credit</th>
+              <th className="w-12"></th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {entries.map((entry, index) => (
+              <tr key={index}>
+                <td className="px-4 py-2">
+                  <SearchableSelect
+                    value={entry.ledger}
+                    onChange={(val) => handleEntryChange(index, 'ledger', val)}
+                    options={allLedgers.map(l => l.name)}
+                    placeholder="Select Ledger"
+                  />
+                </td>
+                <td className="px-4 py-2">
+                  <input
+                    type="text"
+                    value={entry.note}
+                    onChange={e => handleEntryChange(index, 'note', e.target.value)}
+                    placeholder="Note"
+                    className="table-input"
+                  />
+                </td>
+                <td className="px-4 py-2">
+                  <input
+                    type="text"
+                    value={entry.refNo}
+                    onChange={e => handleEntryChange(index, 'refNo', e.target.value)}
+                    placeholder="Ref #"
+                    className="table-input"
+                  />
+                </td>
+                <td className="px-4 py-2">
+                  <input
+                    type="number"
+                    value={entry.debit}
+                    onChange={e => handleEntryChange(index, 'debit', parseFloat(e.target.value) || 0)}
+                    className="table-input"
+                  />
+                </td>
+                <td className="px-4 py-2">
+                  <input
+                    type="number"
+                    value={entry.credit}
+                    onChange={e => handleEntryChange(index, 'credit', parseFloat(e.target.value) || 0)}
+                    className="table-input"
+                  />
+                </td>
+                <td className="px-4 py-2">
+                  <button
+                    onClick={() => handleRemoveEntryRow(index)}
+                    className="text-red-500 hover:text-red-700 p-1"
+                  >
+                    <Icon name="trash" className="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="bg-gray-50 font-semibold border-t-2 border-gray-200">
+            <tr>
+              <td colSpan={3} className="px-4 py-3 text-right text-sm">Total</td>
+              <td className="px-4 py-3 text-sm">{totalDebit.toFixed(2)}</td>
+              <td className="px-4 py-3 text-sm">{totalCredit.toFixed(2)}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <button
+          onClick={handleAddEntryRow}
+          className="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
+        >
+          <Icon name="plus" className="w-4 h-4 mr-1" /> Add Row
+        </button>
+      </div>
+
+      {/* Posting Note Section */}
+      <div className="mt-6 max-w-md">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Posting Note</label>
+        <textarea
+          value={narration}
+          onChange={e => setNarration(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          rows={3}
+          placeholder="Enter posting note..."
+        />
+        {!isJournalBalanced && totalDebit > 0 && (
+          <p className="text-red-500 text-sm mt-2">Totals do not match!</p>
+        )}
       </div>
     </>
   );
