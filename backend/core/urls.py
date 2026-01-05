@@ -48,8 +48,9 @@ urlpatterns = [
     path('metrics/ai/', ai_metrics, name='ai-metrics'),
     
     # Settings
-    path('settings/users/', SettingsUsersView.as_view(), name='settings-users'),
-    path('settings/users/<int:user_id>/', SettingsUsersView.as_view(), name='settings-user-detail'),
+    # REF: Moved to users_roles module
+    # path('settings/users/', SettingsUsersView.as_view(), name='settings-users'),
+    # path('settings/users/<int:user_id>/', SettingsUsersView.as_view(), name='settings-user-detail'),
     # REMOVED: Role-related endpoints - no longer using roles
     # path('settings/roles/', SettingsRolesView.as_view(), name='settings-roles'),
     # path('seed-module-roles', SeedModuleRolesView.as_view(), name='seed-module-roles'),

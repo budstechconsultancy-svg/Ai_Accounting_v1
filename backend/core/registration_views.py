@@ -171,7 +171,7 @@ class CreateUserView(APIView):
                 access_token = str(refresh.access_token)
                 
                 # Get permissions from token (Owner gets all 33)
-                from .permission_constants import get_all_permission_ids, get_permission_codes_from_ids
+                from .rbac import get_all_permission_ids, get_permission_codes_from_ids
                 all_ids = get_all_permission_ids()
                 permissions = get_permission_codes_from_ids(all_ids)
                 

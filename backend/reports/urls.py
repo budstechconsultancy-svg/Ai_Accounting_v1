@@ -1,10 +1,18 @@
 from django.urls import path
-from .views import DayBookExcelView, LedgerReportExcelView, TrialBalanceExcelView, StockSummaryExcelView, GSTReportExcelView
+from .api import (
+    PlaceholderReportView, 
+    DaybookExcelView, 
+    TrialBalanceExcelView,
+    StockSummaryExcelView,
+    LedgerExcelView,
+    GSTExcelView
+)
 
 urlpatterns = [
-    path('daybook/excel', DayBookExcelView.as_view(), name='daybook-excel'),
-    path('ledger/excel', LedgerReportExcelView.as_view(), name='ledger-excel'),
-    path('trialbalance/excel', TrialBalanceExcelView.as_view(), name='trialbalance-excel'),
-    path('stocksummary/excel', StockSummaryExcelView.as_view(), name='stocksummary-excel'),
-    path('gst/excel', GSTReportExcelView.as_view(), name='gst-excel'),
+    path('placeholder/', PlaceholderReportView.as_view(), name='reports-placeholder'),
+    path('daybook/excel/', DaybookExcelView.as_view(), name='daybook-excel'),
+    path('trialbalance/excel/', TrialBalanceExcelView.as_view(), name='trialbalance-excel'),
+    path('stocksummary/excel/', StockSummaryExcelView.as_view(), name='stocksummary-excel'),
+    path('ledger/excel/', LedgerExcelView.as_view(), name='ledger-excel'),
+    path('gst/excel/', GSTExcelView.as_view(), name='gst-excel'),
 ]

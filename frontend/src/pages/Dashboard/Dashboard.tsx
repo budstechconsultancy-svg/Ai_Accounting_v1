@@ -55,8 +55,8 @@ const MonthlyActivityChart: React.FC<{ data: { month: string; sales: number; pur
             </div>
 
             {/* Fixed height container as required */}
-            <div style={{ height: '340px', position: 'relative' }} className="w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <div style={{ width: '100%', height: 340 }}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <LineChart
                         data={validatedData}
                         margin={{
@@ -269,14 +269,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ companyName, vouchers, le
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                {hasPermission('DASHBOARD_VIEW') && (
-                    <>
-                        <StatCard title="Total Sales" value={`₹${(totalSales / 1000).toFixed(1)}k`} icon={<Icon name="arrow-up-right" className="w-6 h-6 text-green-600" />} color="bg-green-100" />
-                        <StatCard title="Total Purchases" value={`₹${(totalPurchases / 1000).toFixed(1)}k`} icon={<Icon name="arrow-down-left" className="w-6 h-6 text-red-600" />} color="bg-red-100" />
-                        <StatCard title="Receivables" value={`₹${(totalReceivables / 1000).toFixed(1)}k`} icon={<Icon name="users" className="w-6 h-6 text-orange-600" />} color="bg-orange-100" />
-                        <StatCard title="Payables" value={`₹${(totalPayables / 1000).toFixed(1)}k`} icon={<Icon name="wallet" className="w-6 h-6 text-orange-600" />} color="bg-orange-100" />
-                    </>
-                )}
+                <StatCard title="Total Sales" value={`₹${(totalSales / 1000).toFixed(1)}k`} icon={<Icon name="arrow-up-right" className="w-6 h-6 text-green-600" />} color="bg-green-100" />
+                <StatCard title="Total Purchases" value={`₹${(totalPurchases / 1000).toFixed(1)}k`} icon={<Icon name="arrow-down-left" className="w-6 h-6 text-red-600" />} color="bg-red-100" />
+                <StatCard title="Receivables" value={`₹${(totalReceivables / 1000).toFixed(1)}k`} icon={<Icon name="users" className="w-6 h-6 text-orange-600" />} color="bg-orange-100" />
+                <StatCard title="Payables" value={`₹${(totalPayables / 1000).toFixed(1)}k`} icon={<Icon name="wallet" className="w-6 h-6 text-orange-600" />} color="bg-orange-100" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">

@@ -30,28 +30,98 @@ class Tenant(models.Model):
     def __str__(self):
         return self.name
 
-# REMOVED: Role model - no longer using roles table
-# class Role(models.Model):
-#     name = models.CharField(max_length=100)
-#     description = models.TextField(blank=True, null=True)
-#     tenant_id = models.CharField(max_length=36, db_index=True)
-#     is_system = models.BooleanField(default=False)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     class Meta:
-#         db_table = 'roles'
-#     def __str__(self):
-#         return f"{self.name} ({self.tenant_id})"
+# ============================================================================
+# NEW: Roles and Modules System
+# ============================================================================
+
+class Module(models.Model):
+    """
+    Represents a module/permission in the system.
+    Hierarchical structure with parent-child relationships.
+    """
+    id = models.AutoField(primary_key=True)
+    code = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    parent_module_id = models.IntegerField(blank=True, null=True)
+    display_order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'modules'
+        ordering = ['parent_module_id', 'display_order']
+    
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+
+class Role(models.Model):
+    """
+    Represents a role within a tenant.
+    Each tenant can have multiple roles.
+    """
+    id = models.AutoField(primary_key=True)
+    tenant_id = models.CharField(max_length=36, db_index=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    is_system = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'roles'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant_id', 'name'],
+                name='unique_role_per_tenant'
+            )
+        ]
+    
+    def __str__(self):
+        return f"{self.name} (Tenant: {self.tenant_id})"
+
+
+class RoleModule(models.Model):
+    """
+    Maps roles to modules with specific permissions.
+    Defines what each role can do with each module.
+    """
+    id = models.AutoField(primary_key=True)
+    role_id = models.IntegerField()
+    module_id = models.IntegerField()
+    can_view = models.BooleanField(default=True)
+    can_create = models.BooleanField(default=False)
+    can_edit = models.BooleanField(default=False)
+    can_delete = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'role_modules'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['role_id', 'module_id'],
+                name='unique_role_module'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['role_id'], name='idx_role_id'),
+            models.Index(fields=['module_id'], name='idx_module_id'),
+        ]
+    
+    def __str__(self):
+        return f"Role {self.role_id} - Module {self.module_id}"
 
 class User(AbstractBaseUser):
     # Map to 'users' table strictly
     id = models.AutoField(primary_key=True) # Matches INT in DB
     username = models.CharField(max_length=100, unique=True)
-    company_name = models.CharField(max_length=255, unique=True) # Schema NOT NULL
+    company_name = models.CharField(max_length=255, unique=True, null=True, blank=True) # Schema NOT NULL -> Nullable for migration
     email = models.CharField(max_length=255, blank=True, null=True, unique=True)
     # password provided by AbstractBaseUser
-    selected_plan = models.CharField(max_length=50) # Schema NOT NULL
+    selected_plan = models.CharField(max_length=50, null=True, blank=True) # Schema NOT NULL -> Nullable
     logo_path = models.CharField(max_length=500, blank=True, null=True)
-    tenant_id = models.CharField(max_length=36)  # Schema NOT NULL
+    tenant_id = models.CharField(max_length=36, null=True, blank=True)  # Schema NOT NULL -> Nullable
     
     # OTP verification fields
     phone = models.CharField(max_length=15, blank=True, null=True)
@@ -94,12 +164,12 @@ class TenantUser(AbstractBaseUser):
     
     is_active = models.BooleanField(default=True)
     
-    # NEW: Store selected submodule IDs as JSON array
-    # Example: [1, 5, 8] means user has access to permissions 1, 5, and 8
-    selected_submodule_ids = models.JSONField(default=list, blank=True)
+    # NEW: Role assignment (replaces selected_submodule_ids)
+    role_id = models.IntegerField(blank=True, null=True, db_index=True)
     
-    # REMOVED: role field - no longer using roles table
-    # role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True, related_name='tenant_users')
+    # DEPRECATED: Keep for backward compatibility during migration
+    # Will be removed after all users are migrated to roles
+    selected_submodule_ids = models.JSONField(default=list, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -119,8 +189,8 @@ class BaseModel(models.Model):
     # Schema tables usually have tenant_id.
     # We will use this mixin for convenience but specify db_table in children.
     tenant_id = models.CharField(max_length=36, db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
 
     class Meta:
         abstract = True

@@ -8,7 +8,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
         from .models import TenantUser
-        from .permission_constants import get_all_permission_ids, get_permission_codes_from_ids
+        from .rbac import get_all_permission_ids, get_permission_codes_from_ids
 
         # Add custom claims
         token['username'] = user.username

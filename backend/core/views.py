@@ -65,7 +65,7 @@ class UserModulePermissionsView(views.APIView):
         """Get permissions for a user - Owner gets all 33, TenantUser gets selected IDs"""
         current_user = request.user
         from .models import TenantUser
-        from .permission_constants import get_all_permission_ids, get_permission_codes_from_ids
+        from .rbac import get_all_permission_ids, get_permission_codes_from_ids
         
         # Determine if current user is Owner (User model) or Staff (TenantUser model)
         is_owner = not isinstance(current_user, TenantUser)

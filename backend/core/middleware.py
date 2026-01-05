@@ -1,30 +1,14 @@
 from django.utils.deprecation import MiddlewareMixin
-from core.authentication import CustomJWTAuthentication
+from core.auth import CustomJWTAuthentication
+from core.tenant import get_tenant_from_request
 
 class TenantMiddleware(MiddlewareMixin):
     """Attach request.tenant_id by checking header X-Tenant-ID first, then JWT claim 'tenant_id'."""
 
     def process_request(self, request):
-        # header override (useful for postman/testing)
-        header_tid = request.META.get('HTTP_X_TENANT_ID')
-        if header_tid:
-            request.tenant_id = header_tid
-            return
-
-        # try JWT
-        try:
-            auth = CustomJWTAuthentication()
-            user_auth_tuple = auth.authenticate(request)
-            if user_auth_tuple is not None:
-                user = user_auth_tuple[0]
-                validated_token = user_auth_tuple[1]
-                tid = validated_token.get('tenant_id')
-                request.tenant_id = tid
-                return
-        except Exception:
-            pass
-
-        request.tenant_id = None
+        # Use centralized tenant resolution logic
+        tenant_id = get_tenant_from_request(request)
+        request.tenant_id = tenant_id
 
 
 class PermissionMiddleware(MiddlewareMixin):
@@ -40,16 +24,6 @@ class PermissionMiddleware(MiddlewareMixin):
             if not hasattr(request, 'user') or not request.user.is_authenticated:
                 return None
 
-            # 1. Check if user is Owner (User model)
-            from .models import TenantUser
-            # Owners are not instances of TenantUser
-            is_owner = not isinstance(request.user, TenantUser)
-            
-            if is_owner:
-                # Owners have full authority over their tenant
-                return None
-
-            # 2. User is Staff (TenantUser) - Check permissions
             # Get required permission from view class or function
             required_permission = None
             
@@ -63,36 +37,15 @@ class PermissionMiddleware(MiddlewareMixin):
                 required_permission = getattr(view_func, 'required_permission', None)
 
             if not required_permission:
-                # If no permission is required, default to restricted (or allowed? 
-                # In our case, let's default to allowed if not specified, 
-                # but we will tag all important views)
+                # If no permission is required, allow access
                 return None
 
-            # 3. Verify access
-            from .permission_constants import get_permission_by_code
+            # Use centralized RBAC check
+            from core.rbac import check_permission
+            has_perm, error_response = check_permission(request.user, required_permission)
             
-            # If required_permission is a string (code), convert to ID
-            if isinstance(required_permission, str):
-                perm_data = get_permission_by_code(required_permission)
-                if perm_data:
-                    perm_id = perm_data['id']
-                else:
-                    # Code not found, deny for safety
-                    from django.http import JsonResponse
-                    return JsonResponse({'detail': f'Permission configuration error: {required_permission}'}, status=403)
-            else:
-                perm_id = required_permission
-
-            # Check if perm_id is in user's selected list
-            selected_ids = getattr(request.user, 'selected_submodule_ids', []) or []
-            
-            if perm_id not in selected_ids:
-                from django.http import JsonResponse
-                return JsonResponse({
-                    'detail': 'You do not have permission to access this module. Please contact your administrator.',
-                    'code': 'permission_denied',
-                    'required_permission_id': perm_id
-                }, status=403)
+            if not has_perm:
+                return error_response
 
             return None
         except Exception as e:
@@ -132,10 +85,32 @@ class ActivityTrackingMiddleware(MiddlewareMixin):
                     response.delete_cookie('refresh_token')
                     return response
                 
-                # Using queryset update to avoid overhead
-                # We catch exceptions to prevent blocking the main request
                 User.objects.filter(pk=request.user.pk).update(last_activity=timezone.now())
         except Exception:
             # Silent fail for background tracking
             pass
+
+class ExceptionLoggingMiddleware:
+    """
+    Log unhandled exceptions to a file for debugging.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
+    def process_exception(self, request, exception):
+        import traceback
+        import os
+        from django.conf import settings
+        
+        log_path = os.path.join(settings.BASE_DIR, 'traceback.log')
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(f"\\n--- Exception at {str(os.environ.get('DJANGO_SETTINGS_MODULE'))} ---\\n")
+            f.write(f"Path: {request.path}\\n")
+            f.write(f"User: {request.user}\\n")
+            traceback.print_exc(file=f)
+        
+        return None # Let Django handle the 500 response
     

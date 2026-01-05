@@ -1,10 +1,12 @@
 
+
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from core.auth_views import CookieTokenObtainPairView, CookieTokenRefreshView, LogoutView
 from core.token import MyTokenObtainPairSerializer
+from admin_api import SubscriptionsListView
 import threading
 import sys
 
@@ -27,22 +29,45 @@ check_db_connection()
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Auth endpoints
-    path('api/auth/login/', CookieTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/auth/refresh/', CookieTokenRefreshView.as_view(), name='token_refresh'),
-    path('api/auth/logout/', LogoutView.as_view(), name='auth_logout'),
+    
+    # Admin API (for admin-subscription-panel) - accept both with/without trailing slash
+    path('api/admin/subscriptions', SubscriptionsListView.as_view(), name='admin-subscriptions-no-slash'),
+    path('api/admin/subscriptions/', SubscriptionsListView.as_view(), name='admin-subscriptions'),
+    path('api/admin/payments', SubscriptionsListView.as_view(), name='admin-payments-no-slash'),
+    path('api/admin/payments/', SubscriptionsListView.as_view(), name='admin-payments'),
+    
+    # Login - NEW refactored module
+    path('api/auth/', include('login.urls')),
+    
+    # Registration - NEW refactored module
+    path('api/auth/', include('registration.urls')),
     
     # Core (Company, Health, Agent) - mapped to /api/
     path('api/', include('core.urls')),
     
-    # Accounting - mapped to /api/ and /api/masters/
-    path('api/', include('accounting.urls')),
-    path('api/masters/', include('accounting.urls')),
+    # Masters - NEW refactored module
+    path('api/masters/', include('masters.urls')),
+    path('api/', include('masters.urls')),  # For hierarchy endpoint
     
-    # Inventory - mapped to /api/ and /api/inventory/
-    path('api/', include('inventory.urls')),
+    # LEGACY ROUTES - COMMENTED OUT (functionality moved to new modules)
+    # path('api/', include('accounting.urls')),
+    # path('api/masters/', include('accounting.urls')),
+    
+    # Inventory - NEW refactored module
     path('api/inventory/', include('inventory.urls')),
+    
+    # Vouchers - NEW refactored module
+    path('api/', include('vouchers.urls')),
+    
+    # Settings - NEW refactored module
+    path('api/', include('settings.urls')),
+    
+    # Users & Roles - NEW refactored module
+    path('api/', include('users_roles.urls')),
 
     # Reports
     path('api/reports/', include('reports.urls')),
+    
+    # Questions API (from accounting module)
+    path('api/', include('accounting.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

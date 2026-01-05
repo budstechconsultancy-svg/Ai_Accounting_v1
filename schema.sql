@@ -9,9 +9,7 @@
 -- Character Set: utf8mb4
 -- Collation: utf8mb4_0900_ai_ci
 
--- ============================================================================
--- CORE TABLES
--- ============================================================================
+-
 
 -- Tenants Table
 CREATE TABLE IF NOT EXISTS `tenants` (

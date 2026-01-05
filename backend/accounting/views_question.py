@@ -1,6 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
 from django.db.models import Q
 from .models_question import Question
 from .serializers_question import QuestionSerializer
@@ -17,6 +18,8 @@ class QuestionViewSet(viewsets.ReadOnlyModelViewSet):
     """
     queryset = Question.objects.all()
     serializer_class = QuestionSerializer
+    permission_classes = [AllowAny]  # Questions are global, read-only data
+
     
     @action(detail=False, methods=['get'])
     def by_subgroup(self, request):
