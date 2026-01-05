@@ -1,38 +1,101 @@
-// Frontend Gemini Service - makes HTTP requests to backend API
-// Version: 2.1 - Fixed authentication and endpoints
+/**
+ * ============================================================================
+ * GEMINI AI SERVICE (geminiService.ts)
+ * ============================================================================
+ * This service handles all AI-powered features using Google Gemini AI.
+ * Communicates with the Django backend which interfaces with Gemini API.
+ * 
+ * KEY FEATURES:
+ * 1. Invoice Data Extraction - Extract structured data from invoice images/PDFs
+ * 2. AI Chatbot (Kiki) - Answer accounting questions using company data
+ * 3. Web-Grounded Search - Answer questions using real-time web search
+ * 
+ * ARCHITECTURE:
+ * - Frontend → Django Backend → Google Gemini API
+ * - Uses fetch() directly (not httpClient) for file uploads
+ * - Implements retry logic for rate limiting
+ * - Handles queue status for busy AI service
+ * - Uses HttpOnly cookies for authentication
+ * 
+ * ERROR HANDLING:
+ * - Automatic retries with exponential backoff
+ * - Rate limit detection (429 errors)
+ * - Queue position tracking
+ * - Circuit breaker for service overload
+ * 
+ * FOR NEW DEVELOPERS:
+ * - Invoice extraction: extractInvoiceDataWithRetry()
+ * - Chatbot (internal data): getAgentResponse()
+ * - Chatbot (web search): getGroundedAgentResponse()
+ * - All functions return Promises with typed responses
+ */
+
+// Import TypeScript types
 import type { ExtractedInvoiceData } from '../types';
 
-// 🧾 Invoice Extraction with Retry
+// ============================================================================
+// INVOICE DATA EXTRACTION
+// ============================================================================
+
+/**
+ * Extract structured data from invoice images/PDFs using AI
+ * Implements automatic retry logic with exponential backoff
+ * 
+ * WHAT IT EXTRACTS:
+ * - Seller name
+ * - Invoice number and date
+ * - Line items (description, quantity, rate, HSN code)
+ * - Tax amounts (CGST, SGST, IGST)
+ * - Total amount
+ * 
+ * USAGE:
+ * ```typescript
+ * const file = event.target.files[0]; // User-selected file
+ * const data = await extractInvoiceDataWithRetry(file);
+ * // data contains: { sellerName, invoiceNumber, lineItems, totalAmount, ... }
+ * ```
+ * 
+ * @param file - Invoice file (image or PDF)
+ * @param maxRetries - Maximum number of retry attempts (default: 3)
+ * @param initialDelay - Initial delay between retries in ms (default: 5000)
+ * @returns Extracted invoice data
+ * @throws Error if extraction fails after all retries
+ */
 export const extractInvoiceDataWithRetry = async (
   file: File,
   maxRetries = 3,
   initialDelay = 5000
 ): Promise<ExtractedInvoiceData> => {
+  // Prepare file for upload
   const formData = new FormData();
   formData.append('file', file);
 
   let attempt = 0;
   let delay = initialDelay;
 
+  // Retry loop
   while (attempt < maxRetries) {
     try {
+      // Wait before retry (skip on first attempt)
       if (attempt > 0) {
         await new Promise((r) => setTimeout(r, delay));
       }
 
-
+      // Get API base URL from environment or use default
       const baseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
       const token = localStorage.getItem('token');
 
+      // Make API request to backend
       const response = await fetch(`${baseUrl}/api/ai/extract-invoice/`, {
         method: 'POST',
         headers: {
-          // 'Authorization': token ? `Bearer ${token}` : ''
+          // Authorization via HttpOnly cookies (not header)
         },
-        credentials: 'include',
+        credentials: 'include',  // Send cookies for authentication
         body: formData,
       });
 
+      // Handle error responses
       if (!response.ok) {
         let errorMessage = `Server error: ${response.status}`;
         try {
@@ -42,56 +105,94 @@ export const extractInvoiceDataWithRetry = async (
           errorMessage = await response.text();
         }
 
-
+        // Handle specific error codes
         if (response.status === 429) {
+          // Rate limit exceeded - AI service is busy
           throw new Error(errorMessage || 'AI service is temporarily overloaded. Please try again in a few minutes.');
         } else if (response.status === 500) {
+          // Server error
           throw new Error(errorMessage || 'Server error occurred. Please check the backend logs.');
         } else {
           throw new Error(errorMessage);
         }
       }
 
+      // Success - parse and return extracted data
       const data = await response.json();
       return data as ExtractedInvoiceData;
     } catch (error: any) {
       attempt++;
 
+      // If all retries exhausted, throw error
       if (attempt >= maxRetries) {
         throw new Error(`❌ Failed to extract invoice data after ${maxRetries} attempts. ${error.message}`);
       }
 
-      // Increase delay for rate limiting
+      // Adjust delay based on error type
       if (error.message?.includes('429') || error.message?.includes('overloaded')) {
+        // Rate limiting - increase delay more aggressively
         delay = Math.min(delay * 3, 30000); // Max 30 seconds
       } else {
-        delay = Math.min(delay * 2, 10000); // Max 10 seconds for other errors
+        // Other errors - standard exponential backoff
+        delay = Math.min(delay * 2, 10000); // Max 10 seconds
       }
     }
   }
   throw new Error('Unexpected retry termination.');
 };
 
-// 💬 Accounting Q&A with improved error handling and queue status
+// ============================================================================
+// AI CHATBOT (KIKI) - INTERNAL DATA
+// ============================================================================
+
+/**
+ * Get AI chatbot response based on company's internal data
+ * The AI (Kiki) answers questions using vouchers, ledgers, and stock data
+ * 
+ * HOW IT WORKS:
+ * 1. Frontend sends user question + company data (JSON)
+ * 2. Backend formats data and sends to Gemini AI
+ * 3. Gemini analyzes data and generates answer
+ * 4. Response returned to frontend
+ * 
+ * FEATURES:
+ * - Answers accounting questions
+ * - Analyzes company financial data
+ * - Handles rate limiting gracefully
+ * - Shows queue position when busy
+ * 
+ * USAGE:
+ * ```typescript
+ * const contextData = JSON.stringify({ vouchers, ledgers, stockItems });
+ * const response = await getAgentResponse(contextData, "What are my total sales?");
+ * console.log(response.reply); // AI's answer
+ * ```
+ * 
+ * @param contextData - JSON string of company data (vouchers, ledgers, etc.)
+ * @param userQuery - User's question
+ * @returns Object with reply and optional queue/rate limit info
+ */
 export const getAgentResponse = async (
   contextData: string,
   userQuery: string
 ): Promise<{ reply: string; code?: string; retryAfter?: number; queuePosition?: number; estimatedWaitSeconds?: number }> => {
   try {
+    // Get API configuration
     const baseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
     const token = localStorage.getItem('token');
 
+    // Make API request to chatbot endpoint
     const response = await fetch(`${baseUrl}/api/agent/message/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // 'Authorization': token ? `Bearer ${token}` : '' // Using cookies now
+        // Authorization via HttpOnly cookies
       },
-      credentials: 'include', // Important for cookies
+      credentials: 'include', // Send cookies for authentication
       body: JSON.stringify({
         message: userQuery,
         contextData,
-        useGrounding: false
+        useGrounding: false  // Use internal data, not web search
       }),
     });
 
@@ -100,25 +201,34 @@ export const getAgentResponse = async (
     if (contentType && contentType.includes('application/json')) {
       const data = await response.json();
 
+      // Handle error responses
       if (!response.ok) {
 
+        // Authentication error
         if (response.status === 401) {
           return { reply: data.error || "Please log in to use the AI assistant.", code: 'AUTH_ERROR' };
-        } else if (response.status === 429) {
+        }
+        // Rate limiting or queue
+        else if (response.status === 429) {
+          // Rate limit - user needs to wait
           if (data.code === 'RATE_LIMIT' && data.retryAfter) {
             return {
               reply: `Rate limit exceeded. Please wait ${data.retryAfter} seconds before trying again.`,
               code: 'RATE_LIMIT',
               retryAfter: data.retryAfter
             };
-          } else if (data.code === 'QUEUED' && data.queuePosition) {
+          }
+          // Queued - request is waiting in line
+          else if (data.code === 'QUEUED' && data.queuePosition) {
             return {
               reply: `Your request is queued (position ${data.queuePosition}). Estimated wait: ${data.estimatedWaitSeconds || 'unknown'} seconds.`,
               code: 'QUEUED',
               queuePosition: data.queuePosition,
               estimatedWaitSeconds: data.estimatedWaitSeconds
             };
-          } else if (data.code === 'CIRCUIT_BREAKER') {
+          }
+          // Circuit breaker - service is down
+          else if (data.code === 'CIRCUIT_BREAKER') {
             return { reply: "AI service is temporarily unavailable. Please try again later.", code: 'CIRCUIT_BREAKER' };
           }
           return { reply: data.error || "AI service is busy. Please wait a moment and try again.", code: 'SERVICE_BUSY' };
@@ -127,19 +237,50 @@ export const getAgentResponse = async (
         return { reply: data.error || "Sorry, I encountered an error while processing your request.", code: 'UNKNOWN_ERROR' };
       }
 
+      // Success - return AI's response
       return { reply: data.reply || "I couldn't generate a response at this time." };
     } else {
-      // HTML error page returned
+      // HTML error page returned (server error)
       const text = await response.text();
       return { reply: "Server error occurred. Please check the backend logs.", code: 'SERVER_ERROR' };
     }
 
   } catch (err: any) {
+    // Network error or other exception
     return { reply: "Sorry, I encountered an error while processing your request.", code: 'NETWORK_ERROR' };
   }
 };
 
-// 💬 Accounting Q&A with Web Grounding
+// ============================================================================
+// AI CHATBOT (KIKI) - WEB SEARCH
+// ============================================================================
+
+/**
+ * Get AI chatbot response using real-time web search
+ * The AI searches the internet for up-to-date information
+ * 
+ * HOW IT WORKS:
+ * 1. Frontend sends user question
+ * 2. Backend uses Gemini with Google Search grounding
+ * 3. Gemini searches web and generates answer with sources
+ * 4. Response includes answer + source URLs
+ * 
+ * USE CASES:
+ * - Latest tax rates
+ * - Current accounting standards
+ * - Recent regulatory changes
+ * - General accounting questions
+ * 
+ * USAGE:
+ * ```typescript
+ * const response = await getGroundedAgentResponse("What is the current GST rate for electronics?");
+ * console.log(response.text);    // AI's answer
+ * console.log(response.sources); // Array of source URLs
+ * ```
+ * 
+ * @param userQuery - User's question
+ * @returns Object with text answer and source URLs
+ */
 export const getGroundedAgentResponse = async (
   userQuery: string
 ): Promise<{ text: string; sources: { uri: string; title: string; }[] }> => {

@@ -1,11 +1,47 @@
 /**
- * API Service
+ * ============================================================================
+ * API SERVICE (api.ts)
+ * ============================================================================
+ * This file contains ALL API endpoint methods for communicating with the backend.
+ * It's a wrapper around httpClient that provides typed, easy-to-use methods.
  * 
- * Clean API wrapper using httpClient.
- * Contains minimal logic - backend handles all data transformation and aggregation.
+ * ARCHITECTURE:
+ * - Uses httpClient for HTTP communication (handles auth, errors, retries)
+ * - Organized by feature area (Company, Masters, Inventory, Vouchers, etc.)
+ * - All methods return Promises with typed data
+ * - Handles data transformation between frontend and backend formats
+ * 
+ * MAIN SECTIONS:
+ * 1. Company Settings - Company details, logo upload
+ * 2. Masters - Ledgers, ledger groups, voucher configuration
+ * 3. Inventory - Units, stock groups, stock items
+ * 4. Vouchers - All transaction types (sales, purchase, payment, etc.)
+ * 5. AI Features - Invoice extraction, narration generation
+ * 6. Authentication - Login, register, logout
+ * 7. Users & Permissions - User management, roles, permissions
+ * 
+ * FOR NEW DEVELOPERS:
+ * - Always use apiService instead of httpClient directly
+ * - All methods handle authentication automatically
+ * - Check the return types for what data you'll receive
+ * - Backend uses snake_case, frontend uses camelCase (transformation happens here)
+ * 
+ * USAGE EXAMPLE:
+ * ```typescript
+ * import { apiService } from './services';
+ * 
+ * // Get all ledgers
+ * const ledgers = await apiService.getLedgers();
+ * 
+ * // Save a new voucher
+ * const voucher = await apiService.saveVoucher(voucherData);
+ * ```
  */
 
+// Import HTTP client for making requests
 import { httpClient } from './httpClient';
+
+// Import TypeScript types for type safety
 import type {
     CompanyDetails,
     Ledger,
@@ -20,16 +56,31 @@ import type {
     RoleModulesData
 } from '../types';
 
+/**
+ * ApiService class - Provides methods for all backend API endpoints
+ * Singleton pattern - only one instance exists (exported as apiService)
+ */
 class ApiService {
     // ============================================================================
     // COMPANY SETTINGS
     // ============================================================================
+    // Methods for managing company information (name, address, logo, etc.)
 
+    /**
+     * Get company details for the current tenant
+     * Returns: Company name, address, GST, logo URL, etc.
+     */
     async getCompanyDetails() {
         return httpClient.get<CompanyDetails>('/api/company-settings/');
     }
 
+    /**
+     * Save or update company details
+     * Handles both JSON data and file uploads (for logo)
+     * @param data - Company details including optional logo file
+     */
     async saveCompanyDetails(data: CompanyDetails & { logoFile?: File | null }) {
+        // If logo file is provided, use FormData for file upload
         if (data.logoFile) {
             const formData = new FormData();
             formData.append('company_name', data.name);
@@ -41,13 +92,20 @@ class ApiService {
             if (data.website) formData.append('website', data.website);
             return httpClient.postFormData<CompanyDetails>('/api/company-settings/', formData);
         }
+        // Otherwise, send JSON data
         return httpClient.post<CompanyDetails>('/api/company-settings/', data);
     }
 
     // ============================================================================
     // MASTERS - LEDGERS
     // ============================================================================
+    // Ledgers are individual accounts in the chart of accounts
+    // Examples: "HDFC Bank", "Cash", "Sales - Product A", "Customer XYZ"
 
+    /**
+     * Get all ledgers for the current tenant
+     * Returns: Array of ledger objects
+     */
     async getLedgers() {
         return httpClient.get<Ledger[]>('/api/masters/ledgers/');
     }
@@ -215,18 +273,30 @@ class ApiService {
     // ============================================================================
     // VOUCHERS - UNIFIED ENDPOINT
     // ============================================================================
+    // Vouchers are transactions: Sales, Purchase, Payment, Receipt, Contra, Journal
+    // All voucher types use the same endpoint with type differentiation
 
-    // Helper to normalize voucher type to lowercase
+    /**
+     * Helper method to normalize voucher type to lowercase
+     * Backend expects lowercase, frontend uses TitleCase
+     * @param type - Voucher type (e.g., "Sales", "Purchase")
+     * @returns Lowercase type (e.g., "sales", "purchase")
+     */
     private normalizeVoucherType(type: string): string {
         return type.toLowerCase();
     }
 
+    /**
+     * Get all vouchers, optionally filtered by type
+     * @param type - Optional voucher type filter ("Sales", "Purchase", etc.)
+     * @returns Array of vouchers with normalized types
+     */
     async getVouchers(type?: string) {
         const normalizedType = type ? this.normalizeVoucherType(type) : undefined;
         const endpoint = normalizedType ? `/api/vouchers/?type=${normalizedType}` : '/api/vouchers/';
         const vouchers = await httpClient.get<Voucher[]>(endpoint);
 
-        // TitleCase the types for frontend compatibility
+        // Map backend lowercase types to frontend TitleCase
         const typeMap: Record<string, string> = {
             'sales': 'Sales',
             'purchase': 'Purchase',
@@ -292,7 +362,15 @@ class ApiService {
     // ============================================================================
     // AI FEATURES
     // ============================================================================
+    // AI-powered features using Google Gemini
 
+    /**
+     * Extract invoice data from an uploaded image/PDF using AI
+     * @param file - Invoice file (image or PDF)
+     * @param type - Voucher type ("Sales" or "Purchase")
+     * @param save - Whether to save the extracted voucher to database
+     * @returns Extracted invoice data (party, items, amounts, etc.)
+     */
     async extractInvoiceData(file: File, type?: string, save: boolean = true) {
         const formData = new FormData();
         formData.append('file', file);
@@ -325,11 +403,19 @@ class ApiService {
     // ============================================================================
     // AUTHENTICATION
     // ============================================================================
+    // User login, registration, and session management
 
+    /**
+     * Login user with credentials
+     * @param email - User email
+     * @param username - Username
+     * @param password - Password
+     * @returns User data, tokens, and permissions
+     */
     async login(email: string, username: string, password: string) {
         const data = await httpClient.post<any>('/api/auth/login/', { email, username, password });
 
-        // Explicitly save tokens to localStorage to ensure Authorization header is sent
+        // Save tokens to localStorage (backup for HttpOnly cookies)
         if (data.access) {
             localStorage.setItem('token', data.access);
         }
@@ -337,6 +423,7 @@ class ApiService {
             localStorage.setItem('refreshToken', data.refresh);
         }
 
+        // Save tenant and company info
         if (data.user) {
             httpClient.saveAuthData({
                 tenant_id: data.user?.tenant_id || data.tenant_id,

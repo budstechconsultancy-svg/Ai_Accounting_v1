@@ -1,13 +1,47 @@
 /**
- * Simplified HTTP Client
+ * ============================================================================
+ * HTTP CLIENT (httpClient.ts)
+ * ============================================================================
+ * This is the low-level HTTP communication layer for the entire application.
+ * It handles all network requests to the Django backend API.
  * 
- * Minimal HTTP client for making API requests to the backend.
- * Contains NO business logic - just handles HTTP communication.
+ * KEY FEATURES:
+ * - Automatic authentication using HttpOnly cookies (secure)
+ * - Automatic token refresh when access token expires
+ * - Error handling and retry logic
+ * - Support for JSON and FormData (file uploads)
+ * 
+ * SECURITY:
+ * - Uses HttpOnly cookies instead of localStorage for tokens
+ * - Automatically includes credentials in all requests
+ * - Handles 401 errors by attempting token refresh
+ * 
+ * FOR NEW DEVELOPERS:
+ * - Don't use fetch() directly - always use this httpClient
+ * - The backend expects cookies, not Authorization headers
+ * - All methods return Promises that resolve to typed data
+ * 
+ * USAGE EXAMPLE:
+ * ```typescript
+ * import { httpClient } from './httpClient';
+ * 
+ * // GET request
+ * const data = await httpClient.get<MyType>('/api/endpoint');
+ * 
+ * // POST request
+ * const result = await httpClient.post('/api/endpoint', { key: 'value' });
+ * ```
  */
 
+// Read API base URL from environment variable or use default
+// In production, set VITE_API_URL in .env file to your backend URL
 export const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
 
+/**
+ * HttpClient class - Handles all HTTP communication with the backend
+ */
 class HttpClient {
+    // Base URL for all API requests
     private baseURL = API_BASE_URL;
 
     /**
