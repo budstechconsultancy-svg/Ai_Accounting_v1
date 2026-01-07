@@ -1071,10 +1071,10 @@ const App: React.FC = () => {
       <div className="fixed bottom-8 right-8 z-40">
         <button
           onClick={() => setIsAgentOpen(true)}
-          className="bg-orange-500 text-white rounded-full p-0 overflow-hidden w-20 h-20 flex items-center justify-center shadow-lg hover:bg-orange-600 transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+          className="bg-white text-white rounded-full p-0 overflow-hidden w-20 h-20 flex items-center justify-center shadow-lg hover:bg-gray-100 transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
           aria-label="Open Kiki"
         >
-          <img src="/src/assets/fox-logo.png" alt="Kiki AI" className="w-full h-full object-cover transform scale-150" />
+          <img src="/src/assets/fox-logo-v3.png" alt="Kiki AI" className="w-full h-full object-cover transform scale-125" />
         </button>
       </div>
 

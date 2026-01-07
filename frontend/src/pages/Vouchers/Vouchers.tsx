@@ -3,6 +3,7 @@ import type { VoucherType, Ledger, StockItem, Voucher, SalesPurchaseVoucher, Pay
 import Icon from '../../components/Icon';
 import { apiService } from '../../services';
 import MassUploadModal from '../../components/MassUploadModal';
+import InvoiceScannerModal from '../../components/InvoiceScannerModal';
 import ErrorBoundary from '../../components/ErrorBoundary';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5003';
@@ -129,6 +130,12 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
   const jsonInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
   const [isMassUploadOpen, setIsMassUploadOpen] = useState(false);
+
+  // Invoice Scanner Modal state
+  const [isInvoiceScannerOpen, setIsInvoiceScannerOpen] = useState(false);
+  const [uploadedInvoiceFiles, setUploadedInvoiceFiles] = useState<File[]>([]);
+  const [extractedInvoiceData, setExtractedInvoiceData] = useState<any[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
 
   // Common state
   const [date, setDate] = useState(getTodayDate());
@@ -1487,10 +1494,20 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
     <div>
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Voucher Entry</h2>
 
-      <div className="mb-6 flex flex-wrap justify-center p-1 bg-slate-200 rounded-lg max-w-3xl mx-auto">
-        {availableVoucherTypes.map(type => (
-          <button key={type.id} onClick={() => { setVoucherType(type.id); resetForm(); }} className={`flex-1 py-2 px-3 text-sm font-semibold rounded-md transition-colors m-1 ${voucherType === type.id ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-600 hover:bg-slate-300'}`}>{type.label}</button>
-        ))}
+      <div className="mb-6 flex flex-wrap justify-center items-center gap-2 p-1 bg-slate-200 rounded-lg max-w-4xl mx-auto">
+        <div className="flex flex-wrap justify-center flex-1 gap-1">
+          {availableVoucherTypes.map(type => (
+            <button key={type.id} onClick={() => { setVoucherType(type.id); resetForm(); }} className={`flex-1 py-2 px-3 text-sm font-semibold rounded-md transition-colors ${voucherType === type.id ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-600 hover:bg-slate-300'}`}>{type.label}</button>
+          ))}
+        </div>
+        <button
+          onClick={() => setIsInvoiceScannerOpen(true)}
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          title="Upload and scan invoices"
+        >
+          <Icon name="upload" className="w-4 h-4 mr-2" />
+          Upload Invoices
+        </button>
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
@@ -1515,10 +1532,10 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
               {isImportMenuOpen && (
                 <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
                   <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+                    <a href="#" onClick={(e) => { e.preventDefault(); setIsInvoiceScannerOpen(true); setIsImportMenuOpen(false); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">Upload Invoices (Scan)</a>
                     <a href="#" onClick={(e) => { e.preventDefault(); triggerFileUpload(imageInputRef); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">From Image {(voucherType === 'Purchase' || voucherType === 'Sales') ? '(AI)' : ''}</a>
                     <a href="#" onClick={(e) => { e.preventDefault(); triggerFileUpload(jsonInputRef); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">From JSON</a>
                     <a href="#" onClick={(e) => { e.preventDefault(); triggerFileUpload(excelInputRef); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">From Excel</a>
-                    <div className="border-t border-gray-100 my-1"></div>
                     <a href="#" onClick={(e) => { e.preventDefault(); handleDownloadTemplate(); }} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
                       <Icon name="download" className="w-4 h-4 mr-2" />
                       Download Template
@@ -1583,6 +1600,13 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
             voucherType={voucherType}
           />
         </ErrorBoundary>
+      )}
+
+      {/* Invoice Scanner Modal */}
+      {isInvoiceScannerOpen && (
+        <InvoiceScannerModal
+          onClose={() => setIsInvoiceScannerOpen(false)}
+        />
       )}
 
       {/* Recent / Imported Vouchers - show below the form so imports are visible immediately */}

@@ -218,3 +218,72 @@ class MasterHierarchyRaw(models.Model):
     class Meta:
         managed = False
         db_table = 'master_hierarchy_raw'
+class ExtractedInvoice(BaseModel):
+    """
+    Stores data extracted from invoices via OCR.
+    Supports 109 fields mapping to the Excel export specification.
+    """
+    # General Details
+    voucher_date = models.CharField(max_length=20, null=True, blank=True)
+    invoice_number = models.CharField(max_length=100, null=True, blank=True)
+    po_number = models.CharField(max_length=100, null=True, blank=True)
+    po_date = models.CharField(max_length=20, null=True, blank=True)
+    
+    # Supplier Details
+    supplier_name = models.CharField(max_length=255, null=True, blank=True)
+    bill_from_address = models.TextField(null=True, blank=True)
+    ship_from_address = models.TextField(null=True, blank=True)
+    email = models.CharField(max_length=255, null=True, blank=True)
+    phone = models.CharField(max_length=100, null=True, blank=True)
+    sales_person = models.CharField(max_length=255, null=True, blank=True)
+    gstin = models.CharField(max_length=15, null=True, blank=True)
+    pan = models.CharField(max_length=10, null=True, blank=True)
+    msme_number = models.CharField(max_length=50, null=True, blank=True)
+    payment_terms = models.CharField(max_length=255, null=True, blank=True)
+    delivery_terms = models.CharField(max_length=255, null=True, blank=True)
+    
+    # Ledger Details
+    ledger_amount = models.CharField(max_length=50, null=True, blank=True)
+    ledger_rate = models.CharField(max_length=50, null=True, blank=True)
+    ledger_dr_cr = models.CharField(max_length=10, null=True, blank=True, db_column='ledger_amount_dr_cr')
+    ledger_narration = models.TextField(null=True, blank=True)
+    ledger_description = models.TextField(null=True, blank=True, db_column='description_of_ledger')
+    tax_payment_type = models.CharField(max_length=100, null=True, blank=True, db_column='type_of_tax_payment')
+    
+    # Item Details
+    item_code = models.CharField(max_length=100, null=True, blank=True)
+    item_description = models.TextField(null=True, blank=True, db_column='item_description')
+    quantity = models.CharField(max_length=50, null=True, blank=True)
+    uom = models.CharField(max_length=50, null=True, blank=True, db_column='quantity_uom')
+    item_rate = models.CharField(max_length=50, null=True, blank=True)
+    discount_pct = models.CharField(max_length=50, null=True, blank=True, db_column='disc_pct')
+    item_amount = models.CharField(max_length=50, null=True, blank=True)
+    marks = models.CharField(max_length=255, null=True, blank=True)
+    num_packages = models.CharField(max_length=50, null=True, blank=True, db_column='no_of_packages')
+    freight_charges = models.CharField(max_length=50, null=True, blank=True)
+    
+    # HSN/SAC
+    hsn_sac = models.CharField(max_length=20, null=True, blank=True, db_column='hsn_sac_details')
+    
+    # GST Details
+    gst_rate = models.CharField(max_length=50, null=True, blank=True)
+    igst_amount = models.CharField(max_length=50, null=True, blank=True)
+    cgst_amount = models.CharField(max_length=50, null=True, blank=True)
+    sgst_amount = models.CharField(max_length=50, null=True, blank=True, db_column='sgst_utgst_amount')
+    cess_rate = models.CharField(max_length=50, null=True, blank=True)
+    cess_amount = models.CharField(max_length=50, null=True, blank=True)
+    state_cess_rate = models.CharField(max_length=50, null=True, blank=True)
+    state_cess_amount = models.CharField(max_length=50, null=True, blank=True)
+    reverse_charge = models.CharField(max_length=10, null=True, blank=True, db_column='applicable_for_reverse_charge')
+    taxable_value = models.CharField(max_length=50, null=True, blank=True)
+    invoice_value = models.CharField(max_length=50, null=True, blank=True)
+    
+    # Flexible Storage for all 109 fields
+    additional_fields = models.JSONField(null=True, blank=True, help_text="Stores the remaining 60+ fields dynamically")
+
+    class Meta:
+        db_table = 'extracted_invoices'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.invoice_number} - {self.supplier_name}"
