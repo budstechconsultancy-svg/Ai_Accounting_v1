@@ -6,9 +6,7 @@ import hashlib
 import logging
 import threading
 from typing import Dict, Any, Optional
-import redis
 from django.core.cache import cache
-from django_rq import get_queue
 from google.api_core import exceptions
 import google.generativeai as genai
 
@@ -19,14 +17,6 @@ class APIKeyManager:
     """Manages multiple API keys with rate limiting and health tracking"""
 
     def __init__(self):
-        try:
-            self.redis_client = redis.from_url(os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0'))
-            self.redis_available = self._check_redis_connection()
-        except Exception as e:
-            logger.warning(f"Redis unavailable for API key management: {e}")
-            self.redis_client = None
-            self.redis_available = False
-
         # Load keys from environment variables (can have multiple GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.)
         self.api_keys = []
         for i in range(1, 11):  # Support up to 10 keys
@@ -41,14 +31,7 @@ class APIKeyManager:
         
         self.unhealthy_keys = set()  # Track unhealthy keys
         self.recheck_interval = 90  # 1.5 minutes cooldown
-
-    def _check_redis_connection(self) -> bool:
-        """Check if Redis is available"""
-        try:
-            self.redis_client.ping()
-            return True
-        except Exception:
-            return False
+        self.rotation_counter = 0  # In-memory rotation counter
 
     def get_healthy_key(self) -> Optional[str]:
         """Get next healthy API key with round-robin rotation"""
@@ -60,16 +43,14 @@ class APIKeyManager:
 
         keys_to_use = healthy_keys if healthy_keys else self.api_keys  # Fall back to unhealthy if no healthy available
 
-        if self.redis_available and healthy_keys:
-            # Use Redis counter for round-robin only when healthy keys available
-            try:
-                key_index = self.redis_client.incr('api_key_rotation') % len(healthy_keys)
-                selected_key = healthy_keys[key_index]
-                return selected_key
-            except Exception as e:
-                logger.warning(f"Redis error in API key rotation: {e}, falling back to simple selection")
+        if healthy_keys:
+            # Use in-memory counter for round-robin
+            self.rotation_counter += 1
+            key_index = self.rotation_counter % len(healthy_keys)
+            selected_key = healthy_keys[key_index]
+            return selected_key
 
-        # Fallback when Redis is unavailable or no healthy keys
+        # Fallback when no healthy keys
         return keys_to_use[0] if keys_to_use else None
 
     def mark_key_unhealthy(self, api_key: str):
@@ -78,7 +59,6 @@ class APIKeyManager:
         logger.warning(f"Marked API key {api_key[:10]}... as unhealthy")
 
         # Schedule recheck
-        import threading
         threading.Timer(self.recheck_interval, lambda: self._recheck_key(api_key)).start()
 
     def _recheck_key(self, api_key: str):
@@ -98,105 +78,69 @@ class CircuitBreaker:
     """Circuit breaker to stop requests when provider is failing"""
 
     def __init__(self):
-        try:
-            self.redis_client = redis.from_url(os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0'))
-            self.redis_available = self.redis_client.ping()
-        except Exception as e:
-            logger.warning(f"Redis unavailable for circuit breaker: {e}")
-            self.redis_client = None
-            self.redis_available = False
-
         self.failure_threshold = 5  # Failures per minute
         self.reset_timeout = 300  # 5 minutes
 
-        # Fallback in-memory state when Redis unavailable
-        self.fallback_failures = 0
-        self.fallback_last_failure = 0
+        # In-memory state
+        self.failures = 0
+        self.last_failure = 0
 
     def is_open(self) -> bool:
         """Check if circuit breaker is open (blocking requests)"""
-        if self.redis_available:
-            try:
-                key = 'circuit_breaker_failures'
-                failures = self.redis_client.get(key)
-                if failures and int(failures) >= self.failure_threshold:
-                    # Check if timeout has passed
-                    last_failure_time = self.redis_client.get('circuit_breaker_last_failure')
-                    if last_failure_time:
-                        since_last_failure = time.time() - float(last_failure_time)
-                        if since_last_failure < self.reset_timeout:
-                            return True
-                        else:
-                            # Reset failures
-                            self.redis_client.delete(key)
-                            self.redis_client.delete('circuit_breaker_last_failure')
-                return False
-            except Exception as e:
-                logger.warning(f"Redis error in circuit breaker: {e}, using fallback")
-
-        # Fallback logic with in-memory state
         now = time.time()
-        if self.fallback_failures >= self.failure_threshold:
-            if now - self.fallback_last_failure < self.reset_timeout:
+        if self.failures >= self.failure_threshold:
+            if now - self.last_failure < self.reset_timeout:
                 return True
             else:
                 # Reset failures
-                self.fallback_failures = 0
-                self.fallback_last_failure = 0
+                self.failures = 0
+                self.last_failure = 0
         return False
 
     def record_failure(self):
         """Record a failure"""
-        if self.redis_available:
-            try:
-                key = 'circuit_breaker_failures'
-                self.redis_client.incr(key)
-                self.redis_client.set('circuit_breaker_last_failure', time.time())
-                return
-            except Exception as e:
-                logger.warning(f"Redis error recording failure: {e}")
-
-        # Fallback to memory
-        self.fallback_failures += 1
-        self.fallback_last_failure = time.time()
+        self.failures += 1
+        self.last_failure = time.time()
 
     def record_success(self):
         """Record a success to potentially close circuit"""
-        if self.redis_available:
-            try:
-                key = 'circuit_breaker_failures'
-                failures = self.redis_client.get(key)
-                if failures and int(failures) > 0:
-                    self.redis_client.decr(key)
-                return
-            except Exception as e:
-                logger.warning(f"Redis error recording success: {e}")
-
-        # Fallback to memory
-        if self.fallback_failures > 0:
-            self.fallback_failures -= 1
+        if self.failures > 0:
+            self.failures -= 1
 
 
 class RateLimiter:
-    """Per-user, tenant, IP rate limiting using Redis"""
+    """Per-user, tenant, IP rate limiting using in-memory storage"""
 
     def __init__(self):
-        self.redis_client = redis.from_url(os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0'))
+        self.limits = {}  # key -> (count, window_start)
+        self.lock = threading.Lock()
 
     def check_rate_limit(self, key: str, limit: int, window: int = 60) -> Dict[str, Any]:
         """Check if request is allowed. Returns {'allowed': bool, 'retry_after': int}"""
-        redis_key = f"ratelimit:{key}"
-
-        # Use pipeline for atomic increment
-        with self.redis_client.pipeline() as pipe:
-            pipe.incr(redis_key)
-            pipe.expire(redis_key, window)
-            current_count = pipe.execute()[0]
-
-        if current_count > limit:
-            retry_after = self.redis_client.ttl(redis_key)
-            return {'allowed': False, 'retry_after': retry_after or window}
-        return {'allowed': True, 'retry_after': 0}
+        now = time.time()
+        
+        with self.lock:
+            if key in self.limits:
+                count, window_start = self.limits[key]
+                
+                # Check if window has expired
+                if now - window_start >= window:
+                    # Reset window
+                    self.limits[key] = (1, now)
+                    return {'allowed': True, 'retry_after': 0}
+                
+                # Within window
+                if count >= limit:
+                    retry_after = int(window - (now - window_start))
+                    return {'allowed': False, 'retry_after': retry_after}
+                
+                # Increment count
+                self.limits[key] = (count + 1, window_start)
+                return {'allowed': True, 'retry_after': 0}
+            else:
+                # First request
+                self.limits[key] = (1, now)
+                return {'allowed': True, 'retry_after': 0}
 
 
 # Global instances
@@ -218,39 +162,21 @@ def generate_cache_key(request_data: dict) -> str:
 
 
 def process_ai_request(request_data: dict) -> dict:
-    """Worker function to process AI requests - callable by RQ workers"""
+    """Worker function to process AI requests"""
 
     user_id = request_data.get('user_id', 'unknown')
     tenant_id = request_data.get('tenant_id', 'anonymous')
     cache_key = request_data.get('cache_key')
 
-    # Metrics tracking - Redis optional
     try:
-        redis_client = redis.from_url(os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0'))
-        redis_available = redis_client.ping()
-        now = time.time()
-    except Exception:
-        redis_client = None
-        redis_available = False
-
-    try:
-        # Log request
-        if redis_available:
-            redis_client.zadd('ai_requests', {f"{user_id}:{tenant_id}": now})
-
         # Check circuit breaker first
         if circuit_breaker.is_open():
             logger.warning("Circuit breaker is open, rejecting request")
-            if redis_available:
-                redis_client.zadd('ai_failures', {f"{user_id}:{tenant_id}:circuit_breaker": now})
             return {'error': 'AI service is temporarily unavailable. Please try again in a few minutes.', 'code': 'CIRCUIT_BREAKER'}
 
         # Get API key
         api_key = api_key_manager.get_healthy_key()
         if not api_key:
-            if redis_available:
-                redis_client.zadd('ai_failures', {f"{user_id}:{tenant_id}:no_key": now})
-            
             # Check if we have any keys at all
             if not api_key_manager.api_keys:
                  logger.error("No Gemini API keys configured")
@@ -292,8 +218,6 @@ def process_ai_request(request_data: dict) -> dict:
             else:
                 prompt = prompt_text
         else:
-            if redis_available:
-                redis_client.zadd('ai_failures', {f"{user_id}:{tenant_id}:invalid_type": now})
             return {'error': 'Invalid request type'}
 
         # Log request
@@ -306,8 +230,6 @@ def process_ai_request(request_data: dict) -> dict:
 
         # Record success
         circuit_breaker.record_success()
-        if redis_available:
-            redis_client.zadd('ai_successes', {f"{user_id}:{tenant_id}": now})
 
         # Cache the result
         if cache_key:
@@ -324,12 +246,8 @@ def process_ai_request(request_data: dict) -> dict:
 
         # Record failure for circuit breaker
         circuit_breaker.record_failure()
-        if redis_available:
-            redis_client.zadd('ai_failures', {f"{user_id}:{tenant_id}:{str(e)[:20]}": now})
 
         if isinstance(e, exceptions.ResourceExhausted):
-            if redis_available:
-                redis_client.zadd('provider_429', {f"{user_id}:{tenant_id}": now})
             return {'error': 'AI service quota exceeded. Please try again later.', 'code': 'RATE_LIMIT'}
         return {'error': f'AI service busy. Error: {str(e)}'}
 
@@ -425,18 +343,10 @@ def execute_with_retry(model, prompt: str, request_data: dict, api_key: str) -> 
 
 
 class AIServiceProxy:
-    """Main AI service interface with Redis queuing and fallback support"""
+    """Main AI service interface with direct processing (no Redis queue)"""
 
     def __init__(self):
-        try:
-            self.queue = get_queue('ai_queue')
-            self.queue_available = True
-        except Exception as e:
-            logger.warning(f"RQ queue unavailable: {e}, will fall back to direct processing")
-            self.queue = None
-            self.queue_available = False
-
-        # Concurrency limiter for direct processing when Redis unavailable
+        # Concurrency limiter for direct processing
         self.concurrency_semaphore = threading.Semaphore(5)
 
     def make_request(self, request_type: str, request_data: dict,
@@ -455,7 +365,7 @@ class AIServiceProxy:
         if circuit_breaker.is_open():
             return {'error': 'AI service is temporarily unavailable. Please try again later.', 'code': 'CIRCUIT_BREAKER'}
 
-        # Check rate limits - skip if rate limiter unavailable (Redis not running)
+        # Check rate limits
         try:
             user_limit = rate_limiter.check_rate_limit(f"user:{user_id}", 50)  # 50 per minute per user
             if not user_limit['allowed']:
@@ -481,7 +391,7 @@ class AIServiceProxy:
                     'retryAfter': global_limit['retry_after']
                 }
         except Exception as e:
-            logger.warning(f"Rate limiting unavailable, proceeding without limits: {e}")
+            logger.warning(f"Rate limiting error: {e}")
 
         # Check cache
         cache_key = generate_cache_key(request_data)
@@ -502,46 +412,7 @@ class AIServiceProxy:
             'cache_key': cache_key
         })
 
-        # Try to use queue if available, otherwise fall back to direct processing
-        if self.queue_available:
-            try:
-                # Submit to queue
-                job = self.queue.enqueue(
-                    process_ai_request,
-                    full_request,
-                    job_timeout=300,  # 5 minutes
-                    result_ttl=3600   # Keep result for 1 hour
-                )
-
-                # Try to get result immediately if queue is small
-                if self.queue.count < 5:  # Low load
-                    try:
-                        result = job.result
-                        if result and 'error' not in result:
-                            # Cache successful results
-                            try:
-                                cache.set(f"ai_cache:{cache_key}", result, 300)  # 5 minutes
-                            except:
-                                pass  # Cache failure, continue
-                        return result or {'error': 'AI service busy. Please try again later.'}
-                    except:
-                        pass
-
-                # Queue is busy, return queue position info
-                queue_position = self.queue.count
-                estimated_wait = min(queue_position * 5, 300)  # Rough estimate: 5 seconds per request
-
-                return {
-                    'error': 'Your request is queued. Please try again later.',
-                    'code': 'QUEUED',
-                    'queuePosition': queue_position,
-                    'estimatedWaitSeconds': estimated_wait
-                }
-            except Exception as e:
-                logger.warning(f"Queue processing failed, falling back to direct: {e}")
-                # Fall through to direct processing
-
-        # Fallback: process directly (no queue) - limit concurrency
+        # Process directly - limit concurrency
         if not self.concurrency_semaphore.acquire(blocking=False):
             logger.warning(f"Concurrency limit reached, rejecting direct request for user {user_id}")
             return {'error': 'AI service busy. Please try again later.', 'code': 'CONCURRENCY_LIMIT'}
@@ -561,25 +432,12 @@ class AIServiceProxy:
 
     def get_stats(self) -> dict:
         """Get service statistics"""
-        redis_client = redis.from_url(os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0'))
-
-        queue_size = self.queue.count
-        circuit_breaker_failures = redis_client.get('circuit_breaker_failures') or 0
-        circuit_breaker_open = circuit_breaker.is_open()
-
-        # Calculate 429 rate over last 5 minutes
-        now = time.time()
-        five_min_ago = now - 300
-        rate_429_5min = redis_client.zcount('rate_limit_events', five_min_ago, now)
-
         return {
-            'queue_size': queue_size,
-            'circuit_breaker_open': circuit_breaker_open,
-            'circuit_breaker_failures': int(circuit_breaker_failures) if circuit_breaker_failures else 0,
-            'rate_limit_429_rate': rate_429_5min / 5,  # per minute
+            'circuit_breaker_open': circuit_breaker.is_open(),
+            'circuit_breaker_failures': circuit_breaker.failures,
             'api_keys_total': len(api_key_manager.api_keys),
             'api_keys_unhealthy': len(api_key_manager.unhealthy_keys),
-            'cache_info': 'Redis cache with 5min TTL'
+            'cache_info': 'In-memory cache with 5min TTL'
         }
 
 

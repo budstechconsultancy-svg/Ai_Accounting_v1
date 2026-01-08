@@ -38,29 +38,15 @@ const MastersPage: React.FC<MastersPageProps> = ({
   onAddVoucherType,
   voucherTypes = []
 }) => {
-  const allTabs: { id: MasterTab; label: string; perm: string }[] = [
-    { id: 'Ledgers', label: 'Ledgers', perm: 'MASTERS_LEDGERS' },
-    { id: 'LedgerGroups', label: 'Groups', perm: 'MASTERS_LEDGER_GROUPS' },
-    { id: 'Vouchers', label: 'Vouchers', perm: 'MASTERS_VOUCHER_CONFIG' }
+  const allTabs: { id: MasterTab; label: string }[] = [
+    { id: 'Ledgers', label: 'Ledgers' },
+    { id: 'Vouchers', label: 'Vouchers' }
   ];
 
-  const availableTabs = allTabs.filter(tab => permissions.includes(tab.perm));
-  // Fallback: If no permissions found but user is here (e.g. legacy), maybe allow all? 
-  // User asked for strict access. But let's handle "Admin" who might have 'MASTERS' but not granular?
-  // MyTokenObtainPairSerializer adds granular for Owner too. So strict check is fine.
+  // Show all tabs - no permission filtering
+  const availableTabs = allTabs;
 
-  const [activeTab, setActiveTab] = useState<MasterTab>(availableTabs.length > 0 ? availableTabs[0].id : 'Ledgers');
-
-  // Update active tab if permissions change
-  useEffect(() => {
-    if (availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
-      setActiveTab(availableTabs[0].id);
-    }
-  }, [permissions]);
-
-  if (availableTabs.length === 0) {
-    return <div className="p-8 text-center text-gray-500">You do not have permission to view any content in this module.</div>;
-  }
+  const [activeTab, setActiveTab] = useState<MasterTab>('Ledgers');
 
   // State for Create Ledger
   const [ledgerName, setLedgerName] = useState('');
@@ -1838,7 +1824,7 @@ const MastersPage: React.FC<MastersPageProps> = ({
         </nav>
       </div>
 
-      {activeTab === 'Ledgers' ? renderLedgers() : activeTab === 'LedgerGroups' ? renderLedgerGroups() : renderVouchers()}
+      {activeTab === 'Ledgers' ? renderLedgers() : renderVouchers()}
     </div>
   );
 };

@@ -31,7 +31,6 @@ INSTALLED_APPS = [
     'accounting',
     'inventory',
     'rest_framework_simplejwt',
-    'django_rq',
     'reports',
 ]
 
@@ -213,27 +212,12 @@ SIMPLE_JWT = {
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Redis Cache Configuration
+# In-Memory Cache Configuration (No Redis)
 CACHES = {
     'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
     }
-}
-
-# Redis Queue Configuration
-RQ_QUEUES = {
-    'default': {
-        'URL': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0'),
-        'DEFAULT_TIMEOUT': 360,
-    },
-    'ai_queue': {
-        'URL': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0'),
-        'DEFAULT_TIMEOUT': 360,
-    },
 }
 
 # Twilio SMS Configuration (Optional - falls back to mock SMS if not configured)
@@ -272,9 +256,8 @@ if not DEBUG:
     # Additional Security
     SECURE_REFERRER_POLICY = 'same-origin'
 
-# Session Configuration
-SESSION_ENGINE = 'django.contrib.sessions.backends.cache'  # Use Redis for sessions
-SESSION_CACHE_ALIAS = 'default'
+# Session Configuration (Database-backed)
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Use database for sessions
 SESSION_COOKIE_AGE = 86400  # 24 hours
 SESSION_SAVE_EVERY_REQUEST = False  # Only save if modified
 
