@@ -5,7 +5,6 @@ Every function MUST start with tenant validation and permission checks.
 """
 
 import logging
-from core.rbac import check_permission
 from core.models import TenantUser
 from core.tenant import get_user_tenant_id
 from . import database as db
@@ -40,7 +39,7 @@ def list_tenant_users(user):
         # Let it fail for now if not permitted
         raise PermissionError("Permission denied: USERS_MANAGE")
     
-    # 3. Business logic - fetch and format data
+    # 2. Business logic - fetch and format data
     users = db.get_tenant_users(tenant_id)
     
     # Enrich with role names
@@ -82,7 +81,7 @@ def create_tenant_user(user, data):
     if not has_perm:
         raise PermissionError("Permission denied: USERS_MANAGE (create)")
     
-    # 3. Business logic
+    # 2. Business logic
     if db.check_username_exists(data['username']):
         raise ValueError("Username already exists")
     
@@ -107,7 +106,7 @@ def update_tenant_user(user, user_id, data):
     if not has_perm:
         raise PermissionError("Permission denied: USERS_MANAGE (edit)")
     
-    # 3. Business logic
+    # 2. Business logic
     # Validate role if changing
     if data.get('role_id'):
         role = db.get_role_by_id(data['role_id'], tenant_id)
@@ -129,7 +128,7 @@ def delete_tenant_user(user, user_id):
     if not has_perm:
         raise PermissionError("Permission denied: USERS_MANAGE (delete)")
     
-    # 3. Business logic
+    # 2. Business logic
     db.delete_tenant_user(user_id, tenant_id)
 
 
@@ -153,7 +152,7 @@ def list_roles(user):
         if not has_manage:
             raise PermissionError("Permission denied: USERS_ROLES (view)")
     
-    # 3. Business logic
+    # 2. Business logic
     return db.get_tenant_roles(tenant_id)
 
 
@@ -169,7 +168,7 @@ def get_role_details(user, role_id):
     if not has_perm:
         raise PermissionError("Permission denied: USERS_ROLES (view)")
     
-    # 3. Business logic
+    # 2. Business logic
     role = db.get_role_by_id(role_id, tenant_id)
     if not role:
         raise ValueError("Role not found")
@@ -188,7 +187,7 @@ def create_role(user, data):
     if not has_perm:
         raise PermissionError("Permission denied: USERS_ROLES (create)")
     
-    # 3. Business logic
+    # 2. Business logic
     role = db.create_role(data, tenant_id)
     
     if 'permissions' in data and data['permissions']:
@@ -207,7 +206,7 @@ def update_role(user, role_id, data):
     if not has_perm:
         raise PermissionError("Permission denied: USERS_ROLES (edit)")
     
-    # 3. Business logic
+    # 2. Business logic
     role = db.update_role(role_id, data, tenant_id)
     if not role:
         raise ValueError("Role not found")
@@ -228,5 +227,5 @@ def delete_role(user, role_id):
     if not has_perm:
         raise PermissionError("Permission denied: USERS_ROLES (delete)")
     
-    # 3. Business logic
+    # 2. Business logic
     db.delete_role(role_id, tenant_id)

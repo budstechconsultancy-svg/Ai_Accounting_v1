@@ -2,6 +2,10 @@ from django.db import models
 from django.utils import timezone
 from core.models import BaseModel
 
+# Import TransactionFile model
+from .models_transaction import TransactionFile
+
+
 # ============================================================================
 # NEW PRODUCTION COA ARCHITECTURE (ERP Grade)
 # ============================================================================
@@ -142,6 +146,76 @@ class MasterVoucherConfig(BaseModel):
     class Meta:
         db_table = 'master_voucher_config'
 
+
+class VoucherConfiguration(BaseModel):
+    """
+    Voucher numbering configuration for all voucher types.
+    Stores configuration for automatic voucher number generation.
+    """
+    VOUCHER_TYPE_CHOICES = [
+        ('sales', 'Sales'),
+        ('credit-note', 'Credit Note'),
+        ('receipts', 'Receipts'),
+        ('purchases', 'Purchases'),
+        ('debit-note', 'Debit Note'),
+        ('payments', 'Payments'),
+        ('expenses', 'Expenses'),
+        ('journal', 'Journal'),
+        ('contra', 'Contra'),
+    ]
+    
+    # Voucher Type and Name
+    voucher_type = models.CharField(max_length=50, choices=VOUCHER_TYPE_CHOICES)
+    voucher_name = models.CharField(max_length=255)
+    
+    # Automatic Numbering Series
+    enable_auto_numbering = models.BooleanField(default=True)
+    prefix = models.CharField(max_length=50, null=True, blank=True)
+    suffix = models.CharField(max_length=50, null=True, blank=True)
+    start_from = models.PositiveBigIntegerField(default=1)
+    current_number = models.PositiveBigIntegerField(default=1)
+    required_digits = models.IntegerField(default=4)
+    
+    # Effective Period
+    effective_from = models.DateField()
+    effective_to = models.DateField()
+    
+    # Sales-specific fields
+    update_customer_master = models.BooleanField(null=True, blank=True)
+    include_from_existing_series_id = models.BigIntegerField(null=True, blank=True)
+    
+    # Status
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        db_table = 'voucher_configurations'
+        unique_together = ('tenant_id', 'voucher_type', 'voucher_name', 'effective_from')
+        indexes = [
+            models.Index(fields=['tenant_id', 'voucher_type']),
+            models.Index(fields=['effective_from', 'effective_to']),
+        ]
+    
+    def __str__(self):
+        return f"{self.voucher_name} ({self.voucher_type}) - {self.tenant_id}"
+    
+    def get_next_voucher_number(self):
+        """Generate the next voucher number based on configuration."""
+        if not self.enable_auto_numbering:
+            return None
+        
+        # Format the number with padding
+        padded_number = str(self.current_number).zfill(self.required_digits)
+        
+        # Construct the voucher number
+        voucher_number = f"{self.prefix or ''}{padded_number}{self.suffix or ''}"
+        
+        # Increment current_number for next use
+        self.current_number += 1
+        self.save(update_fields=['current_number', 'updated_at'])
+        
+        return voucher_number
+
+
 class Voucher(BaseModel):
     VOUCHER_TYPES = [
         ('sales', 'Sales'),
@@ -198,6 +272,109 @@ class JournalEntry(BaseModel):
         indexes = [
             models.Index(fields=['voucher', 'tenant_id']),
         ]
+
+
+class AmountTransaction(BaseModel):
+    """
+    Stores transaction amounts for Cash and Bank ledgers from Asset category.
+    Tracks opening balances and transaction history with separate debit/credit columns.
+    """
+    TRANSACTION_TYPE_CHOICES = [
+        ('opening_balance', 'Opening Balance'),
+        ('transaction', 'Transaction'),
+    ]
+    
+    # Ledger Reference
+    ledger = models.ForeignKey(
+        MasterLedger, 
+        on_delete=models.CASCADE,
+        related_name='amount_transactions',
+        help_text="Reference to the Cash/Bank ledger"
+    )
+    
+    # Ledger Name (denormalized for quick access)
+    ledger_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Ledger name (e.g., 'bank2', 'Cash', 'HDFC Bank')"
+    )
+    
+    # Sub Group 1 (Parent category like Current Assets)
+    sub_group_1 = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Sub group 1 from ledger (e.g., 'Current Assets')"
+    )
+    
+    # Ledger Code
+    code = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="Ledger code from master_ledgers table"
+    )
+    
+    # Transaction Details
+    transaction_date = models.DateField(help_text="Date of transaction")
+    transaction_type = models.CharField(
+        max_length=20, 
+        choices=TRANSACTION_TYPE_CHOICES,
+        default='transaction',
+        help_text="Type of transaction"
+    )
+    
+    # Debit and Credit Columns
+    debit = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        default=0,
+        help_text="Debit amount (money coming in)"
+    )
+    credit = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        default=0,
+        help_text="Credit amount (money going out)"
+    )
+    
+    # Optional Voucher Reference
+    voucher = models.ForeignKey(
+        Voucher,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='amount_transactions',
+        help_text="Reference to voucher if transaction is from a voucher"
+    )
+    
+    # Balance Tracking
+    balance = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        help_text="Running balance after this transaction"
+    )
+    
+    # Description
+    narration = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Transaction description or narration"
+    )
+    
+    class Meta:
+        db_table = 'amount_transactions'
+        ordering = ['-transaction_date', '-created_at']
+        indexes = [
+            models.Index(fields=['tenant_id', 'ledger', 'transaction_date']),
+            models.Index(fields=['tenant_id', 'transaction_type']),
+            models.Index(fields=['transaction_date']),
+        ]
+    
+    def __str__(self):
+        return f"{self.ledger.name} - Dr:{self.debit} Cr:{self.credit} - {self.transaction_date}"
 
 class MasterHierarchyRaw(models.Model):
     """

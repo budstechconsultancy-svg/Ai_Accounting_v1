@@ -38,15 +38,26 @@ const MastersPage: React.FC<MastersPageProps> = ({
   onAddVoucherType,
   voucherTypes = []
 }) => {
-  const allTabs: { id: MasterTab; label: string }[] = [
-    { id: 'Ledgers', label: 'Ledgers' },
-    { id: 'Vouchers', label: 'Vouchers' }
+  const allTabs: { id: MasterTab; label: string; perm: string }[] = [
+    { id: 'Ledgers', label: 'Ledgers', perm: 'MASTERS_LEDGERS' },
+    { id: 'Vouchers', label: 'Vouchers', perm: 'MASTERS_VOUCHER_CONFIG' }
   ];
 
-  // Show all tabs - no permission filtering
-  const availableTabs = allTabs;
+  // Filter tabs based on permissions
+  const availableTabs = allTabs.filter(tab => permissions.includes(tab.perm));
 
-  const [activeTab, setActiveTab] = useState<MasterTab>('Ledgers');
+  const [activeTab, setActiveTab] = useState<MasterTab>(availableTabs.length > 0 ? availableTabs[0].id : 'Ledgers');
+
+  // Update active tab if permissions change
+  useEffect(() => {
+    if (availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
+      setActiveTab(availableTabs[0].id);
+    }
+  }, [permissions]);
+
+  if (availableTabs.length === 0) {
+    return <div className="p-8 text-center text-gray-500">You do not have permission to view any content in this module.</div>;
+  }
 
   // State for Create Ledger
   const [ledgerName, setLedgerName] = useState('');

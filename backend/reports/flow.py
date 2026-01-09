@@ -5,7 +5,6 @@ Every function MUST start with tenant validation and permission checks.
 """
 
 import logging
-from core.rbac import check_permission
 from core.tenant import get_user_tenant_id
 from . import database as db
 
@@ -31,14 +30,8 @@ def generate_daybook_data(user, start_date=None, end_date=None):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'REPORTS_DAYBOOK')
-    if not has_perm:
-        raise PermissionError("Permission denied: REPORTS_DAYBOOK")
-    
-    # 3. Business logic - fetch data
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - fetch data
     return db.get_vouchers_for_daybook(tenant_id, start_date, end_date)
 
 
@@ -62,14 +55,8 @@ def generate_ledger_report_data(user, ledger_name, start_date=None, end_date=Non
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'REPORTS_LEDGER')
-    if not has_perm:
-        raise PermissionError("Permission denied: REPORTS_LEDGER")
-    
-    # 3. Business logic - validate and fetch
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - validate and fetch
     if not ledger_name:
         raise ValueError("Ledger name is required")
     
@@ -93,14 +80,8 @@ def generate_trial_balance_data(user):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'REPORTS_TRIAL_BALANCE')
-    if not has_perm:
-        raise PermissionError("Permission denied: REPORTS_TRIAL_BALANCE")
-    
-    # 3. Business logic - fetch and calculate net balances
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - fetch and calculate net balances
     ledger_balances = db.get_trial_balance_data(tenant_id)
     
     result = []
@@ -148,14 +129,8 @@ def generate_stock_summary_data(user, start_date=None, end_date=None):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'REPORTS_STOCK')
-    if not has_perm:
-        raise PermissionError("Permission denied: REPORTS_STOCK")
-    
-    # 3. Business logic - fetch data
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - fetch data
     stock_items = db.get_stock_items(tenant_id)
     movements = db.get_stock_movements(tenant_id, start_date, end_date)
     
@@ -184,14 +159,8 @@ def generate_gst_report_data(user, start_date=None, end_date=None):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'REPORTS_GST')
-    if not has_perm:
-        raise PermissionError("Permission denied: REPORTS_GST")
-    
-    # 3. Business logic - placeholder for GST calculation
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - placeholder for GST calculation
     # TODO: Implement GST calculation logic
     return {
         'message': 'GST report logic to be implemented'

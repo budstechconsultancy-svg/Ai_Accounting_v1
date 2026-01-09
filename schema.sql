@@ -1,15 +1,17 @@
 -- ============================================================================
--- AI Accounting Database Schema
--- Complete database schema for production deployment
--- Updated: 2025-12-27
--- Cleaned up unused tables and synchronized with Django models
+-- AI Accounting Database Schema - Essential Tables Only
+-- Updated: 2026-01-09
+-- Contains only core tables: tenants, users, company_informations, 
+-- master_ledgers, master_hierarchy_raw, questions, answers, Transcaction_file
 -- ============================================================================
 
 -- Database: ai_accounting
 -- Character Set: utf8mb4
 -- Collation: utf8mb4_0900_ai_ci
 
--
+-- ============================================================================
+-- CORE TABLES
+-- ============================================================================
 
 -- Tenants Table
 CREATE TABLE IF NOT EXISTS `tenants` (
@@ -34,6 +36,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   `phone` varchar(15) DEFAULT NULL,
   `phone_verified` tinyint(1) NOT NULL DEFAULT '0',
   `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `is_superuser` tinyint(1) NOT NULL DEFAULT '1',
+  `is_staff` tinyint(1) NOT NULL DEFAULT '1',
   `login_status` varchar(20) DEFAULT 'Offline',
   `last_activity` datetime(6) DEFAULT NULL,
   `created_at` datetime(6) NOT NULL,
@@ -55,12 +59,14 @@ CREATE TABLE IF NOT EXISTS `tenant_users` (
   `email` varchar(255) DEFAULT NULL,
   `tenant_id` char(36) NOT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `role_id` bigint DEFAULT NULL,
   `selected_submodule_ids` json DEFAULT NULL,
   `created_at` datetime(6) NOT NULL,
   `updated_at` datetime(6) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `tenant_users_username_unique` (`username`),
   KEY `tenant_users_tenant_id_idx` (`tenant_id`),
+  KEY `tenant_users_role_id_idx` (`role_id`),
   CONSTRAINT `tenant_users_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -102,22 +108,8 @@ CREATE TABLE IF NOT EXISTS `company_informations` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ============================================================================
--- ACCOUNTING TABLES - MASTERS
+-- MASTER LEDGERS - HIERARCHY STRUCTURE
 -- ============================================================================
-
--- Master Ledger Groups
-CREATE TABLE IF NOT EXISTS `master_ledger_groups` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `parent` varchar(255) DEFAULT NULL,
-  `created_at` datetime(6) NOT NULL,
-  `updated_at` datetime(6) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `master_ledger_groups_name_tenant_unique` (`name`, `tenant_id`),
-  KEY `master_ledger_groups_tenant_id_idx` (`tenant_id`),
-  CONSTRAINT `master_ledger_groups_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Master Ledgers (Hierarchy starting from Category)
 CREATE TABLE IF NOT EXISTS `master_ledgers` (
@@ -141,28 +133,6 @@ CREATE TABLE IF NOT EXISTS `master_ledgers` (
   KEY `master_ledgers_category_idx` (`category`),
   KEY `master_ledgers_group_idx` (`group`),
   CONSTRAINT `master_ledgers_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- Master Voucher Config
-CREATE TABLE IF NOT EXISTS `master_voucher_config` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) NOT NULL,
-  `name` varchar(255) NOT NULL DEFAULT '__NUMBERING__',
-  `sales_prefix` varchar(50) DEFAULT NULL,
-  `sales_suffix` varchar(50) DEFAULT NULL,
-  `sales_next_number` bigint unsigned NOT NULL DEFAULT '1',
-  `sales_padding` int NOT NULL DEFAULT '4',
-  `sales_preview` varchar(255) DEFAULT NULL,
-  `purchase_prefix` varchar(50) DEFAULT NULL,
-  `purchase_suffix` varchar(50) DEFAULT NULL,
-  `purchase_next_number` bigint unsigned NOT NULL DEFAULT '1',
-  `purchase_padding` int NOT NULL DEFAULT '4',
-  `purchase_preview` varchar(255) DEFAULT NULL,
-  `created_at` datetime(6) NOT NULL,
-  `updated_at` datetime(6) NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `master_voucher_config_tenant_id_idx` (`tenant_id`),
-  CONSTRAINT `master_voucher_config_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Master Hierarchy Raw (Global Chart of Accounts)
@@ -192,138 +162,6 @@ CREATE TABLE IF NOT EXISTS `master_hierarchy_raw` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ============================================================================
--- ACCOUNTING TABLES - VOUCHERS
--- ============================================================================
-
--- Unified Vouchers Table
-CREATE TABLE IF NOT EXISTS `vouchers` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) NOT NULL,
-  `type` varchar(20) NOT NULL COMMENT 'sales, purchase, payment, receipt, contra, journal',
-  `voucher_number` varchar(50) NOT NULL,
-  `date` date NOT NULL,
-  `narration` text,
-  `party` varchar(255) DEFAULT NULL,
-  `invoice_no` varchar(100) DEFAULT NULL,
-  `is_inter_state` tinyint(1) DEFAULT 0,
-  `total_taxable_amount` decimal(15,2) DEFAULT 0.00,
-  `total_cgst` decimal(15,2) DEFAULT 0.00,
-  `total_sgst` decimal(15,2) DEFAULT 0.00,
-  `total_igst` decimal(15,2) DEFAULT 0.00,
-  `total` decimal(15,2) DEFAULT 0.00,
-  `items_data` json DEFAULT NULL,
-  `account` varchar(255) DEFAULT NULL,
-  `amount` decimal(15,2) DEFAULT NULL,
-  `from_account` varchar(255) DEFAULT NULL,
-  `to_account` varchar(255) DEFAULT NULL,
-  `total_debit` decimal(15,2) DEFAULT 0.00,
-  `total_credit` decimal(15,2) DEFAULT 0.00,
-  `created_at` datetime(6) NOT NULL,
-  `updated_at` datetime(6) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `vouchers_voucher_number_tenant_type_unique` (`voucher_number`, `tenant_id`, `type`),
-  KEY `vouchers_tenant_id_idx` (`tenant_id`),
-  KEY `vouchers_type_tenant_date_idx` (`type`, `tenant_id`, `date`),
-  CONSTRAINT `vouchers_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- Journal Entries
-CREATE TABLE IF NOT EXISTS `journal_entries` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) NOT NULL,
-  `voucher_id` bigint DEFAULT NULL,
-  `ledger` varchar(255) NOT NULL,
-  `debit` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `credit` decimal(15,2) NOT NULL DEFAULT '0.00',
-  `created_at` datetime(6) NOT NULL,
-  `updated_at` datetime(6) NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `journal_entries_tenant_id_idx` (`tenant_id`),
-  KEY `journal_entries_voucher_tenant_idx` (`voucher_id`, `tenant_id`),
-  KEY `journal_entries_ledger_idx` (`ledger`),
-  CONSTRAINT `journal_entries_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `journal_entries_voucher_id_fk` FOREIGN KEY (`voucher_id`) REFERENCES `vouchers` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- ============================================================================
--- INVENTORY TABLES
--- ============================================================================
-
--- Units
-CREATE TABLE IF NOT EXISTS `inventory_units` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) NOT NULL,
-  `name` varchar(100) NOT NULL,
-  `symbol` varchar(20) NOT NULL,
-  `created_at` datetime(6) NOT NULL,
-  `updated_at` datetime(6) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `units_name_tenant_unique` (`name`, `tenant_id`),
-  KEY `units_tenant_id_idx` (`tenant_id`),
-  CONSTRAINT `units_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- Stock Groups
-CREATE TABLE IF NOT EXISTS `inventory_stock_groups` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `parent` varchar(255) DEFAULT NULL,
-  `created_at` datetime(6) NOT NULL,
-  `updated_at` datetime(6) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `stock_groups_name_tenant_unique` (`name`, `tenant_id`),
-  KEY `stock_groups_tenant_id_idx` (`tenant_id`),
-  CONSTRAINT `stock_groups_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- Stock Items
-CREATE TABLE IF NOT EXISTS `inventory_stock_items` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `group` varchar(255) NOT NULL,
-  `unit` varchar(100) NOT NULL,
-  `opening_balance` decimal(15,3) DEFAULT '0.000',
-  `current_balance` decimal(15,3) DEFAULT '0.000',
-  `rate` decimal(15,2) DEFAULT '0.00',
-  `hsn_code` varchar(20) DEFAULT NULL,
-  `gst_rate` decimal(5,2) DEFAULT '0.00',
-  `description` text,
-  `created_at` datetime(6) NOT NULL,
-  `updated_at` datetime(6) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `stock_items_name_tenant_unique` (`name`, `tenant_id`),
-  KEY `stock_items_tenant_id_idx` (`tenant_id`),
-  CONSTRAINT `stock_items_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- Stock Movements
-CREATE TABLE IF NOT EXISTS `stock_movements` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) NOT NULL,
-  `stock_item` varchar(255) NOT NULL,
-  `transaction_type` varchar(20) NOT NULL COMMENT 'sales, purchase, adjustment',
-  `transaction_id` bigint DEFAULT NULL,
-  `transaction_date` date NOT NULL,
-  `quantity` decimal(15,3) NOT NULL,
-  `movement_type` varchar(10) NOT NULL COMMENT 'in, out',
-  `rate` decimal(15,2) DEFAULT '0.00',
-  `amount` decimal(15,2) DEFAULT '0.00',
-  `balance_quantity` decimal(15,3) DEFAULT '0.000',
-  `narration` text,
-  `created_at` datetime(6) NOT NULL,
-  `updated_at` datetime(6) NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `stock_movements_tenant_id_idx` (`tenant_id`),
-  KEY `stock_movements_stock_item_date_idx` (`stock_item`, `transaction_date`),
-  KEY `stock_movements_transaction_idx` (`transaction_type`, `transaction_id`),
-  CONSTRAINT `stock_movements_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
-
--- ============================================================================
 -- QUESTIONS SYSTEM
 -- ============================================================================
 
@@ -337,7 +175,6 @@ CREATE TABLE IF NOT EXISTS `questions` (
   `condition_rule` varchar(255) DEFAULT NULL COMMENT 'Condition rules for displaying the question',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  
   KEY `questions_sub_group_1_2_idx` (`sub_group_1_2`),
   KEY `questions_sub_group_1_1_idx` (`sub_group_1_1`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -360,61 +197,162 @@ CREATE TABLE IF NOT EXISTS `answers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 COMMENT='Stores user answers to dynamic questions for each ledger';
 
-CREATE TABLE Transcaction_file (
-    id BIGINT PRIMARY KEY,
-    tenant_id BIGINT NOT NULL,
-    financial_year_id BIGINT NOT NULL,
-    ledger_code VARCHAR(50) UNIQUE,
-    ledger_name VARCHAR(255) NOT NULL,
-    alias_name VARCHAR(255),
-    group_id BIGINT,
-    nature VARCHAR(20),
-    ledger_type VARCHAR(50),
-    is_active BOOLEAN DEFAULT TRUE,
-    opening_balance DECIMAL(18,2) DEFAULT 0,
-    opening_balance_type VARCHAR(10),
-    current_balance DECIMAL(18,2) DEFAULT 0,
-    current_balance_type VARCHAR(10),
-    closing_balance DECIMAL(18,2) DEFAULT 0,
-    closing_balance_type VARCHAR(10),
-    bank_name VARCHAR(255),
-    branch_name VARCHAR(255),
-    account_number VARCHAR(50),
-    ifsc_code VARCHAR(20),
-    micr_code VARCHAR(20),
-    upi_id VARCHAR(100),
-    gst_applicable BOOLEAN DEFAULT FALSE,
-    gst_registration_type VARCHAR(50),
-    gstin VARCHAR(20),
-    hsn_sac_code VARCHAR(20),
-    gst_rate DECIMAL(5,2),
-    cgst_rate DECIMAL(5,2),
-    sgst_rate DECIMAL(5,2),
-    igst_rate DECIMAL(5,2),
-    is_tds_applicable BOOLEAN DEFAULT FALSE,
-    tds_section VARCHAR(20),
-    tds_rate DECIMAL(5,2),
-    contact_person VARCHAR(255),
-    mobile VARCHAR(20),
-    email VARCHAR(255),
-    address_line1 VARCHAR(255),
-    address_line2 VARCHAR(255),
-    city VARCHAR(100),
-    state VARCHAR(100),
-    pincode VARCHAR(20),
-    country VARCHAR(100),
-    allow_bill_wise BOOLEAN DEFAULT FALSE,
-    credit_limit DECIMAL(18,2),
-    credit_days INT,
-    is_cost_center_required BOOLEAN DEFAULT FALSE,
-    is_inventory_linked BOOLEAN DEFAULT FALSE,
-    is_system_ledger BOOLEAN DEFAULT FALSE,
-    lock_editing BOOLEAN DEFAULT FALSE,
-    created_by BIGINT,
-    updated_by BIGINT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+-- ============================================================================
+-- VOUCHER CONFIGURATION
+-- ============================================================================
+
+-- Voucher Configuration Table
+-- Stores voucher numbering configuration for all voucher types
+CREATE TABLE IF NOT EXISTS `voucher_configurations` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` char(36) NOT NULL,
+  
+  -- Voucher Type and Name
+  `voucher_type` varchar(50) NOT NULL COMMENT 'sales, credit-note, receipts, purchases, debit-note, payments, expenses, journal, contra',
+  `voucher_name` varchar(255) NOT NULL COMMENT 'Custom voucher name',
+  
+  -- Automatic Numbering Series
+  `enable_auto_numbering` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Enable automatic numbering series',
+  `prefix` varchar(50) DEFAULT NULL COMMENT 'Prefix for voucher number (alphanumeric with / and -)',
+  `suffix` varchar(50) DEFAULT NULL COMMENT 'Suffix for voucher number (alphanumeric with / and -)',
+  `start_from` bigint unsigned NOT NULL DEFAULT '1' COMMENT 'Starting number for the series',
+  `current_number` bigint unsigned NOT NULL DEFAULT '1' COMMENT 'Current/next number in the series',
+  `required_digits` int NOT NULL DEFAULT '4' COMMENT 'Number of digits for padding (e.g., 4 = 0001)',
+  
+  -- Effective Period
+  `effective_from` date NOT NULL COMMENT 'Start date of voucher series validity',
+  `effective_to` date NOT NULL COMMENT 'End date of voucher series validity',
+  
+  -- Sales-specific fields
+  `update_customer_master` tinyint(1) DEFAULT NULL COMMENT 'For sales: whether to update customer master (Yes/No)',
+  `include_from_existing_series_id` bigint DEFAULT NULL COMMENT 'For sales: reference to existing series to include from',
+  
+  -- Status and Metadata
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this configuration is active',
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `voucher_config_unique` (`tenant_id`, `voucher_type`, `voucher_name`, `effective_from`),
+  KEY `voucher_config_tenant_id_idx` (`tenant_id`),
+  KEY `voucher_config_type_idx` (`voucher_type`),
+  KEY `voucher_config_effective_idx` (`effective_from`, `effective_to`),
+  CONSTRAINT `voucher_config_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+COMMENT='Voucher numbering configuration for all voucher types';
+
+-- ============================================================================
+-- TRANSACTION FILE
+-- ============================================================================
+
+-- Transaction File (Ledger Balances and Details)
+CREATE TABLE IF NOT EXISTS `Transcaction_file` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` char(36) NOT NULL,
+  `financial_year_id` BIGINT NOT NULL,
+  `ledger_code` VARCHAR(50) UNIQUE,
+  `ledger_name` VARCHAR(255) NOT NULL,
+  `alias_name` VARCHAR(255),
+  `group_id` BIGINT,
+  `nature` VARCHAR(20),
+  `ledger_type` VARCHAR(50),
+  `is_active` BOOLEAN DEFAULT TRUE,
+  `opening_balance` DECIMAL(18,2) DEFAULT 0,
+  `opening_balance_type` VARCHAR(10),
+  `current_balance` DECIMAL(18,2) DEFAULT 0,
+  `current_balance_type` VARCHAR(10),
+  `closing_balance` DECIMAL(18,2) DEFAULT 0,
+  `closing_balance_type` VARCHAR(10),
+  `bank_name` VARCHAR(255),
+  `branch_name` VARCHAR(255),
+  `account_number` VARCHAR(50),
+  `ifsc_code` VARCHAR(20),
+  `micr_code` VARCHAR(20),
+  `upi_id` VARCHAR(100),
+  `gst_applicable` BOOLEAN DEFAULT FALSE,
+  `gst_registration_type` VARCHAR(50),
+  `gstin` VARCHAR(20),
+  `hsn_sac_code` VARCHAR(20),
+  `gst_rate` DECIMAL(5,2),
+  `cgst_rate` DECIMAL(5,2),
+  `sgst_rate` DECIMAL(5,2),
+  `igst_rate` DECIMAL(5,2),
+  `is_tds_applicable` BOOLEAN DEFAULT FALSE,
+  `tds_section` VARCHAR(20),
+  `tds_rate` DECIMAL(5,2),
+  `contact_person` VARCHAR(255),
+  `mobile` VARCHAR(20),
+  `email` VARCHAR(255),
+  `address_line1` VARCHAR(255),
+  `address_line2` VARCHAR(255),
+  `city` VARCHAR(100),
+  `state` VARCHAR(100),
+  `pincode` VARCHAR(20),
+  `country` VARCHAR(100),
+  `allow_bill_wise` BOOLEAN DEFAULT FALSE,
+  `credit_limit` DECIMAL(18,2),
+  `credit_days` INT,
+  `is_cost_center_required` BOOLEAN DEFAULT FALSE,
+  `is_inventory_linked` BOOLEAN DEFAULT FALSE,
+  `is_system_ledger` BOOLEAN DEFAULT FALSE,
+  `lock_editing` BOOLEAN DEFAULT FALSE,
+  `created_by` BIGINT,
+  `updated_by` BIGINT,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `transcaction_file_tenant_id_idx` (`tenant_id`),
+  KEY `transcaction_file_ledger_code_idx` (`ledger_code`),
+  CONSTRAINT `transcaction_file_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ============================================================================
+-- AMOUNT TRANSACTIONS
+-- ============================================================================
+
+-- Amount Transactions Table
+-- Stores all Cash and Bank ledger transactions with denormalized ledger data
+CREATE TABLE IF NOT EXISTS `amount_transactions` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant identifier for multi-tenancy',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  
+  -- Foreign Keys
+  `ledger_id` bigint NOT NULL COMMENT 'Link to master_ledgers table',
+  `voucher_id` bigint DEFAULT NULL COMMENT 'Link to vouchers table (nullable)',
+  
+  -- Denormalized Ledger Data (for quick access without joins)
+  `ledger_name` varchar(255) DEFAULT NULL COMMENT 'Ledger name (e.g., bank2, Cash, HDFC Bank)',
+  `sub_group_1` varchar(255) DEFAULT NULL COMMENT 'Parent category (e.g., Current Assets)',
+  `code` varchar(50) DEFAULT NULL COMMENT 'Ledger code from master_ledgers table',
+  
+  -- Transaction Details
+  `transaction_date` date NOT NULL COMMENT 'Date of the transaction',
+  `transaction_type` varchar(20) NOT NULL COMMENT 'Type: opening_balance, payment, receipt, etc.',
+  
+  -- Amounts
+  `debit` decimal(15,2) DEFAULT '0.00' COMMENT 'Debit amount',
+  `credit` decimal(15,2) DEFAULT '0.00' COMMENT 'Credit amount',
+  `balance` decimal(15,2) DEFAULT '0.00' COMMENT 'Running balance after this transaction',
+  
+  -- Additional Info
+  `narration` longtext COMMENT 'Transaction description/narration',
+  
+  -- Indexes
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_ledger` (`tenant_id`, `ledger_id`),
+  KEY `idx_transaction_date` (`transaction_date`),
+  KEY `idx_transaction_type` (`transaction_type`),
+  KEY `idx_created_at` (`created_at`),
+  KEY `accounting_amountt_ledger_id_e1c0e5a0_fk_accountin` (`ledger_id`),
+  KEY `accounting_amountt_voucher_id_d0b3e5a0_fk_accountin` (`voucher_id`)
+  
+  -- Foreign Key Constraints (uncomment after master_ledgers and vouchers tables exist)
+  -- CONSTRAINT `fk_amount_txn_ledger` FOREIGN KEY (`ledger_id`) REFERENCES `master_ledgers` (`id`) ON DELETE CASCADE,
+  -- CONSTRAINT `fk_amount_txn_voucher` FOREIGN KEY (`voucher_id`) REFERENCES `vouchers` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci 
+COMMENT='Stores all Cash and Bank ledger transactions with denormalized data for performance';
 
 -- ============================================================================
 -- END OF SCHEMA

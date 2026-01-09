@@ -1,15 +1,13 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from django.conf import settings
+from .models import TenantUser
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     email = serializers.EmailField(required=True)
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        from .models import TenantUser
-        from .rbac import get_all_permission_ids, get_permission_codes_from_ids
-
         # Add custom claims
         token['username'] = user.username
         token['email'] = getattr(user, 'email', '')
@@ -17,21 +15,20 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['tenant_id'] = getattr(user, 'tenant_id', '')
         token['selected_plan'] = getattr(user, 'selected_plan', 'Free')
 
-        # Determine User Type and Permissions
+        # RBAC REMOVED: All users have full permissions
+        # Check if user is superuser (all registered users are superusers)
+        is_superuser = getattr(user, 'is_superuser', False)
+        token['permissions'] = [] if not is_superuser else ['ALL']
+        token['is_superuser'] = is_superuser
+
         if isinstance(user, TenantUser):
-            # TenantUser (Staff) - gets only selected submodule IDs
             token['user_type'] = 'tenant_user'
             token['is_owner'] = False
-            selected_ids = user.selected_submodule_ids or []
-            token['submodule_ids'] = selected_ids
-            token['permissions'] = get_permission_codes_from_ids(selected_ids)
+            token['submodule_ids'] = []
         else:
-            # Owner (User model) - gets ALL 33 permissions automatically
             token['user_type'] = 'owner'
             token['is_owner'] = True
-            all_ids = get_all_permission_ids()  # [1, 2, 3, ..., 33]
-            token['submodule_ids'] = all_ids
-            token['permissions'] = get_permission_codes_from_ids(all_ids)
+            token['submodule_ids'] = []
         
         return token
 
@@ -39,7 +36,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         """Custom auth logic to support two tables (User and TenantUser)"""
         from django.contrib.auth import authenticate
         from rest_framework.exceptions import AuthenticationFailed
-        from .models import TenantUser
 
         username = attrs.get(self.username_field)
         password = attrs.get('password')

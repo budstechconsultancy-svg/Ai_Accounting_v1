@@ -7,7 +7,8 @@ Only database queries accepting tenant_id as parameter.
 import logging
 from django.db.models import Max
 from accounting.models import (
-    MasterLedgerGroup, MasterLedger, MasterVoucherConfig, MasterHierarchyRaw
+    MasterLedgerGroup, MasterLedger, MasterVoucherConfig, MasterHierarchyRaw,
+    VoucherConfiguration, AmountTransaction
 )
 
 logger = logging.getLogger('masters.database')
@@ -153,3 +154,89 @@ def get_all_hierarchy_data():
 def get_hierarchy_by_id(hierarchy_id):
     """Get a specific hierarchy entry by ID."""
     return MasterHierarchyRaw.objects.get(id=hierarchy_id)
+
+
+# ============================================================================
+# VOUCHER CONFIGURATION QUERIES
+# ============================================================================
+
+def get_all_voucher_configurations(tenant_id):
+    """Get all voucher configurations for a tenant."""
+    return VoucherConfiguration.objects.filter(tenant_id=tenant_id)
+
+
+def get_voucher_configuration_by_id(config_id, tenant_id):
+    """Get a specific voucher configuration by ID."""
+    return VoucherConfiguration.objects.get(id=config_id, tenant_id=tenant_id)
+
+
+def get_voucher_configurations_by_type(voucher_type, tenant_id):
+    """Get all voucher configurations for a specific voucher type."""
+    return VoucherConfiguration.objects.filter(
+        tenant_id=tenant_id,
+        voucher_type=voucher_type,
+        is_active=True
+    )
+
+
+def create_voucher_configuration(data, tenant_id):
+    """Create a new voucher configuration."""
+    return VoucherConfiguration.objects.create(tenant_id=tenant_id, **data)
+
+
+def update_voucher_configuration(config_id, data, tenant_id):
+    """Update an existing voucher configuration."""
+    config = get_voucher_configuration_by_id(config_id, tenant_id)
+    for key, value in data.items():
+        setattr(config, key, value)
+    config.save()
+    return config
+
+
+def delete_voucher_configuration(config_id, tenant_id):
+    """Delete a voucher configuration."""
+    config = get_voucher_configuration_by_id(config_id, tenant_id)
+    config.delete()
+
+
+# ============================================================================
+# AMOUNT TRANSACTION QUERIES
+# ============================================================================
+
+def get_all_amount_transactions(tenant_id):
+    """Get all amount transactions for a tenant."""
+    return AmountTransaction.objects.filter(tenant_id=tenant_id)
+
+
+def get_amount_transaction_by_id(transaction_id, tenant_id):
+    """Get a specific amount transaction by ID."""
+    return AmountTransaction.objects.get(id=transaction_id, tenant_id=tenant_id)
+
+
+def get_last_amount_transaction_for_ledger(ledger_id, tenant_id):
+    """Get the last transaction for a specific ledger."""
+    return AmountTransaction.objects.filter(
+        tenant_id=tenant_id,
+        ledger_id=ledger_id
+    ).order_by('-transaction_date', '-created_at').first()
+
+
+def create_amount_transaction(data, tenant_id):
+    """Create a new amount transaction."""
+    return AmountTransaction.objects.create(tenant_id=tenant_id, **data)
+
+
+def update_amount_transaction(transaction_id, data, tenant_id):
+    """Update an existing amount transaction."""
+    transaction = get_amount_transaction_by_id(transaction_id, tenant_id)
+    for key, value in data.items():
+        setattr(transaction, key, value)
+    transaction.save()
+    return transaction
+
+
+def delete_amount_transaction(transaction_id, tenant_id):
+    """Delete an amount transaction."""
+    transaction = get_amount_transaction_by_id(transaction_id, tenant_id)
+    transaction.delete()
+

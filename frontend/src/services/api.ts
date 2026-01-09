@@ -142,6 +142,14 @@ class ApiService {
         return httpClient.delete<{ success: boolean }>(`/api/masters/ledger-groups/${id}/`);
     }
 
+    /**
+     * Get Cash and Bank ledgers for dropdown in voucher forms
+     * Returns: Array of ledgers filtered by Asset category with Cash/Bank keywords
+     */
+    async getCashBankLedgers() {
+        return httpClient.get<Ledger[]>('/api/masters/ledgers/cash-bank/');
+    }
+
     // ============================================================================
     // MASTERS - VOUCHER CONFIG
     // ============================================================================

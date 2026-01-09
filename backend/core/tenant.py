@@ -23,7 +23,7 @@ def get_tenant_from_request(request):
     if header_tid:
         return header_tid
 
-    # 2. Try to get from JWT token
+    # 2. Try to get from JWT token via Authentication class
     try:
         auth = CustomJWTAuthentication()
         user_auth_tuple = auth.authenticate(request)
@@ -31,6 +31,18 @@ def get_tenant_from_request(request):
             user = user_auth_tuple[0]
             validated_token = user_auth_tuple[1]
             tid = validated_token.get('tenant_id')
+            return tid
+    except Exception:
+        pass
+
+    # 3. Fallback: Parse access_token cookie directly
+    # This is needed if AuthenticationMiddleware hasn't run or failed contextually
+    try:
+        from rest_framework_simplejwt.tokens import AccessToken
+        token_str = request.COOKIES.get('access_token')
+        if token_str:
+            token = AccessToken(token_str)
+            tid = token.get('tenant_id')
             return tid
     except Exception:
         pass

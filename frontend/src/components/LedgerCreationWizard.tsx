@@ -67,6 +67,7 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
     const [treeData, setTreeData] = useState<TreeNode[]>([]);
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
+    const [subGroup2Input, setSubGroup2Input] = useState('');
     const [subGroup3Input, setSubGroup3Input] = useState('');
     const [ledgerTypeInput, setLedgerTypeInput] = useState('');
     const [questionAnswers, setQuestionAnswers] = useState<Record<number, any>>({});
@@ -277,13 +278,47 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
 
         // Get root nodes (major groups)
         const roots: TreeNode[] = [];
+        const seenNames = new Set<string>();
+
         tree.forEach((node, path) => {
             if (!path.includes('>')) {
-                roots.push(node);
+                // Normalize name to handle duplicates (Asset/Assets, Liability/Liabilities, etc.)
+                const normalizedName = node.name.toLowerCase().replace(/s$/, '');
+
+                if (!seenNames.has(normalizedName)) {
+                    seenNames.add(normalizedName);
+                    roots.push(node);
+                }
             }
         });
 
-        return roots.sort((a, b) => a.name.localeCompare(b.name));
+        // Custom sort order for accounting major groups
+        const sortOrder: { [key: string]: number } = {
+            "owners' funds": 1,
+            "owner's funds": 1,
+            "npo funds": 2,
+            "npo": 2,
+            "liability": 3,
+            "liabilities": 3,
+            "asset": 4,
+            "assets": 4,
+            "income": 5,
+            "expenditure": 6,
+            "expenses": 6,
+            "expense": 6
+        };
+
+        return roots.sort((a, b) => {
+            const orderA = sortOrder[a.name.toLowerCase()] || 999;
+            const orderB = sortOrder[b.name.toLowerCase()] || 999;
+
+            if (orderA !== orderB) {
+                return orderA - orderB;
+            }
+
+            // Fallback to alphabetical if same order or not in map
+            return a.name.localeCompare(b.name);
+        });
     };
 
     const toggleNode = (nodePath: string) => {
@@ -312,7 +347,10 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
             ...node,
             fullPath: partialPath
         });
-        // Reset answers when selection changes
+        // Reset inputs when selection changes
+        setSubGroup2Input('');
+        setSubGroup3Input('');
+        setLedgerTypeInput('');
         setQuestionAnswers({});
     };
 
@@ -369,6 +407,7 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
         e.preventDefault();
 
         // Determine values based on selection + inputs
+        const finalSubGroup2 = selectedNode?.fullPath.sub_group_2 || subGroup2Input.trim();
         const finalSubGroup3 = selectedNode?.fullPath.sub_group_3 || subGroup3Input.trim();
         const finalLedgerType = selectedNode?.fullPath.ledger_type || ledgerTypeInput.trim();
 
@@ -378,10 +417,12 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
             finalName = ledgerTypeInput.trim();
         } else if (subGroup3Input.trim()) {
             finalName = subGroup3Input.trim();
+        } else if (subGroup2Input.trim()) {
+            finalName = subGroup2Input.trim();
         }
 
         if (!finalName || !selectedNode) {
-            alert('Please enter a name in Sub Group 3 or Ledger Type fields.');
+            alert('Please enter a name in Sub Group 2, Sub Group 3 or Ledger Type fields.');
             return;
         }
 
@@ -390,7 +431,7 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
             group: selectedNode.fullPath.group,
             category: selectedNode.fullPath.category,
             sub_group_1: selectedNode.fullPath.sub_group_1,
-            sub_group_2: selectedNode.fullPath.sub_group_2,
+            sub_group_2: finalSubGroup2 || null,
             sub_group_3: finalSubGroup3 || null,
             ledger_type: finalLedgerType || null,
             parent_ledger_id: selectedNode.fullPath.parent_ledger_id || null,
@@ -401,6 +442,7 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
         onCreateLedger(newLedgerData);
 
         // Reset form immediately
+        setSubGroup2Input('');
         setSubGroup3Input('');
         setLedgerTypeInput('');
         setSelectedNode(null);
@@ -437,6 +479,7 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
     if (loading) return <div className="text-gray-500 text-sm">Loading hierarchy...</div>;
 
     // Helper to determine if input should be disabled (value comes from parent hierarchy)
+    const isSubGroup2Fixed = !!selectedNode?.fullPath.sub_group_2;
     const isSubGroup3Fixed = !!selectedNode?.fullPath.sub_group_3;
     const isLedgerTypeFixed = !!selectedNode?.fullPath.ledger_type;
 
@@ -506,14 +549,22 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
                                 </div>
                             </div>
 
-                            {/* Sub Group 2 */}
+                            {/* Sub Group 2 - INPUT */}
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
                                     Sub Group 2
                                 </label>
-                                <div className="text-sm font-medium text-gray-800 py-2 border-b border-gray-100">
-                                    {selectedNode?.fullPath.sub_group_2 || '-'}
-                                </div>
+                                <input
+                                    type="text"
+                                    value={isSubGroup2Fixed ? selectedNode?.fullPath.sub_group_2! : subGroup2Input}
+                                    onChange={(e) => !isSubGroup2Fixed && setSubGroup2Input(e.target.value)}
+                                    disabled={!selectedNode || isSubGroup2Fixed}
+                                    className={`w-full p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedNode || isSubGroup2Fixed
+                                        ? 'bg-gray-100 text-gray-600 border-gray-200'
+                                        : 'bg-white border-gray-300'
+                                        }`}
+                                    placeholder={!selectedNode ? '-' : (isSubGroup2Fixed ? '' : 'Enter Name')}
+                                />
                             </div>
 
                             {/* Sub Group 3 - INPUT */}
@@ -534,10 +585,10 @@ export const LedgerCreationWizard: React.FC<LedgerCreationWizardProps> = ({ onCr
                                 />
                             </div>
 
-                            {/* Ledger Type - INPUT */}
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                                    Ledger Type
+                            {/* Ledger Name - INPUT */}
+                            <div className="flex flex-col">
+                                <label className="text-sm font-medium text-gray-700 mb-1">
+                                    Ledger Name
                                 </label>
                                 <input
                                     type="text"

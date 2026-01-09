@@ -5,7 +5,6 @@ Every function MUST start with tenant validation and permission checks.
 """
 
 import logging
-from core.rbac import check_permission
 from core.tenant import get_user_tenant_id
 from . import database as db
 
@@ -29,14 +28,8 @@ def list_company_settings(user):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'SETTINGS_COMPANY')
-    if not has_perm:
-        raise PermissionError("Permission denied: SETTINGS_COMPANY")
-    
-    # 3. Business logic - fetch data
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - fetch data
     return db.get_all_company_settings(tenant_id)
 
 
@@ -54,14 +47,8 @@ def create_company_settings(user, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'SETTINGS_COMPANY')
-    if not has_perm:
-        raise PermissionError("Permission denied: SETTINGS_COMPANY")
-    
-    # 3. Business logic - create
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - create
     return db.create_company_settings(data, tenant_id)
 
 
@@ -80,14 +67,8 @@ def update_company_settings(user, settings_id, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'SETTINGS_COMPANY')
-    if not has_perm:
-        raise PermissionError("Permission denied: SETTINGS_COMPANY")
-    
-    # 3. Business logic - update
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - update
     return db.update_company_settings(settings_id, data, tenant_id)
 
 
@@ -102,12 +83,6 @@ def delete_company_settings(user, settings_id):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'SETTINGS_COMPANY')
-    if not has_perm:
-        raise PermissionError("Permission denied: SETTINGS_COMPANY")
-    
-    # 3. Business logic - delete
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - delete
     db.delete_company_settings(settings_id, tenant_id)

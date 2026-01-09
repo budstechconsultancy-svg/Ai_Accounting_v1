@@ -90,6 +90,12 @@ export interface Ledger {
   inventoryValuationMethod?: string;
   cashLocation?: string;
   question_answers?: Record<number, any>;
+  additional_data?: {
+    opening_balance?: number;
+    current_balance?: number;
+    [key: string]: any;
+  };
+  balance?: number;  // Computed balance from journal entries
 }
 
 export interface Unit {

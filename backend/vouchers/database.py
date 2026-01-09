@@ -95,3 +95,48 @@ def delete_journal_entry(entry_id, tenant_id):
     """Delete a journal entry."""
     entry = get_journal_entry_by_id(entry_id, tenant_id)
     entry.delete()
+
+
+def get_untagged_transactions_for_ledger(ledger_id, tenant_id):
+    """
+    Get untagged credit transactions for a specific ledger.
+    Returns outstanding purchase/sales invoices that haven't been fully paid.
+    
+    Args:
+        ledger_id: ID of the ledger (party)
+        tenant_id: Tenant ID for filtering
+    
+    Returns:
+        List of transaction dictionaries
+    """
+    from accounting.models import MasterLedger
+    
+    # Get the ledger name
+    try:
+        ledger = MasterLedger.objects.get(id=ledger_id, tenant_id=tenant_id)
+        ledger_name = ledger.name
+    except MasterLedger.DoesNotExist:
+        return []
+    
+    # Query vouchers where this ledger is the party
+    # For now, we'll return purchase/sales vouchers
+    # In a real system, you'd track payment status in a separate table
+    vouchers = Voucher.objects.filter(
+        tenant_id=tenant_id,
+        party=ledger_name,
+        type__in=['purchase', 'sales']
+    ).values('id', 'date', 'invoice_no', 'total')
+    
+    # Transform to the expected format
+    transactions = []
+    for voucher in vouchers:
+        transactions.append({
+            'id': voucher['id'],
+            'date': voucher['date'].isoformat() if voucher['date'] else '',
+            'reference_number': voucher['invoice_no'] or f"V-{voucher['id']}",
+            'amount': float(voucher['total'] or 0),
+            'payment': 0  # Default payment amount
+        })
+    
+    return transactions
+

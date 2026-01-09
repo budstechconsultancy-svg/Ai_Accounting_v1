@@ -5,7 +5,6 @@ Every function MUST start with tenant validation and permission checks.
 """
 
 import logging
-from core.rbac import check_permission
 from core.tenant import get_user_tenant_id
 from . import database as db
 
@@ -21,14 +20,8 @@ def list_stock_groups(user):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_STOCK_GROUPS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_STOCK_GROUPS")
-    
-    # 3. Business logic - fetch data
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - fetch data
     return db.get_all_stock_groups(tenant_id)
 
 
@@ -37,14 +30,8 @@ def create_stock_group(user, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_STOCK_GROUPS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_STOCK_GROUPS")
-    
-    # 3. Business logic - create
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - create
     return db.create_stock_group(data, tenant_id)
 
 
@@ -53,14 +40,8 @@ def update_stock_group(user, stock_group_id, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_STOCK_GROUPS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_STOCK_GROUPS")
-    
-    # 3. Business logic - update
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - update
     return db.update_stock_group(stock_group_id, data, tenant_id)
 
 
@@ -69,14 +50,8 @@ def delete_stock_group(user, stock_group_id):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_STOCK_GROUPS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_STOCK_GROUPS")
-    
-    # 3. Business logic - delete
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - delete
     db.delete_stock_group(stock_group_id, tenant_id)
 
 
@@ -89,14 +64,8 @@ def list_units(user):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_UNITS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_UNITS")
-    
-    # 3. Business logic - fetch data
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - fetch data
     return db.get_all_units(tenant_id)
 
 
@@ -105,14 +74,8 @@ def create_unit(user, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_UNITS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_UNITS")
-    
-    # 3. Business logic - create
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - create
     return db.create_unit(data, tenant_id)
 
 
@@ -121,14 +84,8 @@ def update_unit(user, unit_id, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_UNITS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_UNITS")
-    
-    # 3. Business logic - update
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - update
     return db.update_unit(unit_id, data, tenant_id)
 
 
@@ -137,14 +94,8 @@ def delete_unit(user, unit_id):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_UNITS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_UNITS")
-    
-    # 3. Business logic - delete
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - delete
     db.delete_unit(unit_id, tenant_id)
 
 
@@ -157,14 +108,8 @@ def list_stock_items(user):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_ITEMS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_ITEMS")
-    
-    # 3. Business logic - fetch data
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - fetch data
     return db.get_all_stock_items(tenant_id)
 
 
@@ -173,14 +118,8 @@ def create_stock_item(user, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_ITEMS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_ITEMS")
-    
-    # 3. Business logic - create
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - create
     return db.create_stock_item(data, tenant_id)
 
 
@@ -189,14 +128,8 @@ def bulk_create_stock_items(user, items_data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_ITEMS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_ITEMS")
-    
-    # 3. Business logic - bulk create
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - bulk create
     return db.bulk_create_stock_items(items_data, tenant_id)
 
 
@@ -205,14 +138,8 @@ def update_stock_item(user, stock_item_id, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_ITEMS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_ITEMS")
-    
-    # 3. Business logic - update
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - update
     return db.update_stock_item(stock_item_id, data, tenant_id)
 
 
@@ -221,14 +148,8 @@ def delete_stock_item(user, stock_item_id):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_ITEMS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_ITEMS")
-    
-    # 3. Business logic - delete
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - delete
     db.delete_stock_item(stock_item_id, tenant_id)
 
 
@@ -248,7 +169,7 @@ def list_stock_movements(user):
     if not has_perm:
         raise PermissionError("Permission denied: INVENTORY_ITEMS")
     
-    # 3. Business logic - fetch data
+    # 2. Business logic - fetch data
     return db.get_all_stock_movements(tenant_id)
 
 
@@ -257,14 +178,8 @@ def create_stock_movement(user, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_ITEMS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_ITEMS")
-    
-    # 3. Business logic - create
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - create
     return db.create_stock_movement(data, tenant_id)
 
 
@@ -273,14 +188,8 @@ def update_stock_movement(user, movement_id, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_ITEMS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_ITEMS")
-    
-    # 3. Business logic - update
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - update
     return db.update_stock_movement(movement_id, data, tenant_id)
 
 
@@ -289,12 +198,6 @@ def delete_stock_movement(user, movement_id):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'INVENTORY_ITEMS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_ITEMS")
-    
-    # 3. Business logic - delete
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - delete
     db.delete_stock_movement(movement_id, tenant_id)

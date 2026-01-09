@@ -2,7 +2,7 @@ import uuid
 from rest_framework import serializers
 from .models import (
     MasterLedgerGroup, MasterLedger, MasterVoucherConfig, MasterHierarchyRaw,
-    Voucher, JournalEntry
+    Voucher, JournalEntry, AmountTransaction
 )
 from .models_question import Answer, Question
 
@@ -23,6 +23,7 @@ class MasterLedgerGroupSerializer(TenantModelSerializerMixin, serializers.ModelS
 
 class MasterLedgerSerializer(TenantModelSerializerMixin, serializers.ModelSerializer):
     question_answers = serializers.JSONField(source='additional_data', required=False, allow_null=True)
+    balance = serializers.SerializerMethodField()
 
     class Meta:
         model = MasterLedger
@@ -32,11 +33,13 @@ class MasterLedgerSerializer(TenantModelSerializerMixin, serializers.ModelSerial
             'sub_group_1', 'sub_group_2', 'sub_group_3', 'ledger_type',
             'gstin', 'registration_type', 'state',
             'extended_data',
+            'additional_data',  # Include additional_data for balances
             'question_answers', # Maps to additional_data
+            'balance',  # Computed balance from journal entries
             'parent_ledger_id',
             'tenant_id', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'code', 'tenant_id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'code', 'balance', 'tenant_id', 'created_at', 'updated_at']
         extra_kwargs = {
             'category': {'required': False, 'allow_null': True, 'allow_blank': True},
             'group': {'required': False, 'allow_null': True, 'allow_blank': True},
@@ -50,6 +53,69 @@ class MasterLedgerSerializer(TenantModelSerializerMixin, serializers.ModelSerial
             'extended_data': {'required': False, 'allow_null': True},
             'parent_ledger_id': {'required': False, 'allow_null': True},
         }
+    
+    def get_balance(self, obj):
+        """Calculate balance from transaction files, amount_transactions, or journal entries"""
+        try:
+            logger.debug(f"Looking for ledger: '{obj.name}' with tenant_id: '{obj.tenant_id}'")
+            
+            # Try AmountTransaction first (for Cash/Bank ledgers)
+            try:
+                from accounting.models import AmountTransaction
+                latest_txn = AmountTransaction.objects.filter(
+                    tenant_id=obj.tenant_id,
+                    ledger=obj
+                ).order_by('-transaction_date', '-created_at').first()
+                
+                if latest_txn:
+                    logger.debug(f"Found balance in AmountTransaction: {latest_txn.balance}")
+                    return latest_txn.balance
+            except Exception as e:
+                logger.debug(f"AmountTransaction lookup failed: {e}")
+            
+            # Try TransactionFile
+            from accounting.models import TransactionFile
+            transaction_file = TransactionFile.objects.filter(
+                tenant_id=obj.tenant_id,
+                ledger_name=obj.name
+            ).first()
+            
+            logger.debug(f"TransactionFile query result: {transaction_file}")
+            
+            if transaction_file and transaction_file.transactions:
+                return transaction_file.transactions.get('balance', 0)
+            
+            # Fallback to journal entries (if table exists)
+            try:
+                logger.debug("Trying journal entries")
+                from django.db.models import Sum
+                from accounting.models import JournalEntry
+                entries = JournalEntry.objects.filter(
+                    tenant_id=obj.tenant_id,
+                    ledger=obj
+                )
+                
+                total_debit = entries.aggregate(Sum('debit'))['debit__sum'] or 0
+                total_credit = entries.aggregate(Sum('credit'))['credit__sum'] or 0
+                
+                # Calculate balance based on ledger category
+                if obj.category in ['Asset', 'Expenditure', 'Expense']:
+                    balance = total_debit - total_credit
+                else:  # Liability, Income, Capital
+                    balance = total_credit - total_debit
+                
+                return float(balance)
+            except Exception as je:
+                logger.debug(f"Journal entries not available: {je}")
+                return 0
+            
+        except Exception as e:
+            # If any error, return 0
+            print(f"ERROR getting balance for {obj.name}: {e}")
+            import traceback
+            traceback.print_exc()
+            return 0.0
+
 
     def create(self, validated_data):
         # Extract question answers (mapped from 'question_answers' to 'additional_data' via source)
@@ -157,6 +223,43 @@ class MasterHierarchyRawSerializer(serializers.ModelSerializer):
             'sub_group_3_1',
             'ledger_1',
         ]
+
+
+
+
+class AmountTransactionSerializer(TenantModelSerializerMixin, serializers.ModelSerializer):
+    """Serializer for Amount Transaction with debit/credit columns"""
+    ledger_name = serializers.CharField(source='ledger.name', read_only=True)
+    ledger_code = serializers.CharField(source='ledger.code', read_only=True)
+    voucher_number = serializers.CharField(source='voucher.voucher_number', read_only=True, allow_null=True)
+    
+    class Meta:
+        model = AmountTransaction
+        fields = [
+            'id',
+            'ledger',
+            'ledger_name',
+            'ledger_code',
+            'transaction_date',
+            'transaction_type',
+            'debit',
+            'credit',
+            'balance',
+            'voucher',
+            'voucher_number',
+            'narration',
+            'tenant_id',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'tenant_id', 'created_at', 'updated_at', 'ledger_name', 'ledger_code', 'voucher_number']
+        extra_kwargs = {
+            'debit': {'required': False, 'default': 0},
+            'credit': {'required': False, 'default': 0},
+            'balance': {'required': False, 'default': 0},
+            'voucher': {'required': False, 'allow_null': True},
+            'narration': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
 
 
 # ============================================================================
@@ -392,3 +495,4 @@ class VoucherSerializer(TenantModelSerializerMixin, serializers.ModelSerializer)
                     credit=entry.get('credit', 0),
                     tenant_id=tenant_id
                 )
+

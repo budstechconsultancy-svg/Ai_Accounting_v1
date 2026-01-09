@@ -14,9 +14,9 @@ def check_db_connection():
     from django.db import connection
     try:
         connection.ensure_connection()
-        print("✅ Database connected successfully!")
+        print("[OK] Database connected successfully!")
     except Exception as e:
-        print(f"❌ Database connection failed: {e}")
+        print(f"[ERROR] Database connection failed: {e}")
 
 # Run only once on startup (prevent partial execution during autoreload)
 if 'runserver' in sys.argv and threading.current_thread() is threading.main_thread():

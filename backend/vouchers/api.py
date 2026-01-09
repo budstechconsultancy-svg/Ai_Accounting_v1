@@ -80,6 +80,25 @@ class VoucherViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         flow.delete_voucher(request.user, instance.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=False, methods=['get'], url_path='untagged-transactions')
+    def untagged_transactions(self, request):
+        """
+        Fetch untagged credit transactions for a specific ledger.
+        Used in payment voucher entry to show outstanding invoices.
+        """
+        ledger_id = request.query_params.get('ledger_id')
+        
+        if not ledger_id:
+            return Response(
+                {'error': 'ledger_id parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        transactions = flow.get_untagged_transactions(request.user, int(ledger_id))
+        
+        return Response(transactions, status=status.HTTP_200_OK)
+
 
 
 # ============================================================================

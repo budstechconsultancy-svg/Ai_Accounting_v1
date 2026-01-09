@@ -8,15 +8,19 @@ from .api import (
     MasterLedgerGroupViewSet,
     MasterLedgerViewSet,
     MasterVoucherConfigViewSet,
-    MasterHierarchyRawViewSet
+    MasterHierarchyRawViewSet,
+    VoucherConfigurationViewSet,
+    AmountTransactionViewSet
 )
 
 router = routers.DefaultRouter()
 
 # Master endpoints
-router.register('ledger-groups', MasterLedgerGroupViewSet, basename='master-ledger-groups')
-router.register('ledgers', MasterLedgerViewSet, basename='master-ledgers')
-router.register('voucher-config', MasterVoucherConfigViewSet, basename='master-voucher-config')
+router.register('ledger-groups', MasterLedgerGroupViewSet, basename='ledger-groups')
+router.register('ledgers', MasterLedgerViewSet, basename='ledgers')
+router.register('voucher-configs', MasterVoucherConfigViewSet, basename='voucher-configs')
+router.register('voucher-configurations', VoucherConfigurationViewSet, basename='voucher-configurations')
+router.register('amount-transactions', AmountTransactionViewSet, basename='amount-transactions')
 
 # Global hierarchy endpoint (no authentication required)
 router.register('hierarchy', MasterHierarchyRawViewSet, basename='hierarchy')

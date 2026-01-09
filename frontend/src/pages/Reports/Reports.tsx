@@ -83,19 +83,30 @@ type GSTForm = 'GSTR-1' | 'GSTR-2' | 'GSTR-2A' | 'GSTR-2B' | 'GSTR-3B' | 'GSTR-4
 type GSTTab = 'B2B' | 'B2C-L' | 'B2C-S' | 'Exports' | 'CDN' | 'Advances' | 'ITC-Eligible' | 'ITC-Ineligible' | 'RCM-Liability' | 'ITC-Available' | 'ITC-Reversal' | 'Outward' | 'ITC' | 'Payment';
 
 const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], ledgerGroups = [], stockItems = [], permissions = [] }) => {
-  // Report Options Mapping - All reports always visible
-  const allReports: { id: ReportType; label: string }[] = [
-    { id: 'DayBook', label: 'Day Book' },
-    { id: 'LedgerReport', label: 'Ledger Report' },
-    { id: 'TrialBalance', label: 'Trial Balance' },
-    { id: 'StockSummary', label: 'Stock Summary' },
-    { id: 'GSTReports', label: 'GST Reports' }
+  // Report Options Mapping
+  const allReports: { id: ReportType; label: string; perm: string }[] = [
+    { id: 'DayBook', label: 'Day Book', perm: 'REPORTS_DAY_BOOK' },
+    { id: 'LedgerReport', label: 'Ledger Report', perm: 'REPORTS_LEDGER' },
+    { id: 'TrialBalance', label: 'Trial Balance', perm: 'REPORTS_TRIAL_BALANCE' },
+    { id: 'StockSummary', label: 'Stock Summary', perm: 'REPORTS_STOCK_SUMMARY' },
+    { id: 'GSTReports', label: 'GST Reports', perm: 'REPORTS_GST' }
   ];
 
-  // Show all reports - no permission filtering
-  const availableReports = allReports;
+  const availableReports = allReports.filter(r => permissions.includes(r.perm));
+  const defaultReport = availableReports.length > 0 ? availableReports[0].id : 'DayBook';
 
-  const [reportType, setReportType] = useState<ReportType>('TrialBalance');
+  const [reportType, setReportType] = useState<ReportType>(defaultReport);
+
+  // Effect to update report type if permissions change
+  useEffect(() => {
+    if (availableReports.length > 0 && !availableReports.find(r => r.id === reportType)) {
+      setReportType(availableReports[0].id);
+    }
+  }, [permissions]);
+
+  if (availableReports.length === 0) {
+    return <div className="p-8 text-center text-gray-500">You do not have permission to view any reports.</div>;
+  }
 
   const [selectedLedger, setSelectedLedger] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');

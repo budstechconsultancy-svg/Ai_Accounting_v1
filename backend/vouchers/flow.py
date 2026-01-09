@@ -5,7 +5,6 @@ Every function MUST start with tenant validation and permission checks.
 """
 
 import logging
-from core.rbac import check_permission
 from core.tenant import get_user_tenant_id
 from . import database as db
 
@@ -30,14 +29,8 @@ def list_vouchers(user, voucher_type=None):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'ACCOUNTING_VOUCHERS')
-    if not has_perm:
-        raise PermissionError("Permission denied: ACCOUNTING_VOUCHERS")
-    
-    # 3. Business logic - fetch data with optional filtering
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - fetch data with optional filtering
     if voucher_type:
         return db.get_vouchers_by_type(voucher_type, tenant_id)
     return db.get_all_vouchers(tenant_id)
@@ -57,14 +50,8 @@ def create_voucher(user, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'ACCOUNTING_VOUCHERS')
-    if not has_perm:
-        raise PermissionError("Permission denied: ACCOUNTING_VOUCHERS")
-    
-    # 3. Business logic - create
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - create
     return db.create_voucher(data, tenant_id)
 
 
@@ -82,14 +69,8 @@ def bulk_create_vouchers(user, vouchers_data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'ACCOUNTING_VOUCHERS')
-    if not has_perm:
-        raise PermissionError("Permission denied: ACCOUNTING_VOUCHERS")
-    
-    # 3. Business logic - bulk create
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - bulk create
     return db.bulk_create_vouchers(vouchers_data, tenant_id)
 
 
@@ -108,14 +89,8 @@ def update_voucher(user, voucher_id, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'ACCOUNTING_VOUCHERS')
-    if not has_perm:
-        raise PermissionError("Permission denied: ACCOUNTING_VOUCHERS")
-    
-    # 3. Business logic - update
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - update
     return db.update_voucher(voucher_id, data, tenant_id)
 
 
@@ -130,14 +105,8 @@ def delete_voucher(user, voucher_id):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'ACCOUNTING_VOUCHERS')
-    if not has_perm:
-        raise PermissionError("Permission denied: ACCOUNTING_VOUCHERS")
-    
-    # 3. Business logic - delete
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - delete
     db.delete_voucher(voucher_id, tenant_id)
 
 
@@ -158,14 +127,8 @@ def list_journal_entries(user):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'ACCOUNTING_VOUCHERS')
-    if not has_perm:
-        raise PermissionError("Permission denied: ACCOUNTING_VOUCHERS")
-    
-    # 3. Business logic - fetch data
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - fetch data
     return db.get_all_journal_entries(tenant_id)
 
 
@@ -183,14 +146,8 @@ def create_journal_entry(user, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'ACCOUNTING_VOUCHERS')
-    if not has_perm:
-        raise PermissionError("Permission denied: ACCOUNTING_VOUCHERS")
-    
-    # 3. Business logic - create
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - create
     return db.create_journal_entry(data, tenant_id)
 
 
@@ -209,14 +166,8 @@ def update_journal_entry(user, entry_id, data):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'ACCOUNTING_VOUCHERS')
-    if not has_perm:
-        raise PermissionError("Permission denied: ACCOUNTING_VOUCHERS")
-    
-    # 3. Business logic - update
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - update
     return db.update_journal_entry(entry_id, data, tenant_id)
 
 
@@ -231,12 +182,27 @@ def delete_journal_entry(user, entry_id):
     # 1. Tenant validation
     tenant_id = get_user_tenant_id(user)
     if not tenant_id:
-        raise PermissionError("User has no associated tenant")
-    
-    # 2. RBAC check
-    has_perm, error_response = check_permission(user, 'ACCOUNTING_VOUCHERS')
-    if not has_perm:
-        raise PermissionError("Permission denied: ACCOUNTING_VOUCHERS")
-    
-    # 3. Business logic - delete
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - delete
     db.delete_journal_entry(entry_id, tenant_id)
+
+
+def get_untagged_transactions(user, ledger_id):
+    """
+    Get untagged credit transactions for a specific ledger.
+    Used in payment voucher entry to show outstanding invoices.
+    
+    Args:
+        user: Authenticated user
+        ledger_id: ID of the ledger to fetch transactions for
+    
+    Returns:
+        List of untagged transactions
+    """
+    # 1. Tenant validation
+    tenant_id = get_user_tenant_id(user)
+    if not tenant_id:
+        raise PermissionError("User has no associated tenant")    
+    # 2. Business logic - fetch untagged transactions
+    return db.get_untagged_transactions_for_ledger(ledger_id, tenant_id)
+

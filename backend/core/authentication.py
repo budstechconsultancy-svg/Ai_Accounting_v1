@@ -29,6 +29,7 @@ class CustomJWTAuthentication(JWTAuthentication):
         """
         Attempts to find and return a user using the given validated token.
         Supports both User (Owner) and TenantUser (Staff) models based on user_type claim.
+        Also attaches tenant_id from token to user object for easy access.
         """
         from rest_framework_simplejwt.settings import api_settings
         from rest_framework_simplejwt.exceptions import InvalidToken, AuthenticationFailed
@@ -56,4 +57,14 @@ class CustomJWTAuthentication(JWTAuthentication):
         if not user.is_active:
             raise AuthenticationFailed("User is inactive", code="user_inactive")
 
+        # IMPORTANT: Ensure tenant_id is set on user object from token
+        # This is crucial for tenant validation in flow layers
+        token_tenant_id = validated_token.get('tenant_id')
+        if token_tenant_id and not hasattr(user, 'tenant_id'):
+            user.tenant_id = token_tenant_id
+        elif token_tenant_id and user.tenant_id != token_tenant_id:
+            # Update if token has different tenant_id (shouldn't happen, but safety check)
+            user.tenant_id = token_tenant_id
+
         return user
+

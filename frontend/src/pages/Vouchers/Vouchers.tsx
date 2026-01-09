@@ -118,7 +118,16 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
     if (availableVoucherTypes.length > 0 && !availableVoucherTypes.find(v => v.id === voucherType)) {
       setVoucherType(availableVoucherTypes[0].id);
     }
-  }, [permissions]);
+  }, [availableVoucherTypes, voucherType]);
+
+  // Debug: Log ledgers data
+  useEffect(() => {
+    console.log('Ledgers prop received:', ledgers);
+    if (ledgers.length > 0) {
+      console.log('First ledger sample:', ledgers[0]);
+      console.log('HDFC ledger:', ledgers.find(l => l.name?.includes('HDFC')));
+    }
+  }, [ledgers]);
 
   if (availableVoucherTypes.length === 0) {
     return <div className="p-8 text-center text-gray-500">You do not have permission to view any voucher types.</div>;
@@ -175,6 +184,48 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
   const [advanceAmount, setAdvanceAmount] = useState(0);
   const [advanceDate, setAdvanceDate] = useState(getTodayDate());
   const [showBulkAdvance, setShowBulkAdvance] = useState(false);
+
+  // Cash/Bank ledgers for dropdown
+  const [cashBankLedgers, setCashBankLedgers] = useState<Ledger[]>([]);
+
+  // Fetch Cash/Bank ledgers from API
+  useEffect(() => {
+    const fetchCashBankLedgers = async () => {
+      try {
+        const response = await apiService.getCashBankLedgers();
+        setCashBankLedgers(response);
+        console.log('Fetched Cash/Bank ledgers:', response);
+      } catch (error) {
+        console.error('Error fetching Cash/Bank ledgers:', error);
+        // Fallback to filtering from ledgers prop
+        const fallback = ledgers.filter(l => l.group === 'Bank Accounts' || l.group === 'Cash-in-Hand');
+        setCashBankLedgers(fallback);
+      }
+    };
+    fetchCashBankLedgers();
+  }, [ledgers]);
+
+  // Update balance when account is selected
+  useEffect(() => {
+    console.log('Balance useEffect triggered', { account, ledgersCount: ledgers.length });
+    if (account && ledgers.length > 0) {
+      // Find the ledger in the main ledgers array (not accountLedgers)
+      const selectedLedger = ledgers.find(l => l.name === account);
+      console.log('Selected ledger:', selectedLedger);
+      if (selectedLedger) {
+        // Use the computed balance field from the API
+        console.log('Setting balance to:', selectedLedger.balance);
+        setBalance(selectedLedger.balance || 0);
+      } else {
+        console.log('Ledger not found, setting balance to 0');
+        setBalance(0);
+      }
+    } else {
+      console.log('No account or no ledgers, setting balance to 0');
+      setBalance(0);
+    }
+  }, [account, ledgers]); // Keep dependency on ledgers, not accountLedgers
+
 
 
 
@@ -495,10 +546,11 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
 
   const { partyLedgers, accountLedgers, allLedgers } = useMemo(() => {
     const partyLedgers = [...ledgers]; // Allow all ledgers to be selected as a party across all voucher types
-    const accountLedgers = ledgers.filter(l => l.group === 'Bank Accounts' || l.group === 'Cash-in-Hand');
+    // Use cashBankLedgers from API instead of filtering
+    const accountLedgers = cashBankLedgers.length > 0 ? cashBankLedgers : ledgers.filter(l => l.group === 'Bank Accounts' || l.group === 'Cash-in-Hand');
     const allLedgers = [...ledgers];
     return { partyLedgers, accountLedgers, allLedgers };
-  }, [ledgers]);
+  }, [ledgers, cashBankLedgers]);
 
   const { totalTaxableAmount, totalCgst, totalSgst, totalIgst, grandTotal } = useMemo(() => {
     return items.reduce((acc, item) => {
