@@ -109,7 +109,8 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
     { id: 'Journal', label: 'Journal', perm: 'VOUCHERS_JOURNAL' }
   ];
 
-  const availableVoucherTypes = allVoucherTypes.filter(v => permissions.includes(v.perm));
+  // Show all voucher types (permission filtering disabled)
+  const availableVoucherTypes = allVoucherTypes;
   const defaultVoucherType = availableVoucherTypes.length > 0 ? availableVoucherTypes[0].id : 'Purchase';
 
   const [voucherType, setVoucherType] = useState<VoucherType>(defaultVoucherType);
@@ -128,10 +129,6 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
       console.log('HDFC ledger:', ledgers.find(l => l.name?.includes('HDFC')));
     }
   }, [ledgers]);
-
-  if (availableVoucherTypes.length === 0) {
-    return <div className="p-8 text-center text-gray-500">You do not have permission to view any voucher types.</div>;
-  }
 
   const [isImportMenuOpen, setIsImportMenuOpen] = useState(false);
   const importMenuRef = useRef<HTMLDivElement>(null);
@@ -184,6 +181,44 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
   const [advanceAmount, setAdvanceAmount] = useState(0);
   const [advanceDate, setAdvanceDate] = useState(getTodayDate());
   const [showBulkAdvance, setShowBulkAdvance] = useState(false);
+
+  // Receipt Voucher specific state - Transaction List
+  interface ReceiptTransaction {
+    id: string;
+    date: string;
+    referenceNumber: string;
+    amount: number;
+    receipt: number;
+  }
+  const [receiptTransactions, setReceiptTransactions] = useState<ReceiptTransaction[]>([
+    { id: '1', date: '31-12-2025', referenceNumber: 'Adc/005', amount: 20000, receipt: 0 },
+    { id: '2', date: '02-01-2026', referenceNumber: 'Abc/008', amount: 45000, receipt: 0 },
+  ]);
+  const [receiveInBalance, setReceiveInBalance] = useState(0);
+  const [receiveFromBalance, setReceiveFromBalance] = useState(0);
+
+  // Calculate total receipt from all transactions
+  const totalReceipt = useMemo(() => {
+    return receiptTransactions.reduce((sum, t) => sum + t.receipt, 0);
+  }, [receiptTransactions]);
+
+  // Payment Voucher specific state - Transaction List
+  interface PaymentTransaction {
+    id: string;
+    date: string;
+    referenceNumber: string;
+    amount: number;
+    payment: number;
+  }
+  const [paymentTransactions, setPaymentTransactions] = useState<PaymentTransaction[]>([
+    { id: '1', date: '15-12-2025', referenceNumber: 'PO/001', amount: 35000, payment: 0 },
+    { id: '2', date: '28-12-2025', referenceNumber: 'PO/002', amount: 28000, payment: 0 },
+  ]);
+
+  // Calculate total payment from all transactions
+  const totalPayment = useMemo(() => {
+    return paymentTransactions.reduce((sum, t) => sum + t.payment, 0);
+  }, [paymentTransactions]);
 
   // Cash/Bank ledgers for dropdown
   const [cashBankLedgers, setCashBankLedgers] = useState<Ledger[]>([]);
@@ -733,14 +768,585 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
     </>
   );
 
+  // Handle "Receive" button click - copies amount to receipt field
+  const handleReceiveClick = (transactionId: string) => {
+    setReceiptTransactions(prev =>
+      prev.map(t =>
+        t.id === transactionId ? { ...t, receipt: t.amount } : t
+      )
+    );
+  };
+
+  // Handle receipt value change
+  const handleReceiptChange = (transactionId: string, value: number) => {
+    setReceiptTransactions(prev =>
+      prev.map(t =>
+        t.id === transactionId ? { ...t, receipt: value } : t
+      )
+    );
+  };
+
+  // Reset receipt form
+  const handleCancelReceipt = () => {
+    setReceiptTransactions(prev => prev.map(t => ({ ...t, receipt: 0 })));
+    setAccount('');
+    setParty('');
+    setAdvanceRefNo('');
+    setAdvanceAmount(0);
+    setShowAdvance(false);
+  };
+
+  // Post receipt voucher
+  const handlePostReceipt = () => {
+    if (!account || !party) {
+      alert('Please select Receive In and Receive From accounts');
+      return;
+    }
+    if (totalReceipt <= 0 && !showAdvance) {
+      alert('Please enter receipt amounts');
+      return;
+    }
+    if (showAdvance && advanceAmount <= 0) {
+      alert('Please enter advance amount');
+      return;
+    }
+
+    // Create receipt voucher
+    const voucher: PaymentReceiptVoucher = {
+      id: '',
+      type: 'Receipt',
+      date,
+      account,
+      party,
+      amount: showAdvance ? advanceAmount : totalReceipt,
+      narration: showAdvance ? `Advance Receipt: ${advanceRefNo}` : `Receipt against invoices. Total: ${totalReceipt}`
+    };
+
+    onAddVouchers([voucher]);
+    handleCancelReceipt();
+  };
+
+  // New Receipt Voucher Form based on the wireframe design
+  const renderReceiptVoucherForm = () => {
+    // Get balance for selected ledgers
+    const receiveInLedger = ledgers.find(l => l.name === account);
+    const receiveFromLedger = ledgers.find(l => l.name === party);
+    const receiveInBal = receiveInLedger?.balance || 0;
+    const receiveFromBal = receiveFromLedger?.balance || 0;
+
+    return (
+      <div className="space-y-6">
+        {/* Single/Bulk Toggle */}
+        <div className="flex justify-center gap-2 mb-6">
+          <button
+            onClick={() => setPaymentMode('single')}
+            className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${paymentMode === 'single'
+              ? 'bg-orange-600 text-white'
+              : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-orange-500'
+              }`}
+          >
+            Receipt Voucher - Single
+          </button>
+          <button
+            onClick={() => setPaymentMode('bulk')}
+            className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${paymentMode === 'bulk'
+              ? 'bg-orange-600 text-white'
+              : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-orange-500'
+              }`}
+          >
+            Receipt Voucher - Bulk
+          </button>
+        </div>
+
+        {/* Top Row: Date, Voucher Type, Voucher Number */}
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+            <input
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Voucher Type</label>
+            <input
+              type="text"
+              value="Receipt"
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Voucher Number</label>
+            <input
+              type="text"
+              value={voucherNumber}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+            />
+          </div>
+        </div>
+
+        {/* Receive In / Receive From Row with Balances */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Receive In</label>
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <SearchableSelect
+                  value={account}
+                  onChange={setAccount}
+                  options={accountLedgers.map(l => l.name)}
+                  placeholder="Select Receive In"
+                />
+              </div>
+              <span className="text-sm font-medium text-gray-600 whitespace-nowrap">
+                ₹{Math.abs(receiveInBal).toLocaleString('en-IN')} Cr
+              </span>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Receive From</label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <SearchableSelect
+                    value={party}
+                    onChange={setParty}
+                    options={partyLedgers.map(l => l.name)}
+                    placeholder="Select Receive From"
+                  />
+                </div>
+                <span className="text-sm font-medium text-gray-600 whitespace-nowrap">
+                  ₹{Math.abs(receiveFromBal).toLocaleString('en-IN')} Dr
+                </span>
+              </div>
+            </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => setShowAdvance(!showAdvance)}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${showAdvance
+                  ? 'bg-orange-600 text-white hover:bg-orange-700'
+                  : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                  }`}
+              >
+                Advance
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Conditional: Advance Section OR Transaction List */}
+        {showAdvance ? (
+          /* Advance Receipt Section */
+          <div className="border-2 border-gray-200 rounded-lg p-6 space-y-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-4">Advance Receipt</h4>
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reference</label>
+                <input
+                  type="text"
+                  value={advanceRefNo}
+                  onChange={e => setAdvanceRefNo(e.target.value)}
+                  placeholder="Enter reference number"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <input
+                  type="number"
+                  value={advanceAmount}
+                  onChange={e => setAdvanceAmount(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Transaction List Section */
+          <div className="border-2 border-gray-200 rounded-lg p-6">
+            <h4 className="text-sm font-semibold text-gray-700 mb-4">Pending Transactions</h4>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Reference Number</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Amount</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Action</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Receipt</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {receiptTransactions.map((transaction) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-700">{transaction.date}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{transaction.referenceNumber}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700 text-right">
+                        ₹{transaction.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleReceiveClick(transaction.id)}
+                          className="px-3 py-1 text-xs font-medium bg-orange-100 text-orange-700 border border-orange-300 rounded hover:bg-orange-200 transition-colors"
+                        >
+                          Receive
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <input
+                          type="number"
+                          value={transaction.receipt || ''}
+                          onChange={e => handleReceiptChange(transaction.id, parseFloat(e.target.value) || 0)}
+                          placeholder="0"
+                          className="w-24 px-2 py-1 text-right border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Total Receipt */}
+            <div className="flex justify-end mt-4 pt-4 border-t border-gray-200">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium text-gray-700">Total Receipt</span>
+                <input
+                  type="number"
+                  value={totalReceipt}
+                  readOnly
+                  className="w-32 px-3 py-2 text-right border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-semibold"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons: Cancel and Post Receipt */}
+        <div className="flex justify-center gap-4 pt-4">
+          <button
+            type="button"
+            onClick={handleCancelReceipt}
+            className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handlePostReceipt}
+            className="px-6 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition-colors"
+          >
+            Post Receipt
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Handle "Pay" button click - copies amount to payment field
+  const handlePayClick = (transactionId: string) => {
+    setPaymentTransactions(prev =>
+      prev.map(t =>
+        t.id === transactionId ? { ...t, payment: t.amount } : t
+      )
+    );
+  };
+
+  // Handle payment value change
+  const handlePaymentChange = (transactionId: string, value: number) => {
+    setPaymentTransactions(prev =>
+      prev.map(t =>
+        t.id === transactionId ? { ...t, payment: value } : t
+      )
+    );
+  };
+
+  // Reset payment form
+  const handleCancelPayment = () => {
+    setPaymentTransactions(prev => prev.map(t => ({ ...t, payment: 0 })));
+    setAccount('');
+    setParty('');
+    setAdvanceRefNo('');
+    setAdvanceAmount(0);
+    setShowAdvance(false);
+  };
+
+  // Post payment voucher
+  const handlePostPayment = () => {
+    if (!account || !party) {
+      alert('Please select Pay From and Pay To accounts');
+      return;
+    }
+    if (totalPayment <= 0 && !showAdvance) {
+      alert('Please enter payment amounts');
+      return;
+    }
+    if (showAdvance && advanceAmount <= 0) {
+      alert('Please enter advance amount');
+      return;
+    }
+
+    // Create payment voucher
+    const voucher: PaymentReceiptVoucher = {
+      id: '',
+      type: 'Payment',
+      date,
+      account,
+      party,
+      amount: showAdvance ? advanceAmount : totalPayment,
+      narration: showAdvance ? `Advance Payment: ${advanceRefNo}` : `Payment against bills. Total: ${totalPayment}`
+    };
+
+    onAddVouchers([voucher]);
+    handleCancelPayment();
+  };
+
+  // New Payment Voucher Form based on the wireframe design
+  const renderPaymentVoucherForm = () => {
+    // Get balance for selected ledgers
+    const payFromLedger = ledgers.find(l => l.name === account);
+    const payToLedger = ledgers.find(l => l.name === party);
+    const payFromBal = payFromLedger?.balance || 0;
+    const payToBal = payToLedger?.balance || 0;
+
+    return (
+      <div className="space-y-6">
+        {/* Single/Bulk Toggle */}
+        <div className="flex justify-center gap-2 mb-6">
+          <button
+            onClick={() => setPaymentMode('single')}
+            className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${paymentMode === 'single'
+              ? 'bg-orange-600 text-white'
+              : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-orange-500'
+              }`}
+          >
+            Payment Voucher - Single
+          </button>
+          <button
+            onClick={() => setPaymentMode('bulk')}
+            className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${paymentMode === 'bulk'
+              ? 'bg-orange-600 text-white'
+              : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-orange-500'
+              }`}
+          >
+            Payment Voucher - Bulk
+          </button>
+        </div>
+
+        {/* Top Row: Date, Voucher Type, Voucher Number */}
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+            <input
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Voucher Name</label>
+            <input
+              type="text"
+              value="Payment"
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Voucher Number</label>
+            <input
+              type="text"
+              value={voucherNumber}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+            />
+          </div>
+        </div>
+
+        {/* Pay From / Pay To Row with Balances */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Pay From</label>
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <SearchableSelect
+                  value={account}
+                  onChange={setAccount}
+                  options={accountLedgers.map(l => l.name)}
+                  placeholder="Select Pay From"
+                />
+              </div>
+              <span className="text-sm font-medium text-gray-600 whitespace-nowrap">
+                ₹{Math.abs(payFromBal).toLocaleString('en-IN')} Cr
+              </span>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pay To</label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <SearchableSelect
+                    value={party}
+                    onChange={setParty}
+                    options={partyLedgers.map(l => l.name)}
+                    placeholder="Select Pay To"
+                  />
+                </div>
+                <span className="text-sm font-medium text-gray-600 whitespace-nowrap">
+                  ₹{Math.abs(payToBal).toLocaleString('en-IN')} Dr
+                </span>
+              </div>
+            </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => setShowAdvance(!showAdvance)}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${showAdvance
+                  ? 'bg-orange-600 text-white hover:bg-orange-700'
+                  : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                  }`}
+              >
+                Advance
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Conditional: Advance Section OR Transaction List */}
+        {showAdvance ? (
+          /* Advance Payment Section */
+          <div className="border-2 border-gray-200 rounded-lg p-6 space-y-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-4">Advance Payment</h4>
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reference</label>
+                <input
+                  type="text"
+                  value={advanceRefNo}
+                  onChange={e => setAdvanceRefNo(e.target.value)}
+                  placeholder="Enter reference number"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <input
+                  type="number"
+                  value={advanceAmount}
+                  onChange={e => setAdvanceAmount(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Transaction List Section */
+          <div className="border-2 border-gray-200 rounded-lg p-6">
+            <h4 className="text-sm font-semibold text-gray-700 mb-4">Pending Bills</h4>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Reference Number</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Amount</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Action</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Payment</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {paymentTransactions.map((transaction) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-700">{transaction.date}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{transaction.referenceNumber}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700 text-right">
+                        ₹{transaction.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handlePayClick(transaction.id)}
+                          className="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-700 border border-blue-300 rounded hover:bg-blue-200 transition-colors"
+                        >
+                          Pay
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <input
+                          type="number"
+                          value={transaction.payment || ''}
+                          onChange={e => handlePaymentChange(transaction.id, parseFloat(e.target.value) || 0)}
+                          placeholder="0"
+                          className="w-24 px-2 py-1 text-right border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Total Payment */}
+            <div className="flex justify-end mt-4 pt-4 border-t border-gray-200">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium text-gray-700">Total Payment</span>
+                <input
+                  type="number"
+                  value={totalPayment}
+                  readOnly
+                  className="w-32 px-3 py-2 text-right border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-semibold"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons: Cancel and Post Payment */}
+        <div className="flex justify-center gap-4 pt-4">
+          <button
+            type="button"
+            onClick={handleCancelPayment}
+            className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handlePostPayment}
+            className="px-6 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition-colors"
+          >
+            Post Payment
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderSimpleForm = (type: 'Payment' | 'Receipt' | 'Contra') => {
-    if (type === 'Payment' || type === 'Receipt') {
-      const isPayment = type === 'Payment';
-      const labelA = isPayment ? 'Pay from' : 'Received From';
-      const labelB = isPayment ? 'Pay to' : 'Received In';
-      const labelInv = isPayment ? 'Supplier Inv. No.' : 'Inv. No.';
-      const labelFull = isPayment ? 'Pay' : 'Full receipt';
-      const labelPartial = isPayment ? 'Pay Partially' : 'Partial receipt';
+    // Use the new Receipt Voucher form for Receipt type
+    if (type === 'Receipt') {
+      return renderReceiptVoucherForm();
+    }
+
+    if (type === 'Payment') {
+      return renderPaymentVoucherForm();
+    }
+
+    // Old Payment form code (disabled)
+    if (false) {
+      const labelA = 'Pay from';
+      const labelB = 'Pay to';
+      const labelInv = 'Supplier Inv. No.';
+      const labelFull = 'Pay';
+      const labelPartial = 'Pay Partially';
 
       return (
         <div className="space-y-6">
@@ -766,7 +1372,8 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
             </button>
           </div>
 
-          {/* Conditional rendering based on mode */}
+          {/* Conditional rendering based on mode  */}
+
           {paymentMode === 'single' ? (
             /* Single Mode */
             <>
@@ -1297,6 +1904,7 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                 </div>
               )}
             </>
+
           )}
         </div>
       );
@@ -1332,7 +1940,7 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
           <div className="border-2 border-gray-200 rounded-lg p-6 max-w-6xl">
             {/* Paid from */}
             <div className="grid grid-cols-[160px_1fr_auto_120px] gap-4 items-center mb-4">
-              <label className="text-sm font-medium text-gray-700">Paid from</label>
+              <label className="text-sm font-medium text-gray-700">Transfer From</label>
               <SearchableSelect
                 value={fromAccount}
                 onChange={setFromAccount}
@@ -1353,7 +1961,7 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
 
             {/* Received in */}
             <div className="grid grid-cols-[160px_1fr_auto_120px] gap-4 items-center mb-4">
-              <label className="text-sm font-medium text-gray-700">Received in</label>
+              <label className="text-sm font-medium text-gray-700">Transfer To</label>
               <SearchableSelect
                 value={toAccount}
                 onChange={setToAccount}
@@ -1631,14 +2239,17 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
         {(voucherType === 'Payment' || voucherType === 'Receipt' || voucherType === 'Contra') && renderSimpleForm(voucherType)}
         {voucherType === 'Journal' && renderJournalForm()}
 
-        <div className="mt-8 pt-4 border-t flex justify-end space-x-3">
-          <button onClick={resetForm} className="inline-flex items-center justify-center px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-            Cancel
-          </button>
-          <button onClick={handleSaveVoucher} className="inline-flex items-center justify-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
-            Save Voucher
-          </button>
-        </div>
+        {/* Hide page-level buttons for Receipt and Payment since they have their own buttons */}
+        {voucherType !== 'Receipt' && voucherType !== 'Payment' && (
+          <div className="mt-8 pt-4 border-t flex justify-end space-x-3">
+            <button onClick={resetForm} className="inline-flex items-center justify-center px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+              Cancel
+            </button>
+            <button onClick={handleSaveVoucher} className="inline-flex items-center justify-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
+              Save Voucher
+            </button>
+          </div>
+        )}
       </div>
 
       {isMassUploadOpen && (

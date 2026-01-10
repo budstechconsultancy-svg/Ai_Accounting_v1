@@ -112,7 +112,7 @@ class CreateUserView(APIView):
                 
                 # Create tenant
                 tenant_uuid = str(uuid.uuid4())
-                tenant = Tenant.objects.create(id=tenant_uuid, name=pending.company_name)
+                tenant = Tenant.objects.create(id=tenant_uuid, name=pending.company_name, created_at=timezone.now())
                 
                 # Move logo to permanent location if exists
                 final_logo_path = None
@@ -130,6 +130,7 @@ class CreateUserView(APIView):
                             logger.error(f"Error moving logo file: {e}")
                 
                 # Create user account
+                now = timezone.now()
                 user = User.objects.create(
                     username=pending.username,
                     email=pending.email,
@@ -140,7 +141,9 @@ class CreateUserView(APIView):
                     selected_plan=pending.selected_plan,
                     tenant_id=tenant_uuid,
                     logo_path=final_logo_path,
-                    is_active=True
+                    is_active=True,
+                    created_at=now,
+                    updated_at=now
                 )
                 
                 # REMOVED: Role creation - Owner gets all permissions automatically

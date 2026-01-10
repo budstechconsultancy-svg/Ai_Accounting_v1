@@ -74,17 +74,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, onLogout, co
     { name: 'Users & Roles', icon: <Icon name="users" />, role: 'USERS' },
   ];
 
-  // Filter navigation items based on user permissions
-  // Dashboard is always visible, other items require specific permissions
-  const navItems = allNavItems.filter(item => {
-    if (!permissions) return true; // Legacy fallback - show all if no permissions defined
-    if (item.name === 'Dashboard') return true; // Dashboard always visible
-    if (item.role) {
-      // Check if user has the required role or is an OWNER (full access)
-      return permissions.includes(item.role) || permissions.includes('OWNER');
-    }
-    return true; // Show items without role requirements
-  });
+  // Show ALL navigation items (permission filtering disabled)
+  // All users can see all menu items
+  const navItems = allNavItems;
 
   return (
     <aside className="w-64 bg-white text-gray-800 flex flex-col fixed h-full border-r border-slate-200">
