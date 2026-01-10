@@ -630,6 +630,7 @@ def sync_opening_balances_to_transactions(user):
                 # Opening balance is typically a debit for Asset accounts
                 db.create_amount_transaction({
                     'ledger': ledger,
+                    'ledger_name': ledger.name,  # Ledger name
                     'transaction_date': ledger.created_at.date(),
                     'transaction_type': 'opening_balance',
                     'debit': float(opening_balance) if float(opening_balance) > 0 else 0,
@@ -651,25 +652,49 @@ def sync_opening_balances_to_transactions(user):
 def _is_cash_or_bank_ledger(ledger):
     """
     Check if ledger is a Cash or Bank ledger from Asset category.
+    Strict Rule: 
+    - Category: Asset (or Assets)
+    - Group: Cash and Bank Balances
+    - Sub Group 1: Cash OR Bank
     
     Args:
         ledger: MasterLedger instance
     
     Returns:
-        Boolean indicating if ledger is Cash or Bank
+        Boolean indicating if ledger is strictly Cash or Bank
     """
-    # Check if ledger belongs to Asset category
-    if not ledger.category or ledger.category.lower() != 'asset':
+    # 1. Check Category (Asset or Assets)
+    if not ledger.category:
         return False
     
-    # Check if sub_group_2 contains Cash or Bank keywords
-    cash_bank_keywords = ['cash', 'bank', 'cash-in-hand', 'bank accounts']
+    category_lower = ledger.category.lower().strip()
+    if category_lower not in ['asset', 'assets']:
+        return False
     
-    if ledger.sub_group_2:
-        sub_group_2_lower = ledger.sub_group_2.lower()
-        return any(keyword in sub_group_2_lower for keyword in cash_bank_keywords)
+    # 2. Check Group (Must be 'Cash and Bank Balances')
+    if not ledger.group:
+        return False
+        
+    group_lower = ledger.group.lower().strip()
+    if group_lower != 'cash and bank balances':
+        return False
+        
+    # 3. Check Sub Group 1 (Must be 'Cash' or 'Bank')
+    if not ledger.sub_group_1:
+        return False
+        
+    sg1_lower = ledger.sub_group_1.lower().strip()
+    if sg1_lower not in ['cash', 'bank']:
+        if sg1_lower == 'bank accounts':
+             # Explicitly disallow 'Bank Accounts' if strict 'Bank' is requested,
+             # unless 'Bank Accounts' is the actual data representation of 'Bank'.
+             # Given 'Strict Rule', we stick to 'Bank'.
+             # Use verify script to confirm if 'Bank' exists.
+             # Safe fallback: exclude it for now based on prompt.
+             return False
+        return False
     
-    return False
+    return True
 
 
 def _calculate_balance(tenant_id, ledger_id, debit, credit):

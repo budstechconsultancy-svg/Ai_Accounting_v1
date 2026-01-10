@@ -3,9 +3,8 @@ Registration Module URL Configuration
 """
 
 from django.urls import path
-from .api import RegisterInitiateView, CreateUserView
+from .api import DirectRegisterView
 
 urlpatterns = [
-    path('register-initiate/', RegisterInitiateView.as_view(), name='auth-register-initiate'),
-    path('create-account/', CreateUserView.as_view(), name='auth-create-account'),
+    path('register/', DirectRegisterView.as_view(), name='auth-register'),  # Direct registration only
 ]

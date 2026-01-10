@@ -127,7 +127,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSwitchToLogin, onBack }) => {
     setLoading(true);
 
     try {
-      // Register user - backend now creates account directly
+      // Register user - backend now creates account directly and returns tokens
       const response = await apiService.register({
         username,
         companyName,
@@ -140,26 +140,21 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSwitchToLogin, onBack }) => {
 
       console.log('Registration response:', response);
 
-      // Create user account directly
-      const accountResponse = await apiService.createUserAccount(phone);
-
-      console.log('Account created:', accountResponse);
-
       // Check if response includes JWT tokens (auto-login)
-      if (accountResponse.access && accountResponse.refresh) {
+      if ((response as any).access && (response as any).refresh) {
         // Auto-login successful - save tokens
-        localStorage.setItem('token', accountResponse.access);
-        localStorage.setItem('refreshToken', accountResponse.refresh);
+        localStorage.setItem('token', (response as any).access);
+        localStorage.setItem('refreshToken', (response as any).refresh);
 
         // Save user data
-        if (accountResponse.user) {
-          localStorage.setItem('user', JSON.stringify(accountResponse.user));
-          localStorage.setItem('companyName', accountResponse.user.company_name || companyName);
+        if ((response as any).user) {
+          localStorage.setItem('user', JSON.stringify((response as any).user));
+          localStorage.setItem('companyName', (response as any).user.company_name || companyName);
         }
 
         // Save permissions
-        if (accountResponse.permissions) {
-          localStorage.setItem('permissions', JSON.stringify(accountResponse.permissions));
+        if ((response as any).permissions) {
+          localStorage.setItem('permissions', JSON.stringify((response as any).permissions));
         }
 
         setSuccessMessage('Registration successful! Redirecting to dashboard...');

@@ -9,7 +9,7 @@ import uuid
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
-from core.models import PendingRegistration, Tenant
+from core.models import Tenant
 
 User = get_user_model()
 logger = logging.getLogger('registration.database')
@@ -57,49 +57,6 @@ def create_tenant(company_name):
     tenant_uuid = str(uuid.uuid4())
     tenant = Tenant.objects.create(id=tenant_uuid, name=company_name)
     return tenant
-
-
-# ============================================================================
-# PENDING REGISTRATION QUERIES
-# ============================================================================
-
-def get_pending_registration(phone):
-    """Get pending registration by phone."""
-    try:
-        return PendingRegistration.objects.get(
-            phone=phone,
-            expires_at__gt=timezone.now()
-        )
-    except PendingRegistration.DoesNotExist:
-        return None
-
-
-def create_or_update_pending_registration(phone, username, email, password_hash, company_name, selected_plan, logo_path=None):
-    """Create or update pending registration."""
-    # Delete expired registrations
-    PendingRegistration.objects.filter(
-        phone=phone,
-        expires_at__lt=timezone.now()
-    ).delete()
-    
-    pending, created = PendingRegistration.objects.update_or_create(
-        phone=phone,
-        defaults={
-            'username': username,
-            'email': email,
-            'password_hash': password_hash,
-            'company_name': company_name,
-            'selected_plan': selected_plan,
-            'logo_path': logo_path,
-            'expires_at': timezone.now() + timedelta(minutes=30)
-        }
-    )
-    return pending
-
-
-def delete_pending_registration(phone):
-    """Delete pending registration."""
-    PendingRegistration.objects.filter(phone=phone).delete()
 
 
 # ============================================================================

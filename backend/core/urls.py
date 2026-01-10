@@ -7,9 +7,7 @@ from .views import (
     SettingsUsersView
 )
 from .admin_views import AdminSubscriptionsView, AdminUserStatusView
-from .registration_views import RegisterInitiateView, CreateUserView
-# REMOVED: permission_views - no longer using permission tables
-# from .permission_views import PermissionModulesListView, RolePermissionsView
+from .direct_registration import DirectRegisterView
 from .reports_views import (
     DayBookExcelView, LedgerExcelView, TrialBalanceExcelView, 
     StockSummaryExcelView, GSTReportExcelView
@@ -19,9 +17,8 @@ router = routers.DefaultRouter()
 router.register('company-settings', CompanySettingsViewSet, basename='company-settings')
 
 urlpatterns = [
-    # Registration Flow
-    path('auth/register/', RegisterInitiateView.as_view(), name='register-initiate'),
-    path('auth/create-account/', CreateUserView.as_view(), name='create-account'),
+    # Direct Registration (no OTP)
+    path('auth/register/', DirectRegisterView.as_view(), name='register'),
     
     path('auth/check-status/', check_status, name='check-status'),
     path('health/', health_check, name='health'), # /api/health

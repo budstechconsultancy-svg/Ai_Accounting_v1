@@ -372,6 +372,40 @@ class AmountTransaction(BaseModel):
             models.Index(fields=['tenant_id', 'transaction_type']),
             models.Index(fields=['transaction_date']),
         ]
+
+    def clean(self):
+        """
+        Strict validation: Only allow ledgers from specific hierarchy.
+        Assets -> Cash and Bank Balances -> Cash or Bank
+        """
+        if not self.ledger:
+            return
+            
+        # Helper to safely get field values
+        def match(val, expected):
+            return str(val).lower().strip() == expected
+
+        is_valid = False
+        
+        # Check Category
+        if self.ledger.category and str(self.ledger.category).lower().strip() in ['asset', 'assets']:
+            # Check Group
+            if self.ledger.group and match(self.ledger.group, 'cash and bank balances'):
+                # Check Sub Group 1
+                if self.ledger.sub_group_1:
+                    sg1 = str(self.ledger.sub_group_1).lower().strip()
+                    if sg1 in ['cash', 'bank']:
+                        is_valid = True
+        
+        if not is_valid:
+            from django.core.exceptions import ValidationError
+            raise ValidationError({
+                'ledger_name': f"Invalid Ledger '{self.ledger.name}'. Transactions allowed only for 'Assets -> Cash and Bank Balances -> Cash or Bank'."
+            })
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"{self.ledger.name} - Dr:{self.debit} Cr:{self.credit} - {self.transaction_date}"

@@ -90,7 +90,7 @@ DATABASES = {
             'charset': 'utf8mb4',
         },
         # Atomic requests for data integrity
-        'ATOMIC_REQUESTS': True,
+        'ATOMIC_REQUESTS': False,  # Disabled - was causing registration rollback
         'AUTOCOMMIT': True,
     }
 }

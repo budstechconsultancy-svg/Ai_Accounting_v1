@@ -39,7 +39,7 @@ urlpatterns = [
     # Login - NEW refactored module
     path('api/auth/', include('login.urls')),
     
-    # Registration - NEW refactored module
+    # Registration - Using registration module
     path('api/auth/', include('registration.urls')),
     
     # Core (Company, Health, Agent) - mapped to /api/

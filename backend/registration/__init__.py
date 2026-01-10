@@ -1,11 +1,9 @@
 """
-Registration Module
-Handles user registration and account creation.
+Registration module - Direct registration without OTP
 """
 
-from .api import RegisterInitiateView, CreateUserView
+from .api import DirectRegisterView
 
 __all__ = [
-    'RegisterInitiateView',
-    'CreateUserView',
+    'DirectRegisterView',
 ]
