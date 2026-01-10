@@ -8,7 +8,7 @@ import uuid
 from django.core.files.storage import default_storage
 import logging
 
-from .models import PendingRegistration, User, Tenant
+from .models import User, Tenant
 # REMOVED: Role - no longer using roles table
 from .serializers import RegisterInitiateSerializer, CreateUserSerializer
 

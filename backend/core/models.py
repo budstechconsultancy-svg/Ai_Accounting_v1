@@ -234,34 +234,10 @@ class CompanyFullInfo(BaseModel):
     bank_branch = models.CharField(max_length=255, blank=True, null=True)
     voucher_numbering = models.JSONField(null=True, blank=True)
     
+
     class Meta:
         db_table = 'company_informations'
 
-
-# Pending Registration Model
-class PendingRegistration(models.Model):
-    """
-    Temporary storage for registration data while waiting for OTP verification
-    """
-    phone = models.CharField(max_length=15, unique=True, db_index=True)
-    username = models.CharField(max_length=100)
-    email = models.CharField(max_length=255, blank=True, null=True)
-    password_hash = models.CharField(max_length=255)  # Already hashed
-    company_name = models.CharField(max_length=255)
-    selected_plan = models.CharField(max_length=50)
-    logo_path = models.CharField(max_length=500, blank=True, null=True)
-    expires_at = models.DateTimeField()  # Auto-delete after 30 minutes
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        db_table = 'pending_registrations'
-        indexes = [
-            models.Index(fields=['phone']),
-            models.Index(fields=['expires_at']),
-        ]
-    
-    def __str__(self):
-        return f"Pending: {self.username} ({self.phone})"
 
 
 

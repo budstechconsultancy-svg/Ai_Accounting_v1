@@ -13,71 +13,42 @@ from . import flow
 
 
 # ============================================================================
-# REGISTRATION INITIATE VIEW
+# DIRECT REGISTRATION VIEW (NO OTP)
 # ============================================================================
 
-class RegisterInitiateView(APIView):
+class DirectRegisterView(APIView):
     """
-    Registration initiation endpoint.
+    Direct registration endpoint - creates user immediately without OTP.
     All logic delegated to flow layer.
     """
     permission_classes = [AllowAny]
     
     def post(self, request):
-        """Handle registration initiation."""
-        serializer = RegisterInitiateSerializer(data=request.data)
+        """Handle direct registration."""
+        # Get data from request
+        data = request.data
         
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        data = serializer.validated_data
+        # Basic validation
+        required_fields = ['username', 'password', 'company_name', 'selected_plan']
+        for field in required_fields:
+            if not data.get(field):
+                return Response(
+                    {'error': f'{field} is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         try:
             # Delegate to flow layer
-            result = flow.initiate_registration(
+            result = flow.direct_registration(
                 username=data['username'],
                 email=data.get('email', ''),
                 password=data['password'],
                 company_name=data['company_name'],
-                phone=data['phone'],
+                phone=data.get('phone', ''),
                 selected_plan=data['selected_plan'],
-                logo_file=data.get('logo')
+                logo_file=request.FILES.get('logo')
             )
             
-            return Response(result, status=status.HTTP_200_OK)
-            
-        except ValueError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response(
-                {'error': f'An error occurred: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-
-# ============================================================================
-# CREATE USER VIEW
-# ============================================================================
-
-class CreateUserView(APIView):
-    """
-    User creation endpoint (complete registration).
-    All logic delegated to flow layer.
-    """
-    permission_classes = [AllowAny]
-    
-    def post(self, request):
-        """Handle user creation."""
-        serializer = CreateUserSerializer(data=request.data)
-        
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        phone = serializer.validated_data['phone']
-        
-        try:
-            # Delegate to flow layer
-            result = flow.complete_registration(phone)
             return Response(result, status=status.HTTP_201_CREATED)
             
         except ValueError as e:
@@ -86,6 +57,6 @@ class CreateUserView(APIView):
             import traceback
             traceback.print_exc()
             return Response(
-                {'error': f'An error occurred during account creation: {str(e)}'},
+                {'error': f'An error occurred during registration: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
