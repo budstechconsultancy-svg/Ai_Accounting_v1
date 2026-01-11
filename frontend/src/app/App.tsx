@@ -157,8 +157,8 @@ const App: React.FC = () => {
   // Data loading state - prevents rendering before data is loaded
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // User permissions - array of permission strings for role-based access control
-  const [permissions, setPermissions] = useState<string[]>([]);
+  // User permissions - No longer used (RBAC removed)
+  // const [permissions, setPermissions] = useState<string[]>([]);
 
   // ============================================================================
   // STATE VARIABLES - Business Data (In-Memory Database)
@@ -349,25 +349,8 @@ const App: React.FC = () => {
         const savedCompanyName = localStorage.getItem('companyName');
         const savedTenantId = localStorage.getItem('tenantId');
 
-        // Load permissions
-        try {
-          const savedPermissions = JSON.parse(localStorage.getItem('userPermissions') || '[]');
-          if (Array.isArray(savedPermissions)) {
-            setPermissions(savedPermissions);
-          }
-        } catch (e) {
-          console.warn('Failed to parse saved permissions');
-        }
-
-        // Load permissions
-        try {
-          const savedPermissions = JSON.parse(localStorage.getItem('userPermissions') || '[]');
-          if (Array.isArray(savedPermissions)) {
-            setPermissions(savedPermissions);
-          }
-        } catch (e) {
-          console.warn('Failed to parse saved permissions');
-        }
+        // Load permissions - RBAC removed
+        // (Logic removed)
 
         // Set initial company details
         const initialCompanyDetails = { ...defaultCompanyDetails, name: savedCompanyName || 'Your Company Name' };
@@ -430,14 +413,8 @@ const App: React.FC = () => {
         localStorage.setItem('tenantId', tenantId);
       }
 
-      // Save permissions
-      if (permissions.length > 0) {
-        localStorage.setItem('userPermissions', JSON.stringify(permissions));
-        setPermissions(permissions);
-      } else {
-        // If no permissions returned (e.g. legacy), maybe empty or defaults?
-        setPermissions([]);
-      }
+      // Save permissions - RBAC removed
+      // (Logic removed)
 
       // Save user-related data (company name) - always update from user data
       const userCompanyName = user?.company_name || user?.companyName || 'Your Company';
@@ -972,7 +949,6 @@ const App: React.FC = () => {
         onDeleteLedger={handleDeleteLedger}
         onUpdateLedgerGroup={handleUpdateLedgerGroup}
         onDeleteLedgerGroup={handleDeleteLedgerGroup}
-        permissions={permissions || []}
       />;
       case 'Inventory': return <InventoryPage
         units={units}
@@ -988,7 +964,6 @@ const App: React.FC = () => {
         onDeleteStockGroup={handleDeleteStockGroup}
         onUpdateUnit={handleUpdateUnit}
         onDeleteUnit={handleDeleteUnit}
-        permissions={permissions || []}
       />;
       case 'Vouchers': return <VouchersPage
         vouchers={vouchers}
@@ -1000,17 +975,14 @@ const App: React.FC = () => {
         onInvoiceUpload={handleInvoiceUpload}
         companyDetails={companyDetails}
         onMassUploadComplete={handleMassUploadComplete}
-        permissions={permissions || []}
       />;
       case 'Reports': return <ErrorBoundary><ReportsPage
         vouchers={vouchers}
         ledgers={ledgers}
         ledgerGroups={ledgerGroups}
         stockItems={stockItems}
-        permissions={permissions || []}
       /></ErrorBoundary>; // Available for all plans
       case 'Settings': return <SettingsPage companyDetails={companyDetails} onSave={handleSaveSettings} />; // Available for all plans
-      case 'Users & Roles': return <UsersAndRolesPage />; // Available for all plans
       case 'Vendor Portal': return <VendorPortalPage />;
       case 'Customer Portal': return <CustomerPortalPage />;
       case 'Payroll': return <PayrollPage />;
@@ -1038,7 +1010,6 @@ const App: React.FC = () => {
         onLogout={handleLogout}
         companyName={companyDetails.name}
         userPlan={userPlan}
-        permissions={permissions}
       />
       <main className="flex-1 ml-64 p-8 overflow-y-auto">
         {renderPage()}

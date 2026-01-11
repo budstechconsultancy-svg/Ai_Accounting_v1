@@ -27,17 +27,22 @@ def get_tenant_id(user):
     
     if not tenant_id:
         from rest_framework.exceptions import PermissionDenied
-        logger.error(f"❌ User {user.username if hasattr(user, 'username') else 'Unknown'} has no tenant_id")
+        user_info = f"{user.username}" if hasattr(user, 'username') else 'Unknown'
+        user_id = f"(ID: {user.id})" if hasattr(user, 'id') else ''
+        is_authenticated = user.is_authenticated if hasattr(user, 'is_authenticated') else False
+        logger.error(
+            f"❌ User {user_info} {user_id} has no tenant_id. "
+            f"Authenticated: {is_authenticated}, "
+            f"Has tenant_id attr: {hasattr(user, 'tenant_id')}, "
+            f"tenant_id value: {getattr(user, 'tenant_id', None)}"
+        )
         raise PermissionDenied({
             "detail": "User has no associated tenant. Please log out and log in again.",
             "code": "permission_denied"
         })
     return tenant_id
 
-def check_permission(user, permission_code):
-    """Placeholder for RBAC check - implement based on your RBAC system"""
-    # For now, just pass - implement actual RBAC logic as needed
-    pass
+
 
 
 # ============================================================================
@@ -464,7 +469,6 @@ def delete_voucher_configuration(user, config_id):
         config_id: ID of voucher configuration to delete
     """
     tenant_id = get_tenant_id(user)
-    check_permission(user, 'MASTERS_VOUCHER_CONFIG')
     
     db.delete_voucher_configuration(config_id, tenant_id)
     logger.info(f"Deleted voucher configuration {config_id} for tenant {tenant_id}")
@@ -489,7 +493,6 @@ def list_amount_transactions(user, ledger_id=None, start_date=None, end_date=Non
         QuerySet of amount transactions
     """
     tenant_id = get_tenant_id(user)
-    check_permission(user, 'MASTERS_LEDGERS')
     
     queryset = db.get_all_amount_transactions(tenant_id)
     
@@ -522,7 +525,6 @@ def create_amount_transaction(user, data):
         ValidationError: If ledger is not Cash/Bank or validation fails
     """
     tenant_id = get_tenant_id(user)
-    check_permission(user, 'MASTERS_LEDGERS')
     
     # Validate ledger belongs to tenant
     ledger_id = data.get('ledger').id if hasattr(data.get('ledger'), 'id') else data.get('ledger')
@@ -559,7 +561,6 @@ def update_amount_transaction(user, transaction_id, data):
         Updated transaction instance
     """
     tenant_id = get_tenant_id(user)
-    check_permission(user, 'MASTERS_LEDGERS')
     
     # Recalculate balance if debit/credit changed
     if 'debit' in data or 'credit' in data:
@@ -582,7 +583,6 @@ def delete_amount_transaction(user, transaction_id):
         transaction_id: ID of transaction to delete
     """
     tenant_id = get_tenant_id(user)
-    check_permission(user, 'MASTERS_LEDGERS')
     
     db.delete_amount_transaction(transaction_id, tenant_id)
     logger.info(f"Deleted amount transaction {transaction_id} for tenant {tenant_id}")
@@ -600,7 +600,6 @@ def sync_opening_balances_to_transactions(user):
         Number of transactions created
     """
     tenant_id = get_tenant_id(user)
-    check_permission(user, 'MASTERS_LEDGERS')
     
     # Get all ledgers for this tenant
     all_ledgers = db.get_all_ledgers(tenant_id)
@@ -741,7 +740,6 @@ def list_cash_bank_ledgers(user):
         List of Cash/Bank ledgers
     """
     tenant_id = get_tenant_id(user)
-    check_permission(user, 'MASTERS_LEDGERS')
     
     # Get all ledgers for tenant
     all_ledgers = db.get_all_ledgers(tenant_id)

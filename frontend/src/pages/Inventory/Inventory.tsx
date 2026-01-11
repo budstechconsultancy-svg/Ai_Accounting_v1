@@ -25,7 +25,6 @@ interface InventoryPageProps {
   onDeleteUnit?: (id: number) => void;
 
   onAddStockItems: (items: StockItem[]) => void; // New prop for mass upload
-  permissions: string[];
 }
 
 type InventoryCategory = 'Operations' | 'Products' | 'Reporting' | 'Configuration';
@@ -35,33 +34,22 @@ const InventoryPage: React.FC<InventoryPageProps> = ({
   onAddUnit, onAddStockGroup, onAddStockItem, onAddStockItems,
   onUpdateStockItem, onDeleteStockItem,
   onUpdateStockGroup, onDeleteStockGroup,
-  onUpdateUnit, onDeleteUnit,
-  permissions
+  onUpdateUnit, onDeleteUnit
 }) => {
-  const categories: { id: InventoryCategory; label: string; perm: string }[] = [
-    { id: 'Operations', label: 'Operations', perm: 'INVENTORY_OPERATIONS' },
-    { id: 'Products', label: 'Products', perm: 'INVENTORY_PRODUCTS' },
-    { id: 'Reporting', label: 'Reporting', perm: 'INVENTORY_REPORTS' },
-    { id: 'Configuration', label: 'Configuration', perm: 'INVENTORY_CONFIG' }
+  const categories: { id: InventoryCategory; label: string }[] = [
+    { id: 'Operations', label: 'Operations' },
+    { id: 'Products', label: 'Products' },
+    { id: 'Reporting', label: 'Reporting' },
+    { id: 'Configuration', label: 'Configuration' }
   ];
 
-  // For backward compatibility while permissions are being updated
-  const availableCategories = categories.filter(cat =>
-    permissions.includes(cat.perm) || permissions.includes('INVENTORY') || permissions.includes('OWNER')
-  );
+  // Show all categories - RBAC disabled
+  const availableCategories = categories;
 
-  const [activeCategory, setActiveCategory] = useState<InventoryCategory>(availableCategories.length > 0 ? availableCategories[0].id : 'Operations');
+  const [activeCategory, setActiveCategory] = useState<InventoryCategory>(availableCategories[0].id);
   const [activeTab, setActiveTab] = useState<string>('');
 
-  useEffect(() => {
-    if (availableCategories.length > 0 && !availableCategories.find(c => c.id === activeCategory)) {
-      setActiveCategory(availableCategories[0].id);
-    }
-  }, [permissions]);
-
-  if (availableCategories.length === 0) {
-    return <div className="p-8 text-center text-gray-500">You do not have permission to view any content in this module.</div>;
-  }
+  // No permission checks - RBAC system removed
 
   // Form states
   const [unitName, setUnitName] = useState('');

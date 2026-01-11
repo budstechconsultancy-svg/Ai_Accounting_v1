@@ -12,49 +12,14 @@ class TenantMiddleware(MiddlewareMixin):
 
 
 class PermissionMiddleware(MiddlewareMixin):
-    """Enforce RBAC permissions on API endpoints based on user's roles."""
+    """RBAC permissions disabled - all authenticated requests are allowed."""
 
     def process_view(self, request, view_func, view_args, view_kwargs):
         """
-        Enforce RBAC permissions.
-        - Owners (User model) have full access.
-        - Staff (TenantUser model) have access only to submodule IDs in their selected_submodule_ids.
+        RBAC system has been removed - allow all requests through.
         """
-        try:
-            if not hasattr(request, 'user') or not request.user.is_authenticated:
-                return None
-
-            # Get required permission from view class or function
-            required_permission = None
-            
-            # Check CBV (ViewSet/APIView)
-            view_class = getattr(view_func, 'cls', None)
-            if view_class:
-                required_permission = getattr(view_class, 'required_permission', None)
-            
-            # Check FBV or specific method override
-            if not required_permission:
-                required_permission = getattr(view_func, 'required_permission', None)
-
-            if not required_permission:
-                # If no permission is required, allow access
-                return None
-
-            # Use centralized RBAC check
-            from core.rbac import check_permission
-            has_perm, error_response = check_permission(request.user, required_permission)
-            
-            if not has_perm:
-                return error_response
-
-            return None
-        except Exception as e:
-            # Log the error for debugging
-            import logging
-            logger = logging.getLogger('core.middleware')
-            logger.error(f"PermissionMiddleware error: {str(e)}", exc_info=True)
-            # Don't block the request - let it proceed
-            return None
+        # Always return None to allow all requests
+        return None
 
 
 class ActivityTrackingMiddleware(MiddlewareMixin):
@@ -113,4 +78,4 @@ class ExceptionLoggingMiddleware:
             traceback.print_exc(file=f)
         
         return None # Let Django handle the 500 response
-    
+        

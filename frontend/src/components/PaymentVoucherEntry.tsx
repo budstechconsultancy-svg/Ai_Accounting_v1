@@ -52,7 +52,7 @@ export const PaymentVoucherEntry: React.FC<PaymentVoucherEntryProps> = ({ onCanc
         const fetchData = async () => {
             try {
                 const [voucherTypesRes, ledgersRes] = await Promise.all([
-                    fetch('http://localhost:8000/api/masters/voucher-config/', { credentials: 'include' }),
+                    fetch('http://localhost:8000/api/masters/voucher-configurations/', { credentials: 'include' }),
                     fetch('http://localhost:8000/api/masters/ledgers/', { credentials: 'include' })
                 ]);
 

@@ -156,7 +156,7 @@ class ApiService {
 
     async getVoucherNumbering() {
         // Backend returns a list of configs (should be one per tenant)
-        const response = await httpClient.get<any[]>('/api/masters/voucher-config/');
+        const response = await httpClient.get<any[]>('/api/masters/voucher-configurations/');
         const config = response.length > 0 ? response[0] : {};
 
         // Map flat backend fields to nested frontend structure
@@ -205,12 +205,12 @@ class ApiService {
 
         if (data.id) {
             // Update existing
-            return httpClient.patch<any>(`/api/masters/voucher-config/${data.id}/`, payload);
+            return httpClient.patch<any>(`/api/masters/voucher-configurations/${data.id}/`, payload);
         } else {
             // Create new (only if not exists, but getVoucherNumbering should handle existence check theoretically)
             // Ideally we check existence first or the backend handles singleton.
             // For now, assume if ID is missing we create.
-            return httpClient.post<any>('/api/masters/voucher-config/', payload);
+            return httpClient.post<any>('/api/masters/voucher-configurations/', payload);
         }
     }
 
@@ -545,6 +545,121 @@ class ApiService {
 
     async saveRoleModules(roleId: number, selectedSubmoduleIds: number[]) {
         return httpClient.post<{ success: boolean; message: string }>(`/api/settings/role-modules/${roleId}/`, { selectedSubmoduleIds });
+    }
+
+    // ============================================================================
+    // SALES VOUCHERS
+    // ============================================================================
+    // Sales/Receipt Voucher creation with strict validation rules
+
+    /**
+     * Get all receipt voucher types for dropdown
+     * @param type - Optional voucher type to filter (e.g. 'sales')
+     * @returns Array of receipt voucher types
+     */
+    async getReceiptVoucherTypes(type?: string) {
+        let url = '/api/vouchers/receipt-types/';
+        if (type) {
+            url += `?type=${type}`;
+        }
+        return httpClient.get<any[]>(url);
+    }
+
+    /**
+     * Get all customers for sales voucher dropdown
+     * @returns Array of customers with id, name, gstin, state
+     */
+    async getSalesCustomers() {
+        return httpClient.get<any[]>('/api/vouchers/sales/customers/');
+    }
+
+    /**
+     * Get customer address details for auto-filling bill-to and ship-to
+     * @param customerId - Customer ledger ID
+     * @returns Customer address data
+     */
+    async getCustomerAddress(customerId: number) {
+        return httpClient.get<any>(`/api/vouchers/sales/customer-address/${customerId}/`);
+    }
+
+    /**
+     * Determine tax type based on address logic
+     * @param userState - User's company state
+     * @param billToState - Customer's bill-to state
+     * @param billToCountry - Customer's bill-to country
+     * @returns Tax type (within_state, other_state, export)
+     */
+    async determineTaxType(userState: string, billToState: string, billToCountry: string) {
+        return httpClient.post<{ tax_type: string }>('/api/vouchers/sales/determine-tax-type/', {
+            user_state: userState,
+            bill_to_state: billToState,
+            bill_to_country: billToCountry
+        });
+    }
+
+    /**
+     * Upload supporting document for sales voucher
+     * @param file - File to upload (JPG, JPEG, PDF only)
+     * @param voucherId - Optional voucher ID if attaching to existing voucher
+     * @returns Uploaded file details
+     */
+    async uploadSalesDocument(file: File, voucherId?: number) {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (voucherId) {
+            formData.append('voucher_id', String(voucherId));
+        }
+        return httpClient.postFormData('/api/vouchers/sales/upload-document/', formData);
+    }
+
+    /**
+     * Create a new sales voucher
+     * @param data - Sales voucher data
+     * @returns Created sales voucher
+     */
+    async createSalesVoucher(data: any) {
+        return httpClient.post<any>('/api/vouchers/sales/', data);
+    }
+
+    /**
+     * Get all sales vouchers with optional filters
+     * @param filters - Optional filters (date_from, date_to, customer_id, status)
+     * @returns Array of sales vouchers
+     */
+    async getSalesVouchers(filters?: any) {
+        const params = new URLSearchParams();
+        if (filters?.date_from) params.append('date_from', filters.date_from);
+        if (filters?.date_to) params.append('date_to', filters.date_to);
+        if (filters?.customer_id) params.append('customer_id', String(filters.customer_id));
+        if (filters?.status) params.append('status', filters.status);
+
+        const queryString = params.toString();
+        const endpoint = queryString ? `/api/vouchers/sales/?${queryString}` : '/api/vouchers/sales/';
+
+        return httpClient.get<any[]>(endpoint);
+    }
+
+    /**
+     * Update sales voucher step and data
+     * @param voucherId - Sales voucher ID
+     * @param step - Current step number (1-5)
+     * @param data - Step-specific data
+     * @returns Updated sales voucher
+     */
+    async updateSalesVoucherStep(voucherId: number, step: number, data?: any) {
+        return httpClient.post<any>(`/api/vouchers/sales/${voucherId}/update_step/`, {
+            step,
+            ...data
+        });
+    }
+
+    /**
+     * Complete sales voucher (mark as completed)
+     * @param voucherId - Sales voucher ID
+     * @returns Updated sales voucher
+     */
+    async completeSalesVoucher(voucherId: number) {
+        return httpClient.post<any>(`/api/vouchers/sales/${voucherId}/complete/`);
     }
 
     // ============================================================================

@@ -3,6 +3,7 @@ import type { Ledger, LedgerGroupMaster, VoucherTypeMaster } from '../../types';
 import Icon from '../../components/Icon';
 import { HierarchicalDropdown } from '../../components/HierarchicalDropdown';
 import { LedgerCreationWizard } from '../../components/LedgerCreationWizard.tsx';
+import { apiService, httpClient } from '../../services';
 
 
 
@@ -19,7 +20,6 @@ interface MastersPageProps {
 
   voucherTypes?: VoucherTypeMaster[];
   onAddVoucherType?: (voucherType: Omit<VoucherTypeMaster, 'id' | 'tenantId' | 'createdAt' | 'updatedAt'>) => void;
-  permissions: string[];
 }
 
 
@@ -34,30 +34,20 @@ const MastersPage: React.FC<MastersPageProps> = ({
   onAddLedgerGroup,
   onUpdateLedgerGroup,
   onDeleteLedgerGroup,
-  permissions,
   onAddVoucherType,
   voucherTypes = []
 }) => {
-  const allTabs: { id: MasterTab; label: string; perm: string }[] = [
-    { id: 'Ledgers', label: 'Ledgers', perm: 'MASTERS_LEDGERS' },
-    { id: 'Vouchers', label: 'Vouchers', perm: 'MASTERS_VOUCHER_CONFIG' }
+  const allTabs: { id: MasterTab; label: string }[] = [
+    { id: 'Ledgers', label: 'Ledgers' },
+    { id: 'Vouchers', label: 'Vouchers' }
   ];
 
-  // Filter tabs based on permissions
-  const availableTabs = allTabs.filter(tab => permissions.includes(tab.perm));
+  // Show all tabs - RBAC disabled
+  const availableTabs = allTabs;
 
-  const [activeTab, setActiveTab] = useState<MasterTab>(availableTabs.length > 0 ? availableTabs[0].id : 'Ledgers');
+  const [activeTab, setActiveTab] = useState<MasterTab>(availableTabs[0].id);
 
-  // Update active tab if permissions change
-  useEffect(() => {
-    if (availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
-      setActiveTab(availableTabs[0].id);
-    }
-  }, [permissions]);
-
-  if (availableTabs.length === 0) {
-    return <div className="p-8 text-center text-gray-500">You do not have permission to view any content in this module.</div>;
-  }
+  // No permission checks - RBAC system removed
 
   // State for Create Ledger
   const [ledgerName, setLedgerName] = useState('');
@@ -132,6 +122,22 @@ const MastersPage: React.FC<MastersPageProps> = ({
   const [purchaseNumbering, setPurchaseNumbering] = useState({ enableAuto: true, prefix: 'PO-', suffix: '/24-25', nextNumber: 1, padding: 4, preview: '' });
   const [selectedVoucher, setSelectedVoucher] = useState<string>('sales');
   const [updateCustomerMaster, setUpdateCustomerMaster] = useState<string>('no');
+
+  // State for Voucher Configuration Form
+  const [voucherName, setVoucherName] = useState('');
+  const [enableAutoNumbering, setEnableAutoNumbering] = useState(true);
+  const [voucherPrefix, setVoucherPrefix] = useState('');
+  const [voucherSuffix, setVoucherSuffix] = useState('');
+  const [voucherStartFrom, setVoucherStartFrom] = useState(1);
+  const [voucherRequiredDigits, setVoucherRequiredDigits] = useState(4);
+  const [voucherEffectiveFrom, setVoucherEffectiveFrom] = useState('');
+  const [voucherEffectiveTo, setVoucherEffectiveTo] = useState('');
+  const [voucherUpdateCustomerMaster, setVoucherUpdateCustomerMaster] = useState(false);
+  const [voucherIncludeFromSeries, setVoucherIncludeFromSeries] = useState<number | null>(null);
+  const [existingVouchers, setExistingVouchers] = useState<any[]>([]);
+  const [selectedVoucherConfig, setSelectedVoucherConfig] = useState<any | null>(null);
+  const [isEditModeVoucher, setIsEditModeVoucher] = useState(false);
+  const [voucherFormError, setVoucherFormError] = useState('');
 
   const handleLedgerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -546,6 +552,185 @@ const MastersPage: React.FC<MastersPageProps> = ({
     setSelectedGroup(null);
     setGroupName('');
     setGroupUnder('');
+  };
+
+  // Fetch existing voucher configurations
+  const fetchVoucherConfigurations = async () => {
+    try {
+      const configs = await httpClient.get<any[]>('/api/masters/voucher-configurations/');
+      setExistingVouchers(configs || []);
+    } catch (error) {
+      console.error('Error fetching voucher configurations:', error);
+    }
+  };
+
+  // Load voucher configurations when Vouchers tab is active
+  useEffect(() => {
+    if (activeTab === 'Vouchers') {
+      fetchVoucherConfigurations();
+    }
+  }, [activeTab]);
+
+  // Reset voucher form
+  const resetVoucherForm = () => {
+    setVoucherName('');
+    setEnableAutoNumbering(true);
+    setVoucherPrefix('');
+    setVoucherSuffix('');
+    setVoucherStartFrom(1);
+    setVoucherRequiredDigits(4);
+    setVoucherEffectiveFrom('');
+    setVoucherEffectiveTo('');
+    setVoucherUpdateCustomerMaster(false);
+    setVoucherIncludeFromSeries(null);
+    setSelectedVoucherConfig(null);
+    setIsEditModeVoucher(false);
+    setVoucherFormError('');
+  };
+
+  // Handle voucher configuration form submit
+  const handleVoucherSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVoucherFormError('');
+
+    // Validation
+    if (!voucherName.trim()) {
+      setVoucherFormError('Voucher name is required');
+      return;
+    }
+    if (!voucherEffectiveFrom || !voucherEffectiveTo) {
+      setVoucherFormError('Effective period is required');
+      return;
+    }
+
+    // Validate that Effective To is after Effective From
+    const fromDate = new Date(voucherEffectiveFrom);
+    const toDate = new Date(voucherEffectiveTo);
+    if (toDate <= fromDate) {
+      setVoucherFormError('Effective To date must be after Effective From date');
+      return;
+    }
+
+    try {
+      const payload = {
+        voucher_type: selectedVoucher,
+        voucher_name: voucherName.trim(),
+        enable_auto_numbering: enableAutoNumbering,
+        prefix: voucherPrefix,
+        suffix: voucherSuffix,
+        start_from: voucherStartFrom,
+        required_digits: voucherRequiredDigits,
+        effective_from: voucherEffectiveFrom,
+        effective_to: voucherEffectiveTo,
+        ...(selectedVoucher === 'sales' && {
+          update_customer_master: voucherUpdateCustomerMaster,
+          include_from_existing_series_id: voucherIncludeFromSeries
+        })
+      };
+
+      const token = localStorage.getItem('token');
+      const url = isEditModeVoucher && selectedVoucherConfig?.id
+        ? `/api/masters/voucher-configurations/${selectedVoucherConfig.id}/`
+        : '/api/masters/voucher-configurations/';
+
+      const method = isEditModeVoucher && selectedVoucherConfig?.id ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Backend validation error:', errorData);
+
+        // Extract detailed error messages
+        let errorMessage = 'Failed to save voucher configuration:\n';
+        if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (typeof errorData === 'object') {
+          // Field-specific errors
+          Object.keys(errorData).forEach(field => {
+            const fieldErrors = Array.isArray(errorData[field]) ? errorData[field] : [errorData[field]];
+            errorMessage += `\n${field}: ${fieldErrors.join(', ')}`;
+          });
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Success - refresh the list and reset form
+      await fetchVoucherConfigurations();
+      resetVoucherForm();
+      alert(isEditModeVoucher ? 'Voucher configuration updated successfully!' : 'Voucher configuration created successfully!');
+    } catch (error: any) {
+      console.error('Error saving voucher configuration:', error);
+
+      // Extract error message from httpClient error
+      let errorMessage = 'Failed to save voucher configuration';
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (typeof errorData === 'object') {
+          errorMessage += ':\n';
+          Object.keys(errorData).forEach(field => {
+            const fieldErrors = Array.isArray(errorData[field]) ? errorData[field] : [errorData[field]];
+            errorMessage += `\n${field}: ${fieldErrors.join(', ')}`;
+          });
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setVoucherFormError(errorMessage);
+    }
+  };
+
+  // Handle edit voucher configuration
+  const handleEditVoucherConfig = () => {
+    if (!selectedVoucherConfig) {
+      alert('Please select a voucher configuration first');
+      return;
+    }
+
+    setVoucherName(selectedVoucherConfig.voucher_name || '');
+    setEnableAutoNumbering(selectedVoucherConfig.enable_auto_numbering ?? true);
+    setVoucherPrefix(selectedVoucherConfig.prefix || '');
+    setVoucherSuffix(selectedVoucherConfig.suffix || '');
+    setVoucherStartFrom(selectedVoucherConfig.start_from || 1);
+    setVoucherRequiredDigits(selectedVoucherConfig.required_digits || 4);
+    setVoucherEffectiveFrom(selectedVoucherConfig.effective_from || '');
+    setVoucherEffectiveTo(selectedVoucherConfig.effective_to || '');
+    setVoucherUpdateCustomerMaster(selectedVoucherConfig.update_customer_master || false);
+    setVoucherIncludeFromSeries(selectedVoucherConfig.include_from_existing_series_id || null);
+    setIsEditModeVoucher(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Handle delete voucher configuration
+  const handleDeleteVoucherConfig = async () => {
+    if (!selectedVoucherConfig) {
+      alert('Please select a voucher configuration first');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete "${selectedVoucherConfig.voucher_name}"?`)) {
+      return;
+    }
+
+    try {
+      await httpClient.delete(`/api/masters/voucher-configurations/${selectedVoucherConfig.id}/`);
+      await fetchVoucherConfigurations();
+      resetVoucherForm();
+      alert('Voucher configuration deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting voucher configuration:', error);
+      alert('Failed to delete voucher configuration');
+    }
   };
 
   const handleAddVoucherType = (e: React.FormEvent) => {
@@ -1446,7 +1631,15 @@ const MastersPage: React.FC<MastersPageProps> = ({
             {/* Left Column - Sales Voucher Configuration */}
             <div className="bg-white p-6 rounded-lg shadow-sm border-2 border-teal-400">
               <h3 className="text-xl font-bold text-gray-800 mb-6">Sales</h3>
-              <form className="space-y-6">
+
+              {/* Error Message */}
+              {voucherFormError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-600">{voucherFormError}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleVoucherSubmit} className="space-y-6">
                 {/* Voucher Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1454,6 +1647,8 @@ const MastersPage: React.FC<MastersPageProps> = ({
                   </label>
                   <input
                     type="text"
+                    value={voucherName}
+                    onChange={(e) => setVoucherName(e.target.value)}
                     className="w-full max-w-md px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                     placeholder="Enter voucher name"
                     required
@@ -1466,6 +1661,8 @@ const MastersPage: React.FC<MastersPageProps> = ({
                   <input
                     type="checkbox"
                     id="enableAutoNumbering"
+                    checked={enableAutoNumbering}
+                    onChange={(e) => setEnableAutoNumbering(e.target.checked)}
                     className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                   />
                   <label htmlFor="enableAutoNumbering" className="ml-2 text-sm font-medium text-gray-700">
@@ -1481,9 +1678,11 @@ const MastersPage: React.FC<MastersPageProps> = ({
                     </label>
                     <input
                       type="text"
+                      value={voucherPrefix}
+                      onChange={(e) => setVoucherPrefix(e.target.value)}
                       className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                       placeholder="e.g., INV-"
-                      pattern="[a-zA-Z0-9/-]*"
+                      pattern="[a-zA-Z0-9/\-]*"
                       title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
                       required
                     />
@@ -1495,9 +1694,11 @@ const MastersPage: React.FC<MastersPageProps> = ({
                     </label>
                     <input
                       type="text"
+                      value={voucherSuffix}
+                      onChange={(e) => setVoucherSuffix(e.target.value)}
                       className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                       placeholder="e.g., /24-25"
-                      pattern="[a-zA-Z0-9/-]*"
+                      pattern="[a-zA-Z0-9/\-]*"
                       title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
                       required
                     />
@@ -1513,6 +1714,8 @@ const MastersPage: React.FC<MastersPageProps> = ({
                     </label>
                     <input
                       type="number"
+                      value={voucherStartFrom}
+                      onChange={(e) => setVoucherStartFrom(parseInt(e.target.value) || 1)}
                       className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                       placeholder="1"
                       min="1"
@@ -1524,6 +1727,8 @@ const MastersPage: React.FC<MastersPageProps> = ({
                     </label>
                     <input
                       type="number"
+                      value={voucherRequiredDigits}
+                      onChange={(e) => setVoucherRequiredDigits(parseInt(e.target.value) || 4)}
                       className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                       placeholder="4"
                       min="1"
@@ -1541,6 +1746,8 @@ const MastersPage: React.FC<MastersPageProps> = ({
                       <label className="block text-xs text-gray-600 mb-1">From <span className="text-red-500">*</span></label>
                       <input
                         type="date"
+                        value={voucherEffectiveFrom}
+                        onChange={(e) => setVoucherEffectiveFrom(e.target.value)}
                         min={today}
                         className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                         required
@@ -1550,7 +1757,9 @@ const MastersPage: React.FC<MastersPageProps> = ({
                       <label className="block text-xs text-gray-600 mb-1">To <span className="text-red-500">*</span></label>
                       <input
                         type="date"
-                        min={today}
+                        value={voucherEffectiveTo}
+                        onChange={(e) => setVoucherEffectiveTo(e.target.value)}
+                        min={voucherEffectiveFrom || today}
                         max={financialYearEnd}
                         className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                         required
@@ -1568,10 +1777,10 @@ const MastersPage: React.FC<MastersPageProps> = ({
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="updateCustomerMaster"
+                        name="voucherUpdateCustomerMaster"
                         value="yes"
-                        checked={updateCustomerMaster === 'yes'}
-                        onChange={(e) => setUpdateCustomerMaster(e.target.value)}
+                        checked={voucherUpdateCustomerMaster === true}
+                        onChange={(e) => setVoucherUpdateCustomerMaster(true)}
                         className="w-4 h-4 text-green-600 focus:ring-green-500"
                       />
                       <span className="ml-2 text-sm text-gray-700">Yes</span>
@@ -1579,10 +1788,10 @@ const MastersPage: React.FC<MastersPageProps> = ({
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        name="updateCustomerMaster"
+                        name="voucherUpdateCustomerMaster"
                         value="no"
-                        checked={updateCustomerMaster === 'no'}
-                        onChange={(e) => setUpdateCustomerMaster(e.target.value)}
+                        checked={voucherUpdateCustomerMaster === false}
+                        onChange={(e) => setVoucherUpdateCustomerMaster(false)}
                         className="w-4 h-4 text-green-600 focus:ring-green-500"
                       />
                       <span className="ml-2 text-sm text-gray-700">No</span>
@@ -1591,26 +1800,42 @@ const MastersPage: React.FC<MastersPageProps> = ({
                 </div>
 
                 {/* If Yes, Include from existing series - Only show if Yes is selected */}
-                {updateCustomerMaster === 'yes' && (
+                {voucherUpdateCustomerMaster && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Include from existing series:
                     </label>
                     <div className="relative max-w-md">
-                      <select className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none bg-white">
+                      <select
+                        value={voucherIncludeFromSeries || ''}
+                        onChange={(e) => setVoucherIncludeFromSeries(e.target.value ? parseInt(e.target.value) : null)}
+                        className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none bg-white"
+                      >
                         <option value="">Drop down list to have the existing list of series</option>
+                        {existingVouchers.filter(v => v.voucher_type === 'sales').map(v => (
+                          <option key={v.id} value={v.id}>{v.voucher_name}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
                 )}
 
                 {/* Submit Button */}
-                <div className="flex justify-end pt-4">
+                <div className="flex justify-end gap-3 pt-4">
+                  {isEditModeVoucher && (
+                    <button
+                      type="button"
+                      onClick={resetVoucherForm}
+                      className="px-8 py-3 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors duration-200"
+                    >
+                      Cancel
+                    </button>
+                  )}
                   <button
                     type="submit"
                     className="px-8 py-3 bg-teal-600 text-white font-semibold rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors duration-200"
                   >
-                    Save
+                    {isEditModeVoucher ? 'Update' : 'Save'}
                   </button>
                 </div>
               </form>
@@ -1634,12 +1859,71 @@ const MastersPage: React.FC<MastersPageProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {/* Empty State */}
-                    <tr>
-                      <td colSpan={6} className="px-3 py-12 text-center">
-                        <p className="text-sm text-gray-400">No vouchers configured yet</p>
-                      </td>
-                    </tr>
+                    {existingVouchers.filter(v => v.voucher_type === selectedVoucher).length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-3 py-12 text-center">
+                          <p className="text-sm text-gray-400">No vouchers configured yet</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      existingVouchers
+                        .filter(v => v.voucher_type === selectedVoucher)
+                        .map((voucher) => {
+                          const isSelected = selectedVoucherConfig?.id === voucher.id;
+                          const seriesPreview = voucher.enable_auto_numbering
+                            ? `${voucher.prefix || ''}${String(voucher.current_number || voucher.start_from || 1).padStart(voucher.required_digits || 4, '0')}${voucher.suffix || ''}`
+                            : 'Manual';
+
+                          return (
+                            <tr
+                              key={voucher.id}
+                              className={`transition-colors ${isSelected ? 'bg-teal-50 hover:bg-teal-100' : 'hover:bg-gray-50'}`}
+                            >
+                              <td className="px-3 py-3 whitespace-nowrap">
+                                <input
+                                  type="radio"
+                                  name="selectedVoucherConfig"
+                                  checked={isSelected}
+                                  onChange={() => setSelectedVoucherConfig(voucher)}
+                                  className="w-4 h-4 text-teal-600 focus:ring-teal-500 cursor-pointer"
+                                />
+                              </td>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {voucher.voucher_name}
+                              </td>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
+                                {seriesPreview}
+                              </td>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
+                                {voucher.effective_from}
+                              </td>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
+                                {voucher.effective_to}
+                              </td>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm">
+                                {isSelected ? (
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={handleEditVoucherConfig}
+                                      className="px-3 py-1.5 text-xs font-semibold rounded-md text-white bg-teal-600 hover:bg-teal-700 transition-colors"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={handleDeleteVoucherConfig}
+                                      className="px-3 py-1.5 text-xs font-semibold rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 text-xs italic">Select to edit</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1655,7 +1939,7 @@ const MastersPage: React.FC<MastersPageProps> = ({
               <h3 className="text-xl font-bold text-gray-800 mb-6">
                 {voucherButtons.find(v => v.id === selectedVoucher)?.label}
               </h3>
-              <form className="space-y-6">
+              <form onSubmit={handleVoucherSubmit} className="space-y-6">
                 {/* Voucher Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1663,7 +1947,9 @@ const MastersPage: React.FC<MastersPageProps> = ({
                   </label>
                   <input
                     type="text"
-                    className="w-full max-w-sm px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    value={voucherName}
+                    onChange={(e) => setVoucherName(e.target.value)}
+                    className="w-full max-w-md px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                     placeholder="Enter voucher name"
                     required
                   />
@@ -1675,6 +1961,8 @@ const MastersPage: React.FC<MastersPageProps> = ({
                   <input
                     type="checkbox"
                     id="otherEnableAutoNumbering"
+                    checked={enableAutoNumbering}
+                    onChange={(e) => setEnableAutoNumbering(e.target.checked)}
                     className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
                   />
                   <label htmlFor="otherEnableAutoNumbering" className="ml-2 text-sm font-medium text-gray-700">
@@ -1690,9 +1978,11 @@ const MastersPage: React.FC<MastersPageProps> = ({
                     </label>
                     <input
                       type="text"
+                      value={voucherPrefix}
+                      onChange={(e) => setVoucherPrefix(e.target.value)}
                       className="w-full px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      placeholder=""
-                      pattern="[a-zA-Z0-9/-]*"
+                      placeholder="e.g., CN-"
+                      pattern="[a-zA-Z0-9/\-]*"
                       title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
                       required
                     />
@@ -1704,9 +1994,11 @@ const MastersPage: React.FC<MastersPageProps> = ({
                     </label>
                     <input
                       type="text"
+                      value={voucherSuffix}
+                      onChange={(e) => setVoucherSuffix(e.target.value)}
                       className="w-full px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      placeholder=""
-                      pattern="[a-zA-Z0-9/-]*"
+                      placeholder="e.g., /24-25"
+                      pattern="[a-zA-Z0-9/\-]*"
                       title="Only alphanumeric characters, slash (/), and hyphen (-) are allowed"
                       required
                     />
@@ -1722,8 +2014,10 @@ const MastersPage: React.FC<MastersPageProps> = ({
                     </label>
                     <input
                       type="number"
+                      value={voucherStartFrom}
+                      onChange={(e) => setVoucherStartFrom(parseInt(e.target.value) || 1)}
                       className="w-full px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      placeholder=""
+                      placeholder="1"
                       min="1"
                     />
                   </div>
@@ -1733,8 +2027,10 @@ const MastersPage: React.FC<MastersPageProps> = ({
                     </label>
                     <input
                       type="number"
+                      value={voucherRequiredDigits}
+                      onChange={(e) => setVoucherRequiredDigits(parseInt(e.target.value) || 4)}
                       className="w-full px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      placeholder=""
+                      placeholder="4"
                       min="1"
                     />
                   </div>
@@ -1750,6 +2046,8 @@ const MastersPage: React.FC<MastersPageProps> = ({
                       <label className="block text-xs text-gray-600 mb-1">From <span className="text-red-500">*</span></label>
                       <input
                         type="date"
+                        value={voucherEffectiveFrom}
+                        onChange={(e) => setVoucherEffectiveFrom(e.target.value)}
                         min={today}
                         className="w-full px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                         required
@@ -1759,7 +2057,9 @@ const MastersPage: React.FC<MastersPageProps> = ({
                       <label className="block text-xs text-gray-600 mb-1">To <span className="text-red-500">*</span></label>
                       <input
                         type="date"
-                        min={today}
+                        value={voucherEffectiveTo}
+                        onChange={(e) => setVoucherEffectiveTo(e.target.value)}
+                        min={voucherEffectiveFrom || today}
                         max={financialYearEnd}
                         className="w-full px-4 py-2 border-2 border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                         required
@@ -1769,12 +2069,21 @@ const MastersPage: React.FC<MastersPageProps> = ({
                 </div>
 
                 {/* Submit Button */}
-                <div className="flex justify-end pt-4">
+                <div className="flex justify-end gap-3 pt-4">
+                  {isEditModeVoucher && (
+                    <button
+                      type="button"
+                      onClick={resetVoucherForm}
+                      className="px-8 py-3 bg-gray-500 text-white font-semibold rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors duration-200"
+                    >
+                      Cancel
+                    </button>
+                  )}
                   <button
                     type="submit"
                     className="px-8 py-3 bg-teal-600 text-white font-semibold rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors duration-200"
                   >
-                    Save
+                    {isEditModeVoucher ? 'Update' : 'Save'}
                   </button>
                 </div>
               </form>
@@ -1798,12 +2107,73 @@ const MastersPage: React.FC<MastersPageProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {/* Empty State */}
-                    <tr>
-                      <td colSpan={6} className="px-3 py-12 text-center">
-                        <p className="text-sm text-gray-400">No vouchers configured yet</p>
-                      </td>
-                    </tr>
+                    {existingVouchers.filter(v => v.voucher_type === selectedVoucher).length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-3 py-12 text-center">
+                          <p className="text-sm text-gray-400">No vouchers configured yet</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      existingVouchers
+                        .filter(v => v.voucher_type === selectedVoucher)
+                        .map((voucher) => {
+                          const isSelected = selectedVoucherConfig?.id === voucher.id;
+                          const seriesPreview = voucher.enable_auto_numbering
+                            ? `${voucher.prefix || ''}${String(voucher.current_number || voucher.start_from || 1).padStart(voucher.required_digits || 4, '0')}${voucher.suffix || ''}`
+                            : 'Manual';
+
+                          return (
+                            <tr
+                              key={voucher.id}
+                              className={`transition-colors ${isSelected ? 'bg-teal-50 hover:bg-teal-100' : 'hover:bg-gray-50'}`}
+                            >
+                              <td className="px-3 py-3 whitespace-nowrap">
+                                <input
+                                  type="radio"
+                                  name="selectedVoucherConfig"
+                                  checked={isSelected}
+                                  onChange={() => setSelectedVoucherConfig(voucher)}
+                                  className="w-4 h-4 text-teal-600 focus:ring-teal-500 cursor-pointer"
+                                />
+                              </td>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {voucher.voucher_name}
+                              </td>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
+                                {seriesPreview}
+                              </td>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
+                                {voucher.effective_from}
+                              </td>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
+                                {voucher.effective_to}
+                              </td>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm">
+                                {isSelected ? (
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={handleEditVoucherConfig}
+                                      className="px-3 py-1.5 text-xs font-semibold rounded-md text-white bg-teal-600 hover:bg-teal-700 transition-colors"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handleDeleteVoucherConfig}
+                                      className="px-3 py-1.5 text-xs font-semibold rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 text-xs italic">Select to edit</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                    )}
                   </tbody>
                 </table>
               </div>

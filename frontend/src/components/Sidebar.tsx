@@ -21,7 +21,6 @@
  * - Payroll - Employee payroll
  * - Reports - Financial reports
  * - Settings - Company settings
- * - Users & Roles - User management and permissions
  * 
  * PERMISSIONS:
  * - Dashboard is always visible
@@ -52,13 +51,12 @@ interface SidebarProps {
   onLogout: () => void;           // Callback when user clicks logout
   companyName: string;            // Company name to display at top
   userPlan?: string;              // User's subscription plan (Basic, Pro, Enterprise)
-  permissions?: string[];         // User's permissions for role-based access control
 }
 
 /**
  * Sidebar Component - Main navigation sidebar
  */
-const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, onLogout, companyName, userPlan, permissions }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, onLogout, companyName, userPlan }) => {
   // Define all available navigation items
   // Each item has a name, icon, and optional role requirement
   const allNavItems: { name: Page; icon: React.ReactElement; role?: string }[] = [
@@ -71,7 +69,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, onLogout, co
     { name: 'Payroll', icon: <Icon name="users" /> },
     { name: 'Reports', icon: <Icon name="reports" />, role: 'REPORTS' },
     { name: 'Settings', icon: <Icon name="settings" />, role: 'SETTINGS' },
-    { name: 'Users & Roles', icon: <Icon name="users" />, role: 'USERS' },
   ];
 
   // Show ALL navigation items (permission filtering disabled)

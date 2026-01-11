@@ -1,10 +1,13 @@
 import uuid
+import logging
 from rest_framework import serializers
 from .models import (
     MasterLedgerGroup, MasterLedger, MasterVoucherConfig, MasterHierarchyRaw,
     Voucher, JournalEntry, AmountTransaction
 )
 from .models_question import Answer, Question
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # MASTER SERIALIZERS
@@ -269,8 +272,8 @@ class AmountTransactionSerializer(TenantModelSerializerMixin, serializers.ModelS
 class JournalEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = JournalEntry
-        fields = ['id', 'ledger', 'debit', 'credit', 'entry_type', 'amount']
-        read_only_fields = ['id', 'entry_type', 'amount']
+        fields = ['id', 'ledger', 'debit', 'credit']
+        read_only_fields = ['id']
 
 
 class VoucherSerializer(TenantModelSerializerMixin, serializers.ModelSerializer):

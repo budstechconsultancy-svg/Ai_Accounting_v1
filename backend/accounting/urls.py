@@ -6,6 +6,15 @@ from .views import (
 )
 from .views_questions import LedgerQuestionsView, LedgerCreateWithQuestionsView
 from .views_question import QuestionViewSet
+from .sales_api import (
+    ReceiptVoucherTypeViewSet,
+    SalesVoucherViewSet,
+    CustomerAddressAPIView,
+    TaxTypeDeterminationAPIView,
+    SalesDocumentUploadAPIView,
+    CustomerListAPIView
+)
+from .invoice_api import SalesInvoiceViewSet
 
 
 router = routers.DefaultRouter()
@@ -13,14 +22,18 @@ router = routers.DefaultRouter()
 # Master endpoints
 router.register('masters/ledger-groups', MasterLedgerGroupViewSet, basename='master-ledger-groups')
 router.register('masters/ledgers', MasterLedgerViewSet, basename='master-ledgers')
-router.register('masters/voucher-config', MasterVoucherConfigViewSet, basename='master-voucher-config')
+# OLD ENDPOINT - DEPRECATED: Use /api/masters/voucher-configurations/ instead
+# router.register('masters/voucher-config', MasterVoucherConfigViewSet, basename='master-voucher-config')
 
 # Global hierarchy endpoint (no authentication required)
 router.register('hierarchy', MasterHierarchyRawViewSet, basename='hierarchy')
 
-# Unified voucher endpoint - filter by type using query params
-# e.g., /api/accounting/vouchers/?type=sales
-router.register('vouchers', VoucherViewSet, basename='vouchers')
+# Sales Voucher endpoints (Must register BEFORE generic 'vouchers')
+router.register('vouchers/receipt-types', ReceiptVoucherTypeViewSet, basename='receipt-voucher-types')
+router.register('vouchers/sales', SalesVoucherViewSet, basename='sales-vouchers')
+
+# Sales Invoice endpoints (NEW)
+router.register('invoices', SalesInvoiceViewSet, basename='invoices')
 
 # Journal entries
 router.register('journal-entries', JournalEntryViewSet, basename='journal-entries')
@@ -28,10 +41,22 @@ router.register('journal-entries', JournalEntryViewSet, basename='journal-entrie
 # Questions endpoint
 router.register('questions', QuestionViewSet, basename='questions')
 
+# Unified voucher endpoint - filter by type using query params
+# e.g., /api/accounting/vouchers/?type=sales
+# MOVED TO END to prevent masking specific paths
+router.register('vouchers', VoucherViewSet, basename='vouchers')
+
 urlpatterns = [
-    path('', include(router.urls)),
-    
     # Questions System endpoints
     path('ledgers/questions/', LedgerQuestionsView.as_view(), name='ledger-questions'),
     path('ledgers/create-with-questions/', LedgerCreateWithQuestionsView.as_view(), name='ledger-create-with-questions'),
+    
+    # Sales Voucher custom endpoints
+    path('vouchers/sales/customer-address/<int:customer_id>/', CustomerAddressAPIView.as_view(), name='customer-address'),
+    path('vouchers/sales/determine-tax-type/', TaxTypeDeterminationAPIView.as_view(), name='determine-tax-type'),
+    path('vouchers/sales/upload-document/', SalesDocumentUploadAPIView.as_view(), name='upload-sales-document'),
+    path('vouchers/sales/customers/', CustomerListAPIView.as_view(), name='sales-customers'),
+    
+    # Router URLs (Moved to end to allow manual paths to take precedence)
+    path('', include(router.urls)),
 ]

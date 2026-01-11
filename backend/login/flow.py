@@ -8,10 +8,7 @@ import logging
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 from core.token import MyTokenObtainPairSerializer
-from core.rbac import get_all_permission_ids, get_permission_codes_from_ids
-
 logger = logging.getLogger('login.flow')
-
 
 # ============================================================================
 # LOGIN OPERATIONS
@@ -56,17 +53,10 @@ def authenticate_user(username, password):
     refresh = MyTokenObtainPairSerializer.get_token(user)
     access_token = str(refresh.access_token)
     refresh_token = str(refresh)
-    
-    # Get user permissions
-    from core.models import TenantUser
-    is_owner = not isinstance(user, TenantUser)
-    
-    if is_owner:
-        permission_ids = get_all_permission_ids()
-    else:
-        permission_ids = user.selected_submodule_ids or []
-    
-    permissions = get_permission_codes_from_ids(permission_ids)
+
+    # RBAC Removed - permissions are no longer used
+    permissions = []
+    permission_ids = []
     
     token_data = {
         'access': access_token,
@@ -77,7 +67,7 @@ def authenticate_user(username, password):
         'company_name': getattr(user, 'company_name', ''),
         'permissions': permissions,
         'submodule_ids': permission_ids,
-        'role': 'Owner' if is_owner else 'Staff',
+        'role': 'Owner', # Defaulting to Owner/Admin for single-user mode
     }
     
     # Log login

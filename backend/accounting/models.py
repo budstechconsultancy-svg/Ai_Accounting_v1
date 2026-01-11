@@ -251,6 +251,7 @@ class Voucher(BaseModel):
     to_account = models.CharField(max_length=255, null=True, blank=True)
     
     items_data = models.JSONField(null=True, blank=True, help_text="Line items with qty, rate, etc")
+    dummy_force = models.IntegerField(null=True, blank=True)
 
     class Meta:
         db_table = 'vouchers'
@@ -498,3 +499,327 @@ class ExtractedInvoice(BaseModel):
 
     def __str__(self):
         return f"{self.invoice_number} - {self.supplier_name}"
+
+# ============================================================================
+# SALES / RECEIPT VOUCHER MODELS
+# ============================================================================
+
+class ReceiptVoucherType(BaseModel):
+    """
+    Master list of Receipt Voucher Types.
+    Source data for Voucher Name dropdown in Sales Voucher creation.
+    """
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=50)
+    description = models.TextField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    display_order = models.IntegerField(default=0)
+    
+    class Meta:
+        db_table = 'receipt_voucher_types'
+        unique_together = ('tenant_id', 'code')
+        ordering = ['display_order', 'name']
+    
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+
+class SalesVoucher(BaseModel):
+    """
+    Sales/Receipt Voucher with strict validation rules.
+    Implements multi-step form workflow with mandatory validations.
+    """
+    TAX_TYPE_CHOICES = [
+        ('within_state', 'Within State'),
+        ('other_state', 'Other State'),
+        ('export', 'Export'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    # Header Section - Invoice Details Tab
+    date = models.DateField(help_text="Must be today or past date, no future dates allowed")
+    voucher_type = models.ForeignKey(
+        ReceiptVoucherType, 
+        on_delete=models.PROTECT,
+        help_text="From master list of Receipt Voucher Types"
+    )
+    sales_invoice_number = models.CharField(
+        max_length=50, 
+        help_text="Auto-generated, sequential, read-only"
+    )
+    customer = models.ForeignKey(
+        MasterLedger, 
+        on_delete=models.PROTECT, 
+        related_name='sales_vouchers',
+        help_text="Customer from Customer Module"
+    )
+    
+    # Address Fields (Auto-fetched from Customer Module)
+    bill_to_address = models.TextField(help_text="Auto-fetched, read-only")
+    bill_to_gstin = models.CharField(max_length=15, null=True, blank=True)
+    bill_to_contact = models.CharField(max_length=255, null=True, blank=True)
+    bill_to_state = models.CharField(max_length=100, null=True, blank=True)
+    bill_to_country = models.CharField(max_length=100, default='India')
+    
+    ship_to_address = models.TextField(help_text="Auto-fetched, editable, does not update customer master")
+    ship_to_state = models.CharField(max_length=100, null=True, blank=True)
+    ship_to_country = models.CharField(max_length=100, default='India')
+    
+    # Tax Type (Auto-determined based on address logic, not manually editable)
+    tax_type = models.CharField(
+        max_length=20, 
+        choices=TAX_TYPE_CHOICES,
+        help_text="Auto-determined: Within State if User State = Bill To State, Other State if different states in India, Export if Bill To Country != India"
+    )
+    
+    # Workflow tracking
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    current_step = models.IntegerField(default=1, help_text="Track which tab user is on (1-5)")
+    
+    # Totals (calculated from items)
+    total_taxable_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_cgst = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_sgst = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_igst = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    grand_total = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    
+    # Additional fields for other tabs (to be populated in later steps)
+    payment_details = models.JSONField(null=True, blank=True, help_text="Payment Details tab data")
+    dispatch_details = models.JSONField(null=True, blank=True, help_text="Dispatch Details tab data")
+    einvoice_details = models.JSONField(null=True, blank=True, help_text="E-Invoice & E-way Bill Details tab data")
+    
+    class Meta:
+        db_table = 'sales_vouchers'
+        unique_together = ('tenant_id', 'sales_invoice_number')
+        ordering = ['-date', '-created_at']
+        indexes = [
+            models.Index(fields=['tenant_id', 'date']),
+            models.Index(fields=['sales_invoice_number']),
+            models.Index(fields=['customer', 'tenant_id']),
+        ]
+    
+    def __str__(self):
+        return f"{self.sales_invoice_number} - {self.customer.name}"
+    
+    def clean(self):
+        """Validate that date is not in future"""
+        from django.core.exceptions import ValidationError
+        from django.utils import timezone
+        
+        if self.date and self.date > timezone.now().date():
+            raise ValidationError({
+                'date': 'Future dates are not allowed. Date must be today or a past date.'
+            })
+
+
+class SalesVoucherItem(BaseModel):
+    """
+    Line items for sales voucher (Items & Tax Details tab).
+    Stores item details with tax calculations.
+    """
+    sales_voucher = models.ForeignKey(
+        SalesVoucher, 
+        on_delete=models.CASCADE, 
+        related_name='items'
+    )
+    
+    # Item Details
+    item_name = models.CharField(max_length=255)
+    hsn_code = models.CharField(max_length=20, null=True, blank=True)
+    quantity = models.DecimalField(max_digits=15, decimal_places=3)
+    unit = models.CharField(max_length=50, null=True, blank=True)
+    rate = models.DecimalField(max_digits=15, decimal_places=2)
+    
+    # Tax Calculations
+    taxable_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    cgst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    cgst_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    sgst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    sgst_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    igst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    igst_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    
+    # Line item order
+    line_number = models.IntegerField(default=1)
+    
+    class Meta:
+        db_table = 'sales_voucher_items'
+        ordering = ['line_number']
+        indexes = [
+            models.Index(fields=['sales_voucher', 'tenant_id']),
+        ]
+    
+    def __str__(self):
+        return f"{self.item_name} - {self.quantity} x {self.rate}"
+
+
+class SalesVoucherDocument(BaseModel):
+    """
+    Supporting documents for sales voucher.
+    Allowed formats: JPG, JPEG, PDF only.
+    Multiple uploads allowed.
+    """
+    ALLOWED_FILE_TYPES = ['jpg', 'jpeg', 'pdf']
+    
+    sales_voucher = models.ForeignKey(
+        SalesVoucher, 
+        on_delete=models.CASCADE, 
+        related_name='documents'
+    )
+    
+    file_name = models.CharField(max_length=255)
+    file_path = models.CharField(max_length=500)
+    file_type = models.CharField(max_length=10, help_text="jpg, jpeg, or pdf only")
+    file_size = models.IntegerField(help_text="File size in bytes")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'sales_voucher_documents'
+        ordering = ['uploaded_at']
+        indexes = [
+            models.Index(fields=['sales_voucher', 'tenant_id']),
+        ]
+    
+    def __str__(self):
+        return f"{self.file_name} ({self.file_type})"
+    
+    def clean(self):
+        """Validate file type"""
+        from django.core.exceptions import ValidationError
+        
+        if self.file_type and self.file_type.lower() not in self.ALLOWED_FILE_TYPES:
+            raise ValidationError({
+                'file_type': f'Only {", ".join(self.ALLOWED_FILE_TYPES).upper()} files are allowed.'
+            })
+
+
+# ============================================================================
+# SALES INVOICE MODEL (NEW - Phase 1: Invoice Details Only)
+# ============================================================================
+
+class SalesInvoice(BaseModel):
+    """
+    Sales Invoice - Invoice Details Only (Phase 1)
+    Separate from SalesVoucher for cleaner architecture.
+    """
+    TAX_TYPE_CHOICES = [
+        ('within_state', 'Within State'),
+        ('other_state', 'Other State'),
+        ('export', 'Export'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    # Invoice Header
+    invoice_number = models.CharField(
+        max_length=50,
+        help_text="Auto-generated, sequential"
+    )
+    invoice_date = models.DateField(
+        help_text="Must be today or past date"
+    )
+    
+    # Voucher Type
+    voucher_type = models.ForeignKey(
+        ReceiptVoucherType,
+        on_delete=models.PROTECT,
+        related_name='sales_invoices',
+        help_text="Sales voucher type"
+    )
+    
+    # Customer
+    customer = models.ForeignKey(
+        MasterLedger,
+        on_delete=models.PROTECT,
+        related_name='invoices',
+        help_text="Customer from ledgers"
+    )
+    
+    # Billing Address (Auto-fetched from customer)
+    bill_to_address = models.TextField(
+        help_text="Auto-fetched from customer"
+    )
+    bill_to_gstin = models.CharField(
+        max_length=15,
+        null=True,
+        blank=True
+    )
+    bill_to_contact = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
+    bill_to_state = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True
+    )
+    bill_to_country = models.CharField(
+        max_length=100,
+        default='India'
+    )
+    
+    # Shipping Address (Editable)
+    ship_to_address = models.TextField(
+        help_text="Auto-fetched but editable"
+    )
+    ship_to_state = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True
+    )
+    ship_to_country = models.CharField(
+        max_length=100,
+        default='India'
+    )
+    
+    # Tax Type (Auto-determined)
+    tax_type = models.CharField(
+        max_length=20,
+        choices=TAX_TYPE_CHOICES,
+        help_text="Auto-determined from addresses"
+    )
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='draft'
+    )
+    current_step = models.IntegerField(
+        default=1,
+        help_text="Current workflow step (1-5)"
+    )
+    
+    class Meta:
+        db_table = 'sales_invoices'
+        unique_together = ('tenant_id', 'invoice_number')
+        ordering = ['-invoice_date', '-created_at']
+        indexes = [
+            models.Index(fields=['tenant_id', 'invoice_date']),
+            models.Index(fields=['customer', 'tenant_id']),
+            models.Index(fields=['voucher_type']),
+        ]
+    
+    def __str__(self):
+        return f"{self.invoice_number} - {self.customer.name}"
+    
+    def clean(self):
+        """Validate invoice date"""
+        from django.core.exceptions import ValidationError
+        from django.utils import timezone
+        
+        if self.invoice_date and self.invoice_date > timezone.now().date():
+            raise ValidationError({
+                'invoice_date': 'Future dates not allowed'
+            })

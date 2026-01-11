@@ -47,7 +47,7 @@ urlpatterns = [
     
     # Masters - NEW refactored module
     path('api/masters/', include('masters.urls')),
-    path('api/', include('masters.urls')),  # For hierarchy endpoint
+    # path('api/', include('masters.urls')),  # For hierarchy endpoint
     
     # LEGACY ROUTES - COMMENTED OUT (functionality moved to new modules)
     # path('api/', include('accounting.urls')),
@@ -57,13 +57,13 @@ urlpatterns = [
     path('api/inventory/', include('inventory.urls')),
     
     # Vouchers - NEW refactored module
-    path('api/', include('vouchers.urls')),
+    # path('api/', include('vouchers.urls')),  # Commented out - vouchers module being rebuilt
     
     # Settings - NEW refactored module
     path('api/', include('settings.urls')),
     
-    # Users & Roles - NEW refactored module
-    path('api/', include('users_roles.urls')),
+    # Users & Roles - removed
+    # path('api/', include('users_roles.urls')),
 
     # Reports
     path('api/reports/', include('reports.urls')),

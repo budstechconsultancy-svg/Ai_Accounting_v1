@@ -164,11 +164,6 @@ def list_stock_movements(user):
     if not tenant_id:
         raise PermissionError("User has no associated tenant")
     
-    # 2. RBAC check (using INVENTORY_ITEMS permission for movements)
-    has_perm, error_response = check_permission(user, 'INVENTORY_ITEMS')
-    if not has_perm:
-        raise PermissionError("Permission denied: INVENTORY_ITEMS")
-    
     # 2. Business logic - fetch data
     return db.get_all_stock_movements(tenant_id)
 

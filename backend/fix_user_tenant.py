@@ -1,78 +1,48 @@
-import os
-import sys
-import django
+"""
+Script to check and fix users without tenant_id.
+Run this with: python manage.py shell < fix_user_tenant.py
+"""
 
-# Add the project directory to the path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
-django.setup()
-
-from django.contrib.auth import get_user_model
-from core.models import Tenant
-
-User = get_user_model()
-
-print("🔧 Fixing User Tenant Association\n")
-print("=" * 80)
+from core.models import User, Tenant
 
 # Get all users
 users = User.objects.all()
 
-if users.count() == 0:
-    print("❌ No users found in database")
-    exit(1)
+print(f"\n{'='*60}")
+print(f"Found {users.count()} users in the database")
+print(f"{'='*60}\n")
 
-print(f"Found {users.count()} user(s)\n")
-
-fixed_count = 0
 for user in users:
-    print(f"Checking user: {user.username}")
+    print(f"User: {user.username}")
+    print(f"  Email: {user.email}")
+    print(f"  Tenant ID: {user.tenant_id if hasattr(user, 'tenant_id') and user.tenant_id else 'MISSING!'}")
     
-    if not user.tenant_id:
-        print(f"  ⚠️  User has no tenant_id")
+    # If user has no tenant_id, try to find or create one
+    if not hasattr(user, 'tenant_id') or not user.tenant_id:
+        print(f"  ⚠️  User {user.username} has no tenant_id!")
         
-        # Try to find or create a tenant for this user
-        # Option 1: Find tenant by company name
-        if user.company_name:
-            tenant = Tenant.objects.filter(company_name=user.company_name).first()
+        # Try to find a tenant by company name
+        if hasattr(user, 'company_name') and user.company_name:
+            tenant = Tenant.objects.filter(name=user.company_name).first()
             if tenant:
-                print(f"  ✅ Found existing tenant: {tenant.tenant_id}")
-                user.tenant_id = tenant.tenant_id
+                print(f"  ✅ Found existing tenant: {tenant.name} ({tenant.id})")
+                user.tenant_id = tenant.id
                 user.save()
-                fixed_count += 1
-                print(f"  ✅ Updated user.tenant_id to: {tenant.tenant_id}")
+                print(f"  ✅ Updated user {user.username} with tenant_id: {tenant.id}")
             else:
                 # Create new tenant
-                print(f"  📝 Creating new tenant for company: {user.company_name}")
-                tenant = Tenant.objects.create(
-                    company_name=user.company_name,
-                    tenant_id=f"{user.username}-tenant-001"
-                )
-                user.tenant_id = tenant.tenant_id
+                tenant = Tenant.objects.create(name=user.company_name)
+                print(f"  ✅ Created new tenant: {tenant.name} ({tenant.id})")
+                user.tenant_id = tenant.id
                 user.save()
-                fixed_count += 1
-                print(f"  ✅ Created tenant and updated user.tenant_id to: {tenant.tenant_id}")
+                print(f"  ✅ Updated user {user.username} with tenant_id: {tenant.id}")
         else:
-            # No company name, create generic tenant
-            tenant_id = f"{user.username}-tenant-001"
-            print(f"  📝 Creating generic tenant: {tenant_id}")
-            tenant = Tenant.objects.create(
-                company_name=f"{user.username} Company",
-                tenant_id=tenant_id
-            )
-            user.tenant_id = tenant_id
-            user.save()
-            fixed_count += 1
-            print(f"  ✅ Created tenant and updated user.tenant_id to: {tenant_id}")
+            print(f"  ❌ Cannot fix: User has no company_name")
     else:
-        print(f"  ✅ User already has tenant_id: {user.tenant_id}")
+        print(f"  ✅ Tenant ID is set")
     
     print()
 
-print("=" * 80)
-print(f"\n✅ Fixed {fixed_count} user(s)")
-print("\n💡 Next steps:")
-print("  1. Restart your Django server")
-print("  2. Try creating a ledger again")
-print("  3. The 403 error should be resolved")
+print(f"\n{'='*60}")
+print("Done! All users checked.")
+print(f"{'='*60}\n")

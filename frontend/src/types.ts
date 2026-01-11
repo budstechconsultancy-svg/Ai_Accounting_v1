@@ -1,4 +1,4 @@
-export type Page = 'Dashboard' | 'Masters' | 'Inventory' | 'Vouchers' | 'Reports' | 'Settings' | 'Users & Roles' | 'MassUploadResult' | 'Vendor Portal' | 'Customer Portal' | 'Payroll';
+export type Page = 'Dashboard' | 'Masters' | 'Inventory' | 'Vouchers' | 'Reports' | 'Settings' | 'MassUploadResult' | 'Vendor Portal' | 'Customer Portal' | 'Payroll';
 
 export interface CompanyDetails {
   name: string;
