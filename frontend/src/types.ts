@@ -129,7 +129,7 @@ export interface VoucherItem {
   totalAmount: number;
 }
 
-export type VoucherType = 'Purchase' | 'Sales' | 'Payment' | 'Receipt' | 'Contra' | 'Journal';
+export type VoucherType = 'Purchase' | 'Sales' | 'Payment' | 'Receipt' | 'Contra' | 'Journal' | 'Expenses';
 
 export interface BaseVoucher {
   id: string;
@@ -181,8 +181,15 @@ export interface JournalVoucher extends BaseVoucher {
   totalCredit: number;
 };
 
+export interface ExpensesVoucher extends BaseVoucher {
+  type: 'Expenses';
+  account: string; // Bank or Cash ledger (Paid From)
+  party: string;   // Expense category ledger
+  amount: number;
+}
 
-export type Voucher = SalesPurchaseVoucher | PaymentReceiptVoucher | ContraVoucher | JournalVoucher;
+
+export type Voucher = SalesPurchaseVoucher | PaymentReceiptVoucher | ContraVoucher | JournalVoucher | ExpensesVoucher;
 
 // Voucher Masters
 export interface VoucherTypeMaster {
