@@ -55,6 +55,9 @@ urlpatterns = [
     
     # Inventory - NEW refactored module
     path('api/inventory/', include('inventory.urls')),
+
+    # Vendors - Vendor Portal
+    path('api/vendors/', include('vendors.urls')),
     
     # Vouchers - NEW refactored module
     # path('api/', include('vouchers.urls')),  # Commented out - vouchers module being rebuilt

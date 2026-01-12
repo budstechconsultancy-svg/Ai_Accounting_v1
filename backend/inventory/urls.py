@@ -1,27 +1,12 @@
-"""
-Inventory Module URL Configuration
-"""
-
 from django.urls import path, include
-from rest_framework import routers
-from .api import (
-    InventoryStockGroupViewSet,
-    InventoryUnitViewSet,
-    InventoryStockItemViewSet,
-    StockMovementViewSet
-)
-from .reports import StockSummaryReportView
+from rest_framework.routers import DefaultRouter
+from .views import InventoryCategoryViewSet, InventoryLocationViewSet, InventoryItemViewSet
 
-router = routers.DefaultRouter()
-
-# Inventory endpoints
-router.register('stock-groups', InventoryStockGroupViewSet, basename='inventory-stock-groups')
-router.register('units', InventoryUnitViewSet, basename='inventory-units')
-router.register('stock-items', InventoryStockItemViewSet, basename='inventory-stock-items')
-router.register('stock-movements', StockMovementViewSet, basename='stock-movements')
+router = DefaultRouter()
+router.register('categories', InventoryCategoryViewSet, basename='inventory-category')
+router.register('locations', InventoryLocationViewSet, basename='inventory-location')
+router.register('items', InventoryItemViewSet, basename='inventory-item')
 
 urlpatterns = [
     path('', include(router.urls)),
-    # Reports
-    path('reports/stock-summary/', StockSummaryReportView.as_view(), name='stock-summary-report'),
 ]

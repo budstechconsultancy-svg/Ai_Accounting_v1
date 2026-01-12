@@ -419,13 +419,13 @@ class MasterHierarchyRaw(models.Model):
     # Explicitly adding ID as requested in previous sessions
     id = models.AutoField(primary_key=True)
     
-    major_group_1 = models.TextField(null=True, blank=True)
-    group_1 = models.TextField(null=True, blank=True)
-    sub_group_1_1 = models.TextField(null=True, blank=True)
-    sub_group_2_1 = models.TextField(null=True, blank=True)
-    sub_group_3_1 = models.TextField(null=True, blank=True)
-    ledger_1 = models.TextField(null=True, blank=True)
-    code = models.TextField(null=True, blank=True)
+    major_group_1 = models.TextField(db_column='Major Group', null=True, blank=True)
+    group_1 = models.TextField(db_column='Group', null=True, blank=True)
+    sub_group_1_1 = models.TextField(db_column='Sub-group 1', null=True, blank=True)
+    sub_group_2_1 = models.TextField(db_column='Sub-group 2', null=True, blank=True)
+    sub_group_3_1 = models.TextField(db_column='Sub-group 3', null=True, blank=True)
+    ledger_1 = models.TextField(db_column='Ledgers', null=True, blank=True)
+    code = models.TextField(db_column='Code', null=True, blank=True)
     
     class Meta:
         managed = False
