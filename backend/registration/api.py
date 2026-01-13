@@ -39,15 +39,19 @@ class DirectRegisterView(APIView):
         
         try:
             # Delegate to flow layer
-            result = flow.direct_registration(
-                username=data['username'],
-                email=data.get('email', ''),
-                password=data['password'],
-                company_name=data['company_name'],
-                phone=data.get('phone', ''),
-                selected_plan=data['selected_plan'],
-                logo_file=request.FILES.get('logo')
-            )
+            # Delegate to flow layer
+            # Pack data into dictionary as expected by register_user
+            registration_data = {
+                'username': data['username'],
+                'email': data.get('email', ''),
+                'password': data['password'],
+                'company_name': data['company_name'],
+                'phone': data.get('phone', ''),
+                'selected_plan': data['selected_plan'],
+                # Logo file handling not currently in register_user, but can be added later
+            }
+            
+            result = flow.register_user(registration_data)
             
             return Response(result, status=status.HTTP_201_CREATED)
             

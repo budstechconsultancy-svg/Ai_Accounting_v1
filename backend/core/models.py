@@ -119,7 +119,7 @@ class RoleModule(models.Model):
 
 class User(AbstractBaseUser):
     # Map to 'users' table strictly
-    id = models.AutoField(primary_key=True) # Matches INT in DB
+    id = models.BigAutoField(primary_key=True) # Matches BIGINT in DB
     username = models.CharField(max_length=100, unique=True)
     company_name = models.CharField(max_length=255, unique=True, null=True, blank=True) # Schema NOT NULL -> Nullable for migration
     email = models.CharField(max_length=255, blank=True, null=True, unique=True)

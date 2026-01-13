@@ -20,7 +20,7 @@ def register_user(registration_data):
     Returns JWT tokens for auto-login.
     """
     try:
-        from core.models import User
+        from core.models import User, Tenant
         from core.tenant_seed import seed_tenant_data
         
         # Extract registration data
@@ -36,6 +36,12 @@ def register_user(registration_data):
         
         # Create user with transaction
         with transaction.atomic():
+            # Create Tenant first to satisfy FK constraint
+            Tenant.objects.create(
+                id=tenant_id,
+                name=company_name
+            )
+
             user = User.objects.create(
                 username=username,
                 email=email,

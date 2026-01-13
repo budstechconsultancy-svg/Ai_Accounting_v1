@@ -15,7 +15,7 @@ class TransactionFile(models.Model):
     
     # Primary key and tenant
     id = models.BigAutoField(primary_key=True)
-    tenant_id = models.BigIntegerField()  # BIGINT as per schema
+    tenant_id = models.CharField(max_length=36)  # Changed to CharField for UUID support
 
     
     BALANCE_TYPE_CHOICES = [
