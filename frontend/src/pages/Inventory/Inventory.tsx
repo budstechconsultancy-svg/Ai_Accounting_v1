@@ -79,6 +79,8 @@ const InventoryPage: React.FC<InventoryPageProps> = () => {
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [locationName, setLocationName] = useState('');
   const [locationType, setLocationType] = useState('');
+  const [isCustomLocationType, setIsCustomLocationType] = useState(false);
+  const [customLocationTypeValue, setCustomLocationTypeValue] = useState('');
 
   const [locAddressLine1, setLocAddressLine1] = useState('');
   const [locAddressLine2, setLocAddressLine2] = useState('');
@@ -185,10 +187,18 @@ const InventoryPage: React.FC<InventoryPageProps> = () => {
   const handleLocationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Determine the final location type value
+    const finalLocationType = isCustomLocationType ? customLocationTypeValue : locationType;
+
+    if (!finalLocationType) {
+      alert('Please specify a location type');
+      return;
+    }
+
     try {
       const data = {
         name: locationName,
-        location_type: locationType,
+        location_type: finalLocationType,
         address_line1: locAddressLine1,
         address_line2: locAddressLine2 || null,
         address_line3: locAddressLine3 || null,
@@ -229,7 +239,19 @@ const InventoryPage: React.FC<InventoryPageProps> = () => {
     if (!selectedLocation) return;
 
     setLocationName(selectedLocation.name);
-    setLocationType(selectedLocation.location_type);
+
+    // Check if the location type is one of the predefined types
+    const predefinedType = locationTypes.find(t => t.value === selectedLocation.location_type);
+    if (predefinedType) {
+      setLocationType(selectedLocation.location_type);
+      setIsCustomLocationType(false);
+      setCustomLocationTypeValue('');
+    } else {
+      // It's a custom type
+      setLocationType('custom');
+      setIsCustomLocationType(true);
+      setCustomLocationTypeValue(selectedLocation.location_type);
+    }
 
     setLocAddressLine1(selectedLocation.address_line1);
     setLocAddressLine2(selectedLocation.address_line2 || '');
@@ -297,6 +319,8 @@ const InventoryPage: React.FC<InventoryPageProps> = () => {
   const resetLocationForm = () => {
     setLocationName('');
     setLocationType('');
+    setIsCustomLocationType(false);
+    setCustomLocationTypeValue('');
     setLocAddressLine1('');
     setLocAddressLine2('');
     setLocAddressLine3('');
@@ -542,10 +566,20 @@ const InventoryPage: React.FC<InventoryPageProps> = () => {
                 Location Type <span className="text-red-500">*</span>
               </label>
               <select
-                value={locationType}
-                onChange={(e) => setLocationType(e.target.value)}
+                value={isCustomLocationType ? 'custom' : locationType}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'custom') {
+                    setIsCustomLocationType(true);
+                    setLocationType('custom');
+                  } else {
+                    setIsCustomLocationType(false);
+                    setLocationType(value);
+                    setCustomLocationTypeValue('');
+                  }
+                }}
                 className="w-full px-4 py-2 border-2 border-teal-400 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                required
+                required={!isCustomLocationType}
               >
                 <option value="">Select location type</option>
                 {locationTypes.map((type) => (
@@ -553,7 +587,22 @@ const InventoryPage: React.FC<InventoryPageProps> = () => {
                     {type.label}
                   </option>
                 ))}
+                <option value="custom">+ Create New Type</option>
               </select>
+
+              {isCustomLocationType && (
+                <div className="mt-3">
+                  <input
+                    type="text"
+                    value={customLocationTypeValue}
+                    onChange={(e) => setCustomLocationTypeValue(e.target.value)}
+                    className="w-full px-4 py-2 border-2 border-teal-400 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    placeholder="Enter custom location type"
+                    required
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Enter a custom location type name</p>
+                </div>
+              )}
             </div>
 
             <div>

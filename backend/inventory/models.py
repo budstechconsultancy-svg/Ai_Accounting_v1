@@ -71,8 +71,7 @@ class InventoryLocation(BaseModel):
     name = models.CharField(max_length=255, help_text="Location name")
     location_type = models.CharField(
         max_length=50,
-        choices=LOCATION_TYPES,
-        help_text="Type of location"
+        help_text="Type of location (predefined or custom)"
     )
     
     # Detailed Address Fields

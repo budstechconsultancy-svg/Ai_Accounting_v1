@@ -59,7 +59,7 @@ class InventoryCategoryTreeSerializer(serializers.ModelSerializer):
 class InventoryLocationSerializer(serializers.ModelSerializer):
     """Serializer for Inventory Location"""
     
-    location_type_display = serializers.CharField(source='get_location_type_display', read_only=True)
+    location_type_display = serializers.SerializerMethodField()
     
     class Meta:
         model = InventoryLocation
@@ -71,6 +71,15 @@ class InventoryLocationSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_location_type_display(self, obj):
+        """Get display name for location type"""
+        # Check if it's a predefined type
+        for value, label in InventoryLocation.LOCATION_TYPES:
+            if obj.location_type == value:
+                return label
+        # If not predefined, return the custom value with title case
+        return obj.location_type.title() if obj.location_type else ''
     
     def validate_gstin(self, value):
         """Validate GSTIN format if provided"""

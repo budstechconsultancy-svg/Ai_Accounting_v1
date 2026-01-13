@@ -1,8 +1,16 @@
 from django.db import models
+from inventory.models import InventoryCategory
 
 class POSeries(models.Model):
     name = models.CharField(max_length=100, help_text="Name of PO series")
-    category = models.CharField(max_length=100, blank=True, null=True, help_text="Category of the PO Series")
+    category = models.ForeignKey(
+        InventoryCategory,
+        on_delete=models.PROTECT,
+        related_name='po_series',
+        null=True,
+        blank=True,
+        help_text="Category of the PO Series"
+    )
     prefix = models.CharField(max_length=50, blank=True, null=True, help_text="Prefix for the PO Number, e.g., PO/")
     suffix = models.CharField(max_length=50, blank=True, null=True, help_text="Suffix for the PO Number, e.g., /2024")
     
