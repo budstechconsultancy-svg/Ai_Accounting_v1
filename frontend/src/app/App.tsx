@@ -29,7 +29,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 // Import TypeScript types for type safety
 // These define the shape of our data structures (see ../types/types.ts)
-import type { Page, Ledger, Unit, StockItem, Voucher, ExtractedInvoiceData, CompanyDetails, LedgerGroupMaster, StockGroup, AgentMessage, SalesPurchaseVoucher } from '../types';
+import type { Page, Ledger, Voucher, ExtractedInvoiceData, CompanyDetails, LedgerGroupMaster, AgentMessage, SalesPurchaseVoucher, StockItem } from '../types';
 
 // ============================================================================
 // COMPONENT IMPORTS
@@ -65,7 +65,7 @@ import { extractInvoiceDataWithRetry, getAgentResponse, getGroundedAgentResponse
 import { apiService } from '../services';
 
 // Initial Data - Default data for new companies (fallback if backend is empty)
-import { initialLedgers, initialLedgerGroups, initialUnits, initialStockItems, initialStockGroups } from '../store/initialData';
+import { initialLedgers, initialLedgerGroups } from '../store/initialData';
 import { initialVouchers } from '../store/initialVouchers';
 
 // ============================================================================
@@ -175,17 +175,11 @@ const App: React.FC = () => {
   // Ledger Groups - hierarchical grouping of ledgers (Assets, Liabilities, etc.)
   const [ledgerGroups, setLedgerGroups] = useState<LedgerGroupMaster[]>([]);
 
-  // Units of measurement (Pcs, Kg, Litre, etc.)
-  const [units, setUnits] = useState<Unit[]>([]);
-
-  // Stock Groups - categories for inventory items
-  const [stockGroups, setStockGroups] = useState<StockGroup[]>([]);
-
-  // Stock Items - actual products/inventory
-  const [stockItems, setStockItems] = useState<StockItem[]>([]);
-
   // Vouchers - all transactions (sales, purchase, payment, receipt, etc.)
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
+
+  // Stock Items - inventory items for sales/purchase
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
 
   // ============================================================================
   // STATE VARIABLES - AI Features
@@ -277,18 +271,14 @@ const App: React.FC = () => {
         backendCompanyDetails,
         backendLedgers,
         backendLedgerGroups,
-        backendUnits,
-        backendStockGroups,
-        backendStockItems,
-        backendVouchers
+        backendVouchers,
+        backendStockItems
       ] = await Promise.all([
         apiService.getCompanyDetails().catch(() => defaultCompanyDetails),
         apiService.getLedgers().catch(() => []),
         apiService.getLedgerGroups().catch(() => []),
-        apiService.getUnits().catch(() => []),
-        apiService.getStockGroups().catch(() => []),
-        apiService.getStockItems().catch(() => []),
-        apiService.getVouchers().catch(() => [])
+        apiService.getVouchers().catch(() => []),
+        apiService.getStockItems().catch(() => [])
       ]);
 
       // Update state with tenant data
@@ -296,10 +286,8 @@ const App: React.FC = () => {
         companyDetails: backendCompanyDetails && typeof backendCompanyDetails === 'object' ? backendCompanyDetails : defaultCompanyDetails,
         ledgers: Array.isArray(backendLedgers) ? backendLedgers : [],
         ledgerGroups: Array.isArray(backendLedgerGroups) ? backendLedgerGroups : [],
-        units: Array.isArray(backendUnits) ? backendUnits : [],
-        stockGroups: Array.isArray(backendStockGroups) ? backendStockGroups : [],
-        stockItems: Array.isArray(backendStockItems) ? backendStockItems : [],
-        vouchers: Array.isArray(backendVouchers) ? backendVouchers : []
+        vouchers: Array.isArray(backendVouchers) ? backendVouchers : [],
+        stockItems: Array.isArray(backendStockItems) ? backendStockItems : []
       };
 
       if (newData.companyDetails) {
@@ -307,10 +295,8 @@ const App: React.FC = () => {
       }
       setLedgers(newData.ledgers);
       setLedgerGroups(newData.ledgerGroups);
-      setUnits(newData.units);
-      setStockGroups(newData.stockGroups);
-      setStockItems(newData.stockItems);
       setVouchers(newData.vouchers);
+      setStockItems(newData.stockItems);
 
       // Cache the data if we have a tenant ID
       if (tenantId) {
@@ -372,9 +358,6 @@ const App: React.FC = () => {
           // Not logged in or no tenant ID, just show empty state
           setLedgers([]);
           setLedgerGroups([]);
-          setUnits([]);
-          setStockGroups([]);
-          setStockItems([]);
           setVouchers([]);
           setIsDataLoaded(true);
         }
@@ -383,10 +366,8 @@ const App: React.FC = () => {
         // Fallback to empty state
         setLedgers([]);
         setLedgerGroups([]);
-        setUnits([]);
-        setStockGroups([]);
-        setStockItems([]);
         setVouchers([]);
+        setStockItems([]);
         setIsDataLoaded(true);
       }
     };
@@ -473,11 +454,9 @@ const App: React.FC = () => {
     // Clear in-memory state
     setLedgers([]);
     setLedgerGroups([]);
-    setUnits([]);
-    setStockGroups([]);
-    setStockItems([]);
     setVouchers([]);
     setCompanyDetails({ ...defaultCompanyDetails, name: 'Your Company Name' });
+    setStockItems([]);
   };
 
   // Check user active status frequently when logged in (exclude admin users)
@@ -641,119 +620,7 @@ const App: React.FC = () => {
     }
   }, [ledgerGroups]);
 
-  const handleAddUnit = useCallback(async (unit: Unit) => {
-    try {
-      const response = await apiService.saveUnit(unit);
-      if (response && response.id) {
-        console.log(`✅ Saved unit ${unit.name}`);
-        setUnits(prev => [...prev, response].sort((a, b) => a.name.localeCompare(b.name)));
-      } else {
-        console.error(`Failed to save unit ${unit.name}`);
-        setUnits(prev => [...prev, unit].sort((a, b) => a.name.localeCompare(b.name)));
-      }
-    } catch (err) {
-      console.error(`Error saving unit ${unit.name}:`, err);
-      setUnits(prev => [...prev, unit].sort((a, b) => a.name.localeCompare(b.name)));
-    }
-  }, []);
 
-  const handleUpdateUnit = useCallback(async (id: number, unit: Partial<Unit>) => {
-    try {
-      const response = await apiService.updateUnit(id, unit);
-      if (response.success) {
-        console.log(`✅ Updated unit ${id}`);
-        setUnits(prev => prev.map(u => u.id === id ? { ...u, ...unit } : u).sort((a, b) => a.name.localeCompare(b.name)));
-      }
-    } catch (err) {
-      console.error(`Error updating unit ${id}:`, err);
-    }
-  }, []);
-
-  const handleDeleteUnit = useCallback(async (id: number) => {
-    try {
-      await apiService.deleteUnit(id);
-      console.log(`✅ Deleted unit ${id}`);
-      setUnits(prev => prev.filter(u => u.id !== id));
-    } catch (err) {
-      console.error(`Error deleting unit ${id}:`, err);
-    }
-  }, []);
-
-  const handleAddStockGroup = useCallback(async (group: StockGroup) => {
-    try {
-      const response = await apiService.saveStockGroup(group);
-      if (response && response.id) {
-        console.log(`✅ Saved stock group ${group.name}`);
-        setStockGroups(prev => [...prev, response].sort((a, b) => a.name.localeCompare(b.name)));
-      } else {
-        console.error(`Failed to save stock group ${group.name}`);
-        setStockGroups(prev => [...prev, group].sort((a, b) => a.name.localeCompare(b.name)));
-      }
-    } catch (err) {
-      console.error(`Error saving stock group ${group.name}:`, err);
-      setStockGroups(prev => [...prev, group].sort((a, b) => a.name.localeCompare(b.name)));
-    }
-  }, []);
-
-  const handleUpdateStockGroup = useCallback(async (id: number, group: Partial<StockGroup>) => {
-    try {
-      const response = await apiService.updateStockGroup(id, group);
-      if (response.success) {
-        console.log(`✅ Updated stock group ${id}`);
-        setStockGroups(prev => prev.map(g => g.id === id ? { ...g, ...group } : g).sort((a, b) => a.name.localeCompare(b.name)));
-      }
-    } catch (err) {
-      console.error(`Error updating stock group ${id}:`, err);
-    }
-  }, []);
-
-  const handleDeleteStockGroup = useCallback(async (id: number) => {
-    try {
-      await apiService.deleteStockGroup(id);
-      console.log(`✅ Deleted stock group ${id}`);
-      setStockGroups(prev => prev.filter(g => g.id !== id));
-    } catch (err) {
-      console.error(`Error deleting stock group ${id}:`, err);
-    }
-  }, []);
-
-  const handleAddStockItem = useCallback(async (item: StockItem) => {
-    try {
-      const response = await apiService.saveStockItem(item);
-      if (response && response.id) {
-        console.log(`✅ Saved stock item ${item.name}`);
-        setStockItems(prev => [...prev, response].sort((a, b) => a.name.localeCompare(b.name)));
-      } else {
-        console.error(`Failed to save stock item ${item.name}`);
-        setStockItems(prev => [...prev, item].sort((a, b) => a.name.localeCompare(b.name)));
-      }
-    } catch (err) {
-      console.error(`Error saving stock item ${item.name}:`, err);
-      setStockItems(prev => [...prev, item].sort((a, b) => a.name.localeCompare(b.name)));
-    }
-  }, []);
-
-  const handleUpdateStockItem = useCallback(async (id: number, item: Partial<StockItem>) => {
-    try {
-      const response = await apiService.updateStockItem(id, item);
-      if (response.success) {
-        console.log(`✅ Updated stock item ${id}`);
-        setStockItems(prev => prev.map(i => i.id === id ? { ...i, ...item } : i).sort((a, b) => a.name.localeCompare(b.name)));
-      }
-    } catch (err) {
-      console.error(`Error updating stock item ${id}:`, err);
-    }
-  }, []);
-
-  const handleDeleteStockItem = useCallback(async (id: number) => {
-    try {
-      await apiService.deleteStockItem(id);
-      console.log(`✅ Deleted stock item ${id}`);
-      setStockItems(prev => prev.filter(i => i.id !== id));
-    } catch (err) {
-      console.error(`Error deleting stock item ${id}:`, err);
-    }
-  }, []);
 
   const handleAddVouchers = useCallback(async (vouchersToAdd: Voucher[], saveToMySQL: boolean = true) => {
     const newVouchers = vouchersToAdd.map(v => ({ ...v, id: v.id || new Date().toISOString() + Math.random() }));
@@ -875,7 +742,6 @@ const App: React.FC = () => {
         const contextData = JSON.stringify({
           vouchers,
           ledgers,
-          stockItems,
           companyDetails,
         });
         const response = await getAgentResponse(contextData, message);
@@ -950,21 +816,7 @@ const App: React.FC = () => {
         onUpdateLedgerGroup={handleUpdateLedgerGroup}
         onDeleteLedgerGroup={handleDeleteLedgerGroup}
       />;
-      case 'Inventory': return <InventoryPage
-        units={units}
-        stockGroups={stockGroups}
-        stockItems={stockItems}
-        onAddUnit={handleAddUnit}
-        onAddStockGroup={handleAddStockGroup}
-        onAddStockItem={handleAddStockItem}
-        onAddStockItems={handleMassUploadComplete} // Reuse existing mass upload handler wrapper if applicable, or generic
-        onUpdateStockItem={handleUpdateStockItem}
-        onDeleteStockItem={handleDeleteStockItem}
-        onUpdateStockGroup={handleUpdateStockGroup}
-        onDeleteStockGroup={handleDeleteStockGroup}
-        onUpdateUnit={handleUpdateUnit}
-        onDeleteUnit={handleDeleteUnit}
-      />;
+      case 'Inventory': return <InventoryPage />;
       case 'Vouchers': return <VouchersPage
         vouchers={vouchers}
         ledgers={ledgers}
@@ -980,7 +832,6 @@ const App: React.FC = () => {
         vouchers={vouchers}
         ledgers={ledgers}
         ledgerGroups={ledgerGroups}
-        stockItems={stockItems}
       /></ErrorBoundary>; // Available for all plans
       case 'Settings': return <SettingsPage companyDetails={companyDetails} onSave={handleSaveSettings} />; // Available for all plans
       case 'Vendor Portal': return <VendorPortalPage />;
@@ -991,7 +842,6 @@ const App: React.FC = () => {
         onDone={() => { setCurrentPage('Vouchers'); setMassUploadResult(null); }}
         onUpdateVoucher={handleUpdateVoucher}
         ledgers={ledgers}
-        stockItems={stockItems}
         companyDetails={companyDetails}
       />;
       default: return <div>Page not found</div>;

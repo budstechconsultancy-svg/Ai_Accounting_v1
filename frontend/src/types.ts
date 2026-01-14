@@ -98,25 +98,7 @@ export interface Ledger {
   balance?: number;  // Computed balance from journal entries
 }
 
-export interface Unit {
-  id?: number;
-  name: string;
-}
 
-export interface StockGroup {
-  id?: number;
-  name: string;
-}
-
-export interface StockItem {
-  id?: number;
-  name: string;
-  group: string;
-  unit: string;
-  hsn?: string;
-  gstRate?: number;
-  quantity?: number;
-}
 
 export interface VoucherItem {
   name: string;
@@ -127,6 +109,24 @@ export interface VoucherItem {
   sgstAmount: number;
   igstAmount: number;
   totalAmount: number;
+}
+export interface StockItem {
+  id: string | number;
+  name: string;
+  gstRate?: number;
+  // Add other fields as needed based on backend/inventory/serializers.py or usage
+}
+
+export interface Unit {
+  id: number;
+  name: string;
+  symbol: string;
+}
+
+export interface StockGroup {
+  id: number;
+  name: string;
+  parent?: number | null;
 }
 
 export type VoucherType = 'Purchase' | 'Sales' | 'Payment' | 'Receipt' | 'Contra' | 'Journal' | 'Expenses';

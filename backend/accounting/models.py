@@ -419,13 +419,14 @@ class MasterHierarchyRaw(models.Model):
     # Explicitly adding ID as requested in previous sessions
     id = models.AutoField(primary_key=True)
     
-    major_group_1 = models.TextField(db_column='Major Group', null=True, blank=True)
-    group_1 = models.TextField(db_column='Group', null=True, blank=True)
-    sub_group_1_1 = models.TextField(db_column='Sub-group 1', null=True, blank=True)
-    sub_group_2_1 = models.TextField(db_column='Sub-group 2', null=True, blank=True)
-    sub_group_3_1 = models.TextField(db_column='Sub-group 3', null=True, blank=True)
-    ledger_1 = models.TextField(db_column='Ledgers', null=True, blank=True)
-    code = models.TextField(db_column='Code', null=True, blank=True)
+    # Column names match the actual database schema (snake_case)
+    major_group_1 = models.TextField(db_column='major_group_1', null=True, blank=True)
+    group_1 = models.TextField(db_column='group_1', null=True, blank=True)
+    sub_group_1_1 = models.TextField(db_column='sub_group_1_1', null=True, blank=True)
+    sub_group_2_1 = models.TextField(db_column='sub_group_2_1', null=True, blank=True)
+    sub_group_3_1 = models.TextField(db_column='sub_group_3_1', null=True, blank=True)
+    ledger_1 = models.TextField(db_column='ledger_1', null=True, blank=True)
+    code = models.TextField(db_column='code', null=True, blank=True)
     
     class Meta:
         managed = False

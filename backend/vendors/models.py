@@ -1,10 +1,10 @@
 from django.db import models
-from inventory.models import InventoryCategory
+from inventory.models import InventoryMasterCategory
 
 class POSeries(models.Model):
     name = models.CharField(max_length=100, help_text="Name of PO series")
     category = models.ForeignKey(
-        InventoryCategory,
+        InventoryMasterCategory,
         on_delete=models.PROTECT,
         related_name='po_series',
         null=True,

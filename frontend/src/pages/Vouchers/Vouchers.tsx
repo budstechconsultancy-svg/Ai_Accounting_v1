@@ -615,6 +615,11 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
 
   // Recalculate all item taxes when transaction type (isInterState) changes
   useEffect(() => {
+    // Safety check: only run if stockItems is defined
+    if (!stockItems || !Array.isArray(stockItems)) {
+      return;
+    }
+
     setItems(currentItems => currentItems.map(item => {
       const stockItem = stockItems.find(si => si.name.toLowerCase() === item.name.toLowerCase());
       if (!stockItem || !item.name) {
