@@ -85,3 +85,70 @@ class InventoryLocation(BaseModel):
         blank=True,
         help_text="GSTIN"
     )
+
+class InventoryStockGroup(BaseModel):
+    name = models.CharField(max_length=255)
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='children')
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'inventory_stock_group'
+
+    def __str__(self):
+        return self.name
+
+class InventoryUnit(BaseModel):
+    name = models.CharField(max_length=100)  # e.g. Kilogram
+    symbol = models.CharField(max_length=50) # e.g. kg
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'inventory_unit'
+
+    def __str__(self):
+        return f"{self.name} ({self.symbol})"
+
+class InventoryStockItem(BaseModel):
+    name = models.CharField(max_length=255)
+    group = models.ForeignKey(InventoryStockGroup, on_delete=models.PROTECT, related_name='items', null=True, blank=True)
+    unit = models.ForeignKey(InventoryUnit, on_delete=models.PROTECT, related_name='items', null=True, blank=True)
+    
+    # Pricing
+    standard_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0) # Purchase Rate
+    standard_price = models.DecimalField(max_digits=12, decimal_places=2, default=0) # Selling Rate
+    
+    # Taxation
+    hsn_code = models.CharField(max_length=20, blank=True, null=True)
+    gst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    
+    # Opening Balance
+    opening_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    opening_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    opening_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'inventory_stock_item'
+
+    def __str__(self):
+        return self.name
+
+class StockMovement(BaseModel):
+    item = models.ForeignKey(InventoryStockItem, on_delete=models.CASCADE, related_name='movements')
+    date = models.DateField(default=timezone.now)
+    
+    voucher_type = models.CharField(max_length=50) # Sales, Purchase, etc.
+    voucher_id = models.CharField(max_length=100, blank=True, null=True) # ID of the source voucher
+    
+    quantity = models.DecimalField(max_digits=12, decimal_places=2)
+    rate = models.DecimalField(max_digits=12, decimal_places=2)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    
+    MOVEMENT_TYPES = [('IN', 'In'), ('OUT', 'Out')]
+    direction = models.CharField(max_length=10, choices=MOVEMENT_TYPES)
+    
+    narraration = models.TextField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'inventory_stock_movement'

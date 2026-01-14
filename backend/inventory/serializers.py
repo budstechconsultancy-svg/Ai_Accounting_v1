@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from .models import InventoryMasterCategory, InventoryLocation
+from .models import (
+    InventoryMasterCategory, InventoryLocation,
+    InventoryStockGroup, InventoryUnit, InventoryStockItem, StockMovement
+)
 
 
 class InventoryMasterCategorySerializer(serializers.ModelSerializer):
@@ -44,4 +47,33 @@ class InventoryLocationSerializer(serializers.ModelSerializer):
         if value and len(value) != 15:
             raise serializers.ValidationError('GSTIN must be exactly 15 characters')
         return value
+
+class InventoryStockGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryStockGroup
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at', 'tenant_id']
+
+class InventoryUnitSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InventoryUnit
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at', 'tenant_id']
+
+class InventoryStockItemSerializer(serializers.ModelSerializer):
+    group_name = serializers.CharField(source='group.name', read_only=True)
+    unit_name = serializers.CharField(source='unit.symbol', read_only=True)
+    
+    class Meta:
+        model = InventoryStockItem
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at', 'tenant_id']
+
+class StockMovementSerializer(serializers.ModelSerializer):
+    item_name = serializers.CharField(source='item.name', read_only=True)
+    
+    class Meta:
+        model = StockMovement
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at', 'tenant_id']
 

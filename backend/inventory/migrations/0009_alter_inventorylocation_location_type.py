@@ -10,9 +10,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='inventorylocation',
-            name='location_type',
-            field=models.CharField(help_text='Type of location (predefined or custom)', max_length=50),
-        ),
+        # migrations.AlterField(
+        #     model_name='inventorylocation',
+        #     name='location_type',
+        #     field=models.CharField(help_text='Type of location (predefined or custom)', max_length=50),
+        # ),
     ]
