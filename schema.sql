@@ -147,66 +147,13 @@ CREATE TABLE `customers` (
 
 
 
--- Table: inventory_stock
---------------------------------------------------------------------------------
-CREATE TABLE `inventory_stock` (
-  `stock_id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `item_id` bigint NOT NULL,
-  `warehouse_id` bigint NOT NULL,
-  `opening_qty` decimal(15,3) DEFAULT NULL,
-  `current_qty` decimal(15,3) DEFAULT NULL,
-  `reserved_qty` decimal(15,3) DEFAULT NULL,
-  PRIMARY KEY (`stock_id`),
-  KEY `idx_stock_tenant` (`tenant_id`),
-  KEY `item_id` (`item_id`),
-  KEY `warehouse_id` (`warehouse_id`),
-  CONSTRAINT `inventory_stock_ibfk_1` FOREIGN KEY (`item_id`) REFERENCES `items` (`item_id`),
-  CONSTRAINT `inventory_stock_ibfk_2` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouses` (`warehouse_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
--- Table: inventory_transactions
---------------------------------------------------------------------------------
-CREATE TABLE `inventory_transactions` (
-  `txn_id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `item_id` bigint NOT NULL,
-  `warehouse_id` bigint NOT NULL,
-  `txn_type` enum('purchase','sale','return','adjustment','transfer') DEFAULT NULL,
-  `quantity` decimal(15,3) NOT NULL,
-  `rate` decimal(15,2) DEFAULT NULL,
-  `value` decimal(15,2) DEFAULT NULL,
-  `txn_date` date NOT NULL,
-  PRIMARY KEY (`txn_id`),
-  KEY `idx_inv_txn_tenant` (`tenant_id`),
-  KEY `item_id` (`item_id`),
-  KEY `warehouse_id` (`warehouse_id`),
-  CONSTRAINT `inventory_transactions_ibfk_1` FOREIGN KEY (`item_id`) REFERENCES `items` (`item_id`),
-  CONSTRAINT `inventory_transactions_ibfk_2` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouses` (`warehouse_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
--- Table: items
---------------------------------------------------------------------------------
-CREATE TABLE `items` (
-  `item_id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `item_code` varchar(50) NOT NULL,
-  `item_name` varchar(255) NOT NULL,
-  `item_type` enum('goods','service') DEFAULT NULL,
-  `unit` varchar(50) DEFAULT NULL,
-  `hsn_code` varchar(20) DEFAULT NULL,
-  `gst_rate` decimal(5,2) DEFAULT NULL,
-  `inventory_ledger_id` bigint NOT NULL,
-  `income_ledger_id` bigint NOT NULL,
-  `cogs_ledger_id` bigint NOT NULL,
-  `is_stock_item` tinyint(1) DEFAULT '1',
-  `is_active` tinyint(1) DEFAULT '1',
-  PRIMARY KEY (`item_id`),
-  UNIQUE KEY `uq_item_tenant_code` (`tenant_id`,`item_code`),
-  KEY `idx_item_tenant` (`tenant_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+
 
 
 -- Table: master_hierarchy_raw
@@ -828,3 +775,23 @@ CREATE TABLE `warehouses` (
   KEY `idx_wh_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+
+
+-- Table: inventory_master_category
+--------------------------------------------------------------------------------
+CREATE TABLE `inventory_master_category` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` char(36) NOT NULL,
+  `category` varchar(255) NOT NULL,
+  `group` varchar(255) DEFAULT NULL,
+  `subgroup` varchar(255) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `inventory_master_category_uniq` (`tenant_id`,`category`,`group`,`subgroup`),
+  KEY `inventory_master_category_tenant_id_idx` (`tenant_id`),
+  KEY `inventory_master_category_is_active_idx` (`tenant_id`, `is_active`),
+  KEY `inventory_master_category_category_idx` (`category`),
+  CONSTRAINT `inventory_master_category_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

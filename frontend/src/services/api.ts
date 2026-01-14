@@ -14,11 +14,10 @@
  * MAIN SECTIONS:
  * 1. Company Settings - Company details, logo upload
  * 2. Masters - Ledgers, ledger groups, voucher configuration
- * 3. Inventory - Units, stock groups, stock items
- * 4. Vouchers - All transaction types (sales, purchase, payment, etc.)
- * 5. AI Features - Invoice extraction, narration generation
- * 6. Authentication - Login, register, logout
- * 7. Users & Permissions - User management, roles, permissions
+ * 3. Vouchers - All transaction types (sales, purchase, payment, etc.)
+ * 4. AI Features - Invoice extraction, narration generation
+ * 5. Authentication - Login, register, logout
+ * 6. Users & Permissions - User management, roles, permissions
  * 
  * FOR NEW DEVELOPERS:
  * - Always use apiService instead of httpClient directly
@@ -142,6 +141,18 @@ class ApiService {
         return httpClient.delete<{ success: boolean }>(`/api/masters/ledger-groups/${id}/`);
     }
 
+    // ============================================================================
+    // INVENTORY - ITEMS
+    // ============================================================================
+
+    async getStockItems() {
+        return httpClient.get<StockItem[]>('/api/inventory/stock-items/');
+    }
+
+    async saveStockItem(data: any) {
+        return httpClient.post<StockItem>('/api/inventory/stock-items/', data);
+    }
+
     /**
      * Get Cash and Bank ledgers for dropdown in voucher forms
      * Returns: Array of ledgers filtered by Asset category with Cash/Bank keywords
@@ -212,70 +223,6 @@ class ApiService {
             // For now, assume if ID is missing we create.
             return httpClient.post<any>('/api/masters/voucher-configurations/', payload);
         }
-    }
-
-    // ============================================================================
-    // INVENTORY - UNITS
-    // ============================================================================
-
-    async getUnits() {
-        return httpClient.get<Unit[]>('/api/inventory/units/');
-    }
-
-    async saveUnit(data: Unit) {
-        return httpClient.post<Unit>('/api/inventory/units/', data);
-    }
-
-    async updateUnit(id: number, data: Partial<Unit>) {
-        return httpClient.put<{ success: boolean }>(`/api/inventory/units/${id}/`, data);
-    }
-
-    async deleteUnit(id: number) {
-        return httpClient.delete<{ success: boolean }>(`/api/inventory/units/${id}/`);
-    }
-
-    // ============================================================================
-    // INVENTORY - STOCK GROUPS
-    // ============================================================================
-
-    async getStockGroups() {
-        return httpClient.get<StockGroup[]>('/api/inventory/stock-groups/');
-    }
-
-    async saveStockGroup(data: StockGroup) {
-        return httpClient.post<StockGroup>('/api/inventory/stock-groups/', data);
-    }
-
-    async updateStockGroup(id: number, data: Partial<StockGroup>) {
-        return httpClient.put<{ success: boolean }>(`/api/inventory/stock-groups/${id}/`, data);
-    }
-
-    async deleteStockGroup(id: number) {
-        return httpClient.delete<{ success: boolean }>(`/api/inventory/stock-groups/${id}/`);
-    }
-
-    // ============================================================================
-    // INVENTORY - STOCK ITEMS
-    // ============================================================================
-
-    async getStockItems() {
-        return httpClient.get<StockItem[]>('/api/inventory/stock-items/');
-    }
-
-    async saveStockItem(data: StockItem) {
-        return httpClient.post<StockItem>('/api/inventory/stock-items/', data);
-    }
-
-    async saveStockItems(data: StockItem[]) {
-        return httpClient.post<{ success: boolean }>('/api/inventory/stock-items/bulk/', data);
-    }
-
-    async updateStockItem(id: number, data: Partial<StockItem>) {
-        return httpClient.put<{ success: boolean }>(`/api/inventory/stock-items/${id}/`, data);
-    }
-
-    async deleteStockItem(id: number) {
-        return httpClient.delete<{ success: boolean }>(`/api/inventory/stock-items/${id}/`);
     }
 
     // ============================================================================

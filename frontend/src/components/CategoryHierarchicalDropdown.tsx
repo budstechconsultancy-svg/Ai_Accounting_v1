@@ -11,6 +11,13 @@ interface CategoryOption {
     is_system: boolean;
 }
 
+interface MasterCategory {
+    id: number;
+    category: string;
+    group: string | null;
+    subgroup: string | null;
+}
+
 interface CategoryHierarchicalDropdownProps {
     onSelect: (selection: {
         id: number;
@@ -34,7 +41,7 @@ export const CategoryHierarchicalDropdown: React.FC<CategoryHierarchicalDropdown
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await httpClient.get<any[]>('/api/inventory/categories/');
+                const response = await httpClient.get<MasterCategory[]>('/api/inventory/master-categories/');
 
                 // Build hierarchical options
                 const options = buildCategoryOptions(response, excludeId);
@@ -48,24 +55,37 @@ export const CategoryHierarchicalDropdown: React.FC<CategoryHierarchicalDropdown
         fetchCategories();
     }, [excludeId]);
 
-    const buildCategoryOptions = (data: any[], excludeId?: number): CategoryOption[] => {
-        // Filter out excluded category and its children
-        const filtered = data.filter(cat => {
-            if (excludeId && cat.id === excludeId) return false;
-            // Check if any parent in the path is the excluded ID
-            if (excludeId && cat.full_path && cat.full_path.includes(excludeId.toString())) return false;
-            return true;
+    const buildCategoryOptions = (data: MasterCategory[], excludeId?: number): CategoryOption[] => {
+        // Transform flat master items into linear options list for dropdown
+        // Note: The original generic recursiveness is lost, we map strictly to Category -> Group -> Subgroup levels
+
+        const options: CategoryOption[] = [];
+
+        data.forEach(item => {
+            // Level 0: Category (We only add unique categories if we want them selectable, 
+            // but effectively each row is a leaf node in this flat structure.
+            // However, to mimic hierarchy, we construct tree.
+            // Actually, for dropdown usage, usually we want to select the specific Item Master record.)
+
+            // Current Approach: Just map each Master Record as a selectable option
+            // Display label: Category > Group > Subgroup
+
+            let label = item.category;
+            if (item.group) label += ` > ${item.group}`;
+            if (item.subgroup) label += ` > ${item.subgroup}`;
+
+            options.push({
+                id: item.id,
+                name: item.subgroup || item.group || item.category,
+                displayLabel: label,
+                fullPath: label,
+                level: item.subgroup ? 2 : (item.group ? 1 : 0),
+                parent: null, // Logic not applicable in flat table
+                is_system: false
+            });
         });
 
-        return filtered.map(cat => ({
-            id: cat.id,
-            name: cat.name,
-            displayLabel: cat.full_path || cat.name,
-            fullPath: cat.full_path || cat.name,
-            level: cat.level || 0,
-            parent: cat.parent,
-            is_system: cat.is_system
-        })).sort((a, b) => a.displayLabel.localeCompare(b.displayLabel));
+        return options.sort((a, b) => a.displayLabel.localeCompare(b.displayLabel));
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -92,14 +112,13 @@ export const CategoryHierarchicalDropdown: React.FC<CategoryHierarchicalDropdown
                 onChange={handleChange}
                 className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
             >
-                <option value="">-- Select Parent Category --</option>
+                <option value="">-- Select Category --</option>
                 {categories.map((option) => (
                     <option
                         key={option.id}
                         value={option.displayLabel}
                     >
                         {option.displayLabel}
-                        {option.is_system && ' (System)'}
                     </option>
                 ))}
             </select>
