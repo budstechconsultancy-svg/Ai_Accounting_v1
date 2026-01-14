@@ -19,6 +19,7 @@ class InventoryMasterCategory(BaseModel):
         blank=True,
         help_text="Group under category (optional)"
     )
+<<<<<<< HEAD
     subgroup = models.CharField(
         max_length=255,
         null=True,
@@ -48,3 +49,40 @@ class InventoryMasterCategory(BaseModel):
     def full_path(self):
         """Get full category path"""
         return str(self)
+
+
+class InventoryLocation(BaseModel):
+    """
+    Inventory Location Model
+    Stores warehouse/storage locations
+    """
+    LOCATION_TYPES = [
+        ('warehouse', 'Warehouse'),
+        ('store', 'Store'),
+        ('godown', 'Godown'),
+        ('factory', 'Factory'),
+        ('office', 'Office'),
+        ('other', 'Other'),
+    ]
+    
+    name = models.CharField(max_length=255, help_text="Location name")
+    location_type = models.CharField(
+        max_length=50,
+        help_text="Type of location (predefined or custom)"
+    )
+    
+    # Detailed Address Fields
+    address_line1 = models.CharField(max_length=255, default='', help_text="Address Line 1 (Required)")
+    address_line2 = models.CharField(max_length=255, null=True, blank=True, help_text="Address Line 2 (Optional)")
+    address_line3 = models.CharField(max_length=255, null=True, blank=True, help_text="Address Line 3 (Optional)")
+    city = models.CharField(max_length=100, default='', help_text="City")
+    state = models.CharField(max_length=100, default='', help_text="State")
+    country = models.CharField(max_length=100, default='India', help_text="Country")
+    pincode = models.CharField(max_length=20, default='', help_text="Pincode/Zip Code")
+    
+    gstin = models.CharField(
+        max_length=15,
+        null=True,
+        blank=True,
+        help_text="GSTIN"
+    )
