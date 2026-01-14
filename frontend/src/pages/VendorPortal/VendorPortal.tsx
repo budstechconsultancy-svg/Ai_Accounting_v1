@@ -1,6 +1,7 @@
 // Vendor Portal - Master Configuration
 import React, { useState, useEffect } from 'react';
 import { httpClient } from '../../services/httpClient';
+import CategoryHierarchicalDropdown from '../../components/CategoryHierarchicalDropdown';
 
 type VendorTab = 'Master' | 'Transaction' | 'Report';
 type MasterSubTab = 'Category' | 'PO Settings' | 'Vendor Creation' | 'Basic Details' | 'GST Details' | 'Products/Services' | 'TDS & Other Statutory' | 'Banking Info' | 'Terms & Conditions';
@@ -401,7 +402,7 @@ const VendorPortalPage: React.FC = () => {
     useEffect(() => {
         if (activeTab === 'Master' && activeMasterSubTab === 'PO Settings') {
             fetchPOSeries();
-            fetchCategories(); // Load categories for the dropdown
+            // fetchCategories(); // Removed as CategoryHierarchicalDropdown fetches its own data
         }
     }, [activeTab, activeMasterSubTab]);
 
