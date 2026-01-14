@@ -19,7 +19,6 @@ class InventoryMasterCategory(BaseModel):
         blank=True,
         help_text="Group under category (optional)"
     )
-<<<<<<< HEAD
     subgroup = models.CharField(
         max_length=255,
         null=True,
