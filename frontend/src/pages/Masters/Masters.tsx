@@ -554,22 +554,41 @@ const MastersPage: React.FC<MastersPageProps> = ({
     setGroupUnder('');
   };
 
-  // Fetch existing voucher configurations
-  const fetchVoucherConfigurations = async () => {
-    try {
-      const configs = await httpClient.get<any[]>('/api/masters/voucher-configurations/');
-      setExistingVouchers(configs || []);
-    } catch (error) {
-      console.error('Error fetching voucher configurations:', error);
+  // Helper to get endpoint based on voucher type
+  const getVoucherEndpoint = (voucherType: string) => {
+    switch (voucherType) {
+      case 'sales': return '/api/masters/master-voucher-sales/';
+      case 'credit-note': return '/api/masters/master-voucher-creditnote/';
+      case 'receipts': return '/api/masters/master-voucher-receipts/';
+      case 'purchases': return '/api/masters/master-voucher-purchases/';
+      case 'debit-note': return '/api/masters/master-voucher-debitnote/';
+      case 'payments': return '/api/masters/master-voucher-payments/';
+      case 'expenses': return '/api/masters/master-voucher-expenses/';
+      case 'journal': return '/api/masters/master-voucher-journal/';
+      case 'contra': return '/api/masters/master-voucher-contra/';
+      default: return '/api/masters/master-voucher-sales/';
     }
   };
 
-  // Load voucher configurations when Vouchers tab is active
+  // Fetch existing voucher configurations
+  const fetchVoucherConfigurations = async () => {
+    try {
+      if (!selectedVoucher) return;
+      const endpoint = getVoucherEndpoint(selectedVoucher);
+      const configs = await httpClient.get<any[]>(endpoint);
+      setExistingVouchers(configs || []);
+    } catch (error) {
+      console.error('Error fetching voucher configurations:', error);
+      setExistingVouchers([]);
+    }
+  };
+
+  // Load voucher configurations when Vouchers tab is active or selected voucher changes
   useEffect(() => {
     if (activeTab === 'Vouchers') {
       fetchVoucherConfigurations();
     }
-  }, [activeTab]);
+  }, [activeTab, selectedVoucher]);
 
   // Reset voucher form
   const resetVoucherForm = () => {
@@ -613,7 +632,6 @@ const MastersPage: React.FC<MastersPageProps> = ({
 
     try {
       const payload = {
-        voucher_type: selectedVoucher,
         voucher_name: voucherName.trim(),
         enable_auto_numbering: enableAutoNumbering,
         prefix: voucherPrefix,
@@ -623,43 +641,23 @@ const MastersPage: React.FC<MastersPageProps> = ({
         effective_from: voucherEffectiveFrom,
         effective_to: voucherEffectiveTo,
         ...(selectedVoucher === 'sales' && {
-          update_customer_master: voucherUpdateCustomerMaster,
-          include_from_existing_series_id: voucherIncludeFromSeries
-        })
+          update_customer_master: voucherUpdateCustomerMaster
+        }),
+        include_from_existing_series: voucherIncludeFromSeries
       };
 
-      const token = localStorage.getItem('token');
-      const url = isEditModeVoucher && selectedVoucherConfig?.id
-        ? `/api/masters/voucher-configurations/${selectedVoucherConfig.id}/`
-        : '/api/masters/voucher-configurations/';
+      const endpoint = getVoucherEndpoint(selectedVoucher);
 
-      const method = isEditModeVoucher && selectedVoucherConfig?.id ? 'PUT' : 'POST';
+      const isUpdate = isEditModeVoucher && selectedVoucherConfig?.id;
+      const url = isUpdate
+        ? `${endpoint}${selectedVoucherConfig.id}/`
+        : endpoint;
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Backend validation error:', errorData);
-
-        // Extract detailed error messages
-        let errorMessage = 'Failed to save voucher configuration:\n';
-        if (errorData.detail) {
-          errorMessage = errorData.detail;
-        } else if (typeof errorData === 'object') {
-          // Field-specific errors
-          Object.keys(errorData).forEach(field => {
-            const fieldErrors = Array.isArray(errorData[field]) ? errorData[field] : [errorData[field]];
-            errorMessage += `\n${field}: ${fieldErrors.join(', ')}`;
-          });
-        }
-        throw new Error(errorMessage);
+      let response;
+      if (isUpdate) {
+        response = await httpClient.put(url, payload);
+      } else {
+        response = await httpClient.post(url, payload);
       }
 
       // Success - refresh the list and reset form
@@ -706,7 +704,7 @@ const MastersPage: React.FC<MastersPageProps> = ({
     setVoucherEffectiveFrom(selectedVoucherConfig.effective_from || '');
     setVoucherEffectiveTo(selectedVoucherConfig.effective_to || '');
     setVoucherUpdateCustomerMaster(selectedVoucherConfig.update_customer_master || false);
-    setVoucherIncludeFromSeries(selectedVoucherConfig.include_from_existing_series_id || null);
+    setVoucherIncludeFromSeries(selectedVoucherConfig.include_from_existing_series || null);
     setIsEditModeVoucher(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -723,7 +721,8 @@ const MastersPage: React.FC<MastersPageProps> = ({
     }
 
     try {
-      await httpClient.delete(`/api/masters/voucher-configurations/${selectedVoucherConfig.id}/`);
+      const endpoint = getVoucherEndpoint(selectedVoucher);
+      await httpClient.delete(`${endpoint}${selectedVoucherConfig.id}/`);
       await fetchVoucherConfigurations();
       resetVoucherForm();
       alert('Voucher configuration deleted successfully!');
@@ -1812,7 +1811,7 @@ const MastersPage: React.FC<MastersPageProps> = ({
                         className="w-full px-4 py-2 border-2 border-green-400 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none bg-white"
                       >
                         <option value="">Drop down list to have the existing list of series</option>
-                        {existingVouchers.filter(v => v.voucher_type === 'sales').map(v => (
+                        {existingVouchers.map(v => (
                           <option key={v.id} value={v.id}>{v.voucher_name}</option>
                         ))}
                       </select>
@@ -1855,19 +1854,20 @@ const MastersPage: React.FC<MastersPageProps> = ({
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">VOUCHER SERIES PREVIEW (LAST SERIES)</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">EFFECTIVE FROM</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">EFFECTIVE TO</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">UPDATE CUSTOMER MASTER</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">INCLUDE FROM SERIES</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {existingVouchers.filter(v => v.voucher_type === selectedVoucher).length === 0 ? (
+                    {existingVouchers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-3 py-12 text-center">
+                        <td colSpan={8} className="px-3 py-12 text-center">
                           <p className="text-sm text-gray-400">No vouchers configured yet</p>
                         </td>
                       </tr>
                     ) : (
                       existingVouchers
-                        .filter(v => v.voucher_type === selectedVoucher)
                         .map((voucher) => {
                           const isSelected = selectedVoucherConfig?.id === voucher.id;
                           const seriesPreview = voucher.enable_auto_numbering
@@ -1899,6 +1899,14 @@ const MastersPage: React.FC<MastersPageProps> = ({
                               </td>
                               <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
                                 {voucher.effective_to}
+                              </td>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm text-center text-gray-600">
+                                {voucher.update_customer_master ? 'Yes' : 'No'}
+                              </td>
+                              <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">
+                                {voucher.include_from_existing_series
+                                  ? existingVouchers.find(v => v.id === parseInt(voucher.include_from_existing_series))?.voucher_name || '-'
+                                  : '-'}
                               </td>
                               <td className="px-3 py-3 whitespace-nowrap text-sm">
                                 {isSelected ? (
@@ -2107,7 +2115,7 @@ const MastersPage: React.FC<MastersPageProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {existingVouchers.filter(v => v.voucher_type === selectedVoucher).length === 0 ? (
+                    {existingVouchers.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-3 py-12 text-center">
                           <p className="text-sm text-gray-400">No vouchers configured yet</p>
@@ -2115,7 +2123,6 @@ const MastersPage: React.FC<MastersPageProps> = ({
                       </tr>
                     ) : (
                       existingVouchers
-                        .filter(v => v.voucher_type === selectedVoucher)
                         .map((voucher) => {
                           const isSelected = selectedVoucherConfig?.id === voucher.id;
                           const seriesPreview = voucher.enable_auto_numbering

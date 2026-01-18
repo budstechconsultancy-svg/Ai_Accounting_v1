@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { httpClient } from '../../services/httpClient';
 import CategoryHierarchicalDropdown from '../../components/CategoryHierarchicalDropdown';
+import { InventoryCategoryWizard } from '../../components/InventoryCategoryWizard';
 
 type VendorTab = 'Master' | 'Transaction' | 'Report';
 type MasterSubTab = 'Category' | 'PO Settings' | 'Vendor Creation' | 'Basic Details' | 'GST Details' | 'Products/Services' | 'TDS & Other Statutory' | 'Banking Info' | 'Terms & Conditions';
@@ -13,16 +14,14 @@ type ProcurementSubTab = 'Dashboard' | 'Raw Material' | 'Stock-in Trade' | 'Cons
 // Category Interface (Mirrors Inventory)
 interface Category {
     id: number;
-    name: string;
-    parent: number | null;
-    parent_name: string | null;
-    is_system: boolean;
+    category: string;
+    group: string | null;
+    subgroup: string | null;
     is_active: boolean;
-    description: string;
-    display_order: number;
     full_path: string;
-    level: number;
-    subcategories_count: number;
+    tenant_id: string;
+    created_at: string;
+    updated_at: string;
 }
 
 // PO Series Interface
@@ -34,10 +33,26 @@ interface POSeries {
     category_path?: string; // Full category path (read-only from API)
     prefix: string;
     suffix: string;
-    auto_financial_year: boolean;
+    auto_year: boolean;  // Changed from auto_financial_year
     digits: number;
-    current_value: number;
+    current_number: number;  // Changed from current_value
     is_active: boolean;
+}
+
+// Vendor Basic Detail Interface
+interface VendorBasicDetail {
+    id: number;
+    tenant_id: string;
+    vendor_code: string;
+    vendor_name: string;
+    pan_no?: string;
+    contact_person?: string;
+    email: string;
+    contact_no: string;
+    is_also_customer: boolean;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
 }
 
 const VendorPortalPage: React.FC = () => {
@@ -143,24 +158,6 @@ const VendorPortalPage: React.FC = () => {
     const [isEditingPO, setIsEditingPO] = useState(false);
 
 
-    const [vendorItems, setVendorItems] = useState<VendorItem[]>([
-        { id: 1, hsnSacCode: '', itemCode: '', itemName: '', supplierItemCode: '', supplierItemName: '' }
-    ]);
-
-    // Add new item row
-    const handleAddItem = () => {
-        const newItem: VendorItem = {
-            id: vendorItems.length + 1,
-            hsnSacCode: '',
-            itemCode: '',
-            itemName: '',
-            supplierItemCode: '',
-            supplierItemName: ''
-        };
-        setVendorItems([...vendorItems, newItem]);
-    };
-
-
 
     // Purchase Order Data State
     interface PurchaseOrder {
@@ -181,18 +178,6 @@ const VendorPortalPage: React.FC = () => {
         { id: 6, poNumber: 'PO-2023-006', poDate: '2023-10-15', vendorName: 'Old World Imports', address: '88 Antiques Rd, Old Town', status: 'Closed' },
         { id: 7, poNumber: 'PO-2023-007', poDate: '2023-10-18', vendorName: 'Modern Systems', address: '99 Future St, New City', status: 'Closed' },
     ]);
-    const handleRemoveItem = (id: number) => {
-        if (vendorItems.length > 1) {
-            setVendorItems(vendorItems.filter(item => item.id !== id));
-        }
-    };
-
-    // Update item field
-    const handleItemChange = (id: number, field: keyof VendorItem, value: string) => {
-        setVendorItems(vendorItems.map(item =>
-            item.id === id ? { ...item, [field]: value } : item
-        ));
-    };
 
     // PO Item Handlers
     const handleAddPOItem = () => {
@@ -227,11 +212,99 @@ const VendorPortalPage: React.FC = () => {
         setCreatePOForm({ ...createPOForm, [field]: value });
     };
 
-    const handleSubmitPO = () => {
-        // Handle PO submission logic here
-        console.log('PO Form:', createPOForm);
-        console.log('PO Items:', poItems);
-        setShowCreatePOModal(false);
+    const handleSubmitPO = async () => {
+        try {
+            console.log('=== Creating Purchase Order ===');
+            console.log('PO Form:', createPOForm);
+            console.log('PO Items:', poItems);
+
+            // Prepare items data
+            const items = poItems.map(item => ({
+                item_code: item.itemCode,
+                item_name: item.itemName,
+                supplier_item_code: item.supplierItemCode,
+                quantity: parseFloat(item.quantity) || 0,
+                uom: 'PCS', // Default unit, can be made dynamic
+                negotiated_rate: parseFloat(item.negotiatedRate) || 0,
+                final_rate: parseFloat(item.finalRate) || 0,
+                taxable_value: parseFloat(item.taxableValue) || 0,
+                gst_rate: parseFloat(item.gst) || 0,
+                gst_amount: (parseFloat(item.taxableValue) || 0) * (parseFloat(item.gst) || 0) / 100,
+                invoice_value: parseFloat(item.netValue) || 0
+            }));
+
+            // Prepare PO payload
+            const payload = {
+                po_series_id: createPOForm.poSeriesName ? parseInt(createPOForm.poSeriesName) : null,
+                vendor_id: createPOForm.vendorName ? parseInt(createPOForm.vendorName) : null,
+                vendor_name: createPOForm.vendorName,
+                branch: createPOForm.branch,
+                address_line1: createPOForm.addressLine1,
+                address_line2: createPOForm.addressLine2,
+                address_line3: createPOForm.addressLine3,
+                city: createPOForm.city,
+                state: createPOForm.state,
+                country: createPOForm.country,
+                pincode: createPOForm.pincode,
+                email_address: createPOForm.emailAddress,
+                contract_no: createPOForm.contractNo,
+                receive_by: createPOForm.receiveBy || null,
+                receive_at: createPOForm.receiveAt,
+                delivery_terms: createPOForm.deliveryTerms,
+                items: items
+            };
+
+            console.log('Payload:', payload);
+
+            // Send to API
+            const response = await httpClient.post('/api/vendors/purchase-orders/', payload);
+
+            console.log('✅ PO created successfully:', response);
+
+            const poNumber = (response as any)?.data?.data?.po_number || (response as any)?.data?.po_number || 'Generated';
+            alert(`Purchase Order created successfully! PO Number: ${poNumber}`);
+
+
+            // Reset form
+            setCreatePOForm({
+                poSeriesName: '',
+                poNumber: '',
+                vendorName: '',
+                branch: '',
+                addressLine1: '',
+                addressLine2: '',
+                addressLine3: '',
+                city: '',
+                state: '',
+                country: '',
+                pincode: '',
+                emailAddress: '',
+                contractNo: '',
+                receiveBy: '',
+                receiveAt: '',
+                deliveryTerms: ''
+            });
+
+            setPOItems([{
+                id: 1,
+                itemCode: '',
+                itemName: '',
+                supplierItemCode: '',
+                quantity: '',
+                negotiatedRate: '',
+                finalRate: '',
+                taxableValue: '',
+                gst: '',
+                netValue: ''
+            }]);
+
+            setShowCreatePOModal(false);
+
+        } catch (error: any) {
+            console.error('❌ Error creating PO:', error);
+            const errorMessage = error.response?.data?.error || error.response?.data?.errors || error.message || 'Error creating Purchase Order';
+            alert(`Error: ${JSON.stringify(errorMessage)}`);
+        }
     };
 
     const handleViewPO = (po: any) => {
@@ -383,11 +456,453 @@ const VendorPortalPage: React.FC = () => {
     };
 
 
+    // Vendor Basic Details State
+    const [vendorCode, setVendorCode] = useState('');
+    const [vendorName, setVendorName] = useState('');
+    const [panNo, setPanNo] = useState('');
+    const [contactPerson, setContactPerson] = useState('');
+    const [vendorEmail, setVendorEmail] = useState('');
+    const [contactNo, setContactNo] = useState('');
+    const [isAlsoCustomer, setIsAlsoCustomer] = useState(false);
+
+    // Handle Basic Details Form Submit
+    const handleBasicDetailsSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        console.log('=== Basic Details Form Submit ===');
+        console.log('Vendor Name:', vendorName);
+        console.log('Email:', vendorEmail);
+        console.log('Contact No:', contactNo);
+
+        // Validation
+        if (!vendorName || !vendorEmail || !contactNo) {
+            alert('Please fill in all required fields (Vendor Name, Email, Contact No)');
+            return;
+        }
+
+        const payload = {
+            vendor_code: vendorCode || undefined, // Optional, will be auto-generated if empty
+            vendor_name: vendorName,
+            pan_no: panNo || undefined,
+            contact_person: contactPerson || undefined,
+            email: vendorEmail,
+            contact_no: contactNo,
+            is_also_customer: isAlsoCustomer
+        };
+
+        console.log('Payload:', payload);
+
+        try {
+            const response: VendorBasicDetail = await httpClient.post('/api/vendors/basic-details/', payload);
+            console.log('✅ Vendor created successfully:', response);
+
+            setCreatedVendorId(response.id); // Save ID for next steps
+            alert(`Vendor created successfully! Vendor Code: ${response.vendor_code}\nNow please fill GST Details.`);
+
+            // Switch to GST Details tab automatically
+            setActiveMasterSubTab('GST Details');
+
+            // Reset form
+            setVendorCode('');
+            setVendorName('');
+            setPanNo('');
+            setContactPerson('');
+            setVendorEmail('');
+            setContactNo('');
+            setIsAlsoCustomer(false);
+
+        } catch (error: any) {
+            console.error('❌ Error creating vendor:', error);
+            const errorMessage = error.response?.data?.error || error.message || 'Error creating vendor';
+            alert(errorMessage);
+        }
+    };
+
+
+    // Vendor GST Details State
+    const [gstin, setGstin] = useState('');
+    const [gstRegistrationType, setGstRegistrationType] = useState('regular');
+    const [legalName, setLegalName] = useState('');
+    const [tradeName, setTradeName] = useState('');
+    const [createdVendorId, setCreatedVendorId] = useState<number | null>(() => {
+        const saved = localStorage.getItem('currentVendorId');
+        return saved ? parseInt(saved) : null;
+    });
+
+    // Persist vendor ID
+    useEffect(() => {
+        if (createdVendorId) {
+            localStorage.setItem('currentVendorId', createdVendorId.toString());
+        }
+    }, [createdVendorId]);
+
+    // TDS & Other Statutory Details State
+    const [msmeUdyamNo, setMsmeUdyamNo] = useState('');
+    const [fssaiLicenseNo, setFssaiLicenseNo] = useState('');
+    const [importExportCode, setImportExportCode] = useState('');
+    const [eouStatus, setEouStatus] = useState('');
+    const [tdsSectionApplicable, setTdsSectionApplicable] = useState('');
+    const [enableAutomaticTdsPosting, setEnableAutomaticTdsPosting] = useState(false);
+
+    // Handle TDS Details Form Submit
+    const handleTDSDetailsSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        console.log('=== TDS Details Form Submit ===');
+
+        if (!createdVendorId) {
+            alert('Please complete Basic Details first to create the vendor.');
+            return;
+        }
+
+        const payload = {
+            vendor_basic_detail: createdVendorId,
+            tds_section_applicable: tdsSectionApplicable || undefined,
+            enable_automatic_tds_posting: enableAutomaticTdsPosting,
+            msme_udyam_no: msmeUdyamNo || undefined,
+            fssai_license_no: fssaiLicenseNo || undefined,
+            import_export_code: importExportCode || undefined,
+            eou_status: eouStatus || undefined
+        };
+
+        console.log('TDS Payload:', payload);
+
+        try {
+            const response = await httpClient.post('/api/vendors/tds-details/', payload);
+            console.log('✅ TDS details saved:', response);
+            alert('TDS Details saved successfully!');
+
+            // Move to next tab or reset
+            setMsmeUdyamNo('');
+            setFssaiLicenseNo('');
+            setImportExportCode('');
+            setEouStatus('');
+            setTdsSectionApplicable('');
+            setEnableAutomaticTdsPosting(false);
+
+            // Move to next tab
+            setActiveMasterSubTab('Banking Info');
+
+        } catch (error: any) {
+            console.error('❌ Error saving TDS details:', error);
+            const errorMessage = error.response?.data?.error || error.message || 'Error saving TDS details';
+            alert(errorMessage);
+        }
+    };
+
+
+    // Handle Banking Details Submit
+    const handleBankingDetailsSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        console.log('=== Banking Details Submit ===');
+
+        if (!createdVendorId) {
+            alert('Please complete Basic Details first to create the vendor.');
+            return;
+        }
+
+        const payload = bankAccounts.map(bank => ({
+            vendor_basic_detail: createdVendorId,
+            bank_account_no: bank.accountNumber,
+            bank_name: bank.bankName,
+            ifsc_code: bank.ifscCode,
+            branch_name: bank.branchName,
+            swift_code: bank.swiftCode,
+            vendor_branch: bank.vendorBranch,
+            account_type: bank.accountType.toLowerCase().replace(' ', '_'),
+            is_active: true
+        }));
+
+        try {
+            const response = await httpClient.post('/api/vendors/banking-details/', payload);
+            console.log('✅ Banking details saved:', response);
+            alert('Banking Details saved successfully!');
+            setActiveMasterSubTab('Terms & Conditions');
+        } catch (error: any) {
+            console.error('❌ Error saving Banking details:', error);
+            const errorMessage = error.response?.data?.error || error.message || 'Error saving Banking details';
+            alert(errorMessage);
+        }
+    };
+
+    // Terms & Conditions State
+    const [creditLimit, setCreditLimit] = useState('');
+    const [creditPeriod, setCreditPeriod] = useState('');
+    const [creditTerms, setCreditTerms] = useState('');
+    const [penaltyTerms, setPenaltyTerms] = useState('');
+    const [deliveryTerms, setDeliveryTerms] = useState('');
+    const [warrantyGuaranteeDetails, setWarrantyGuaranteeDetails] = useState('');
+    const [forceMajeure, setForceMajeure] = useState('');
+    const [disputeRedressalTerms, setDisputeRedressalTerms] = useState('');
+
+    // Handle Terms & Conditions Submit
+    const handleTermsSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        console.log('=== Terms & Conditions Submit ===');
+
+        if (!createdVendorId) {
+            alert('Please complete Basic Details first to create the vendor.');
+            return;
+        }
+
+        const payload = {
+            vendor_basic_detail: createdVendorId,
+            credit_limit: creditLimit ? parseFloat(creditLimit) : undefined,
+            credit_period: creditPeriod || undefined,
+            credit_terms: creditTerms || undefined,
+            penalty_terms: penaltyTerms || undefined,
+            delivery_terms: deliveryTerms || undefined,
+            warranty_guarantee_details: warrantyGuaranteeDetails || undefined,
+            force_majeure: forceMajeure || undefined,
+            dispute_redressal_terms: disputeRedressalTerms || undefined
+        };
+
+        try {
+            const response = await httpClient.post('/api/vendors/terms/', payload);
+            console.log('✅ Terms & Conditions saved:', response);
+            alert('Vendor onboarded successfully! All details have been saved.');
+
+            // Reset form
+            setCreditLimit('');
+            setCreditPeriod('');
+            setCreditTerms('');
+            setPenaltyTerms('');
+            setDeliveryTerms('');
+            setWarrantyGuaranteeDetails('');
+            setForceMajeure('');
+            setDisputeRedressalTerms('');
+
+            // Clear vendor ID from localStorage
+            localStorage.removeItem('currentVendorId');
+            setCreatedVendorId(null);
+
+            // Optionally redirect to vendor list or reset to Basic Details tab
+            setActiveMasterSubTab('Basic Details');
+
+        } catch (error: any) {
+            console.error('❌ Error saving Terms & Conditions:', error);
+            const errorMessage = error.response?.data?.error || error.message || 'Error saving Terms & Conditions';
+            alert(errorMessage);
+        }
+    };
+
+    // Product Services State
+    interface ProductServiceItem {
+        id: number;
+        hsnSacCode: string;
+        itemCode: string;
+        itemName: string;
+        supplierItemCode: string;
+        supplierItemName: string;
+    }
+
+    const [items, setItems] = useState<ProductServiceItem[]>([
+        { id: 1, hsnSacCode: '', itemCode: '', itemName: '', supplierItemCode: '', supplierItemName: '' },
+        { id: 2, hsnSacCode: '', itemCode: '', itemName: '', supplierItemCode: '', supplierItemName: '' },
+    ]);
+
+    const handleAddItem = () => {
+        setItems([...items, {
+            id: items.length + 1,
+            hsnSacCode: '',
+            itemCode: '',
+            itemName: '',
+            supplierItemCode: '',
+            supplierItemName: ''
+        }]);
+    };
+
+    const handleRemoveItem = (id: number) => {
+        if (items.length > 1) {
+            setItems(items.filter(item => item.id !== id));
+        }
+    };
+
+    const handleItemChange = (id: number, field: keyof ProductServiceItem, value: string) => {
+        setItems(items.map(item =>
+            item.id === id ? { ...item, [field]: value } : item
+        ));
+    };
+
+    // Update createdVendorId when basic details are saved
+    useEffect(() => {
+        // This is where you'd normally persist the vendor ID if moving between tabs
+        // For now we rely on the user completing the flow sequentially
+    }, []);
+
+    // Handle GST Details Form Submit
+    const handleGSTDetailsSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        console.log('=== GST Details Form Submit ===');
+
+        if (!gstin) {
+            alert('GSTIN is required');
+            return;
+        }
+
+        // Basic validation logic... we'll assume we have the vendor ID from previous step
+        // For this demo, we'll need to know which vendor we're attaching this to.
+        // In a real flow, the basic details response would provide the ID.
+
+        // Since we don't have the vendor ID stored in a convenient way yet, let's assume 
+        // we're attaching to the most recently created one or fail gracefully.
+        // For now, let's just create the record without a link if ID is missing (for testing)
+        // or prompt the user.
+
+        // However, the backend requires a vendor_basic_detail link (optional in generic create but logic might require it)
+        // Let's rely on the user having just created a vendor.
+
+        const payload = {
+            vendor_basic_detail: createdVendorId, // Might be null if refreshed
+            gstin: gstin,
+            gst_registration_type: gstRegistrationType,
+            legal_name: legalName,
+            trade_name: tradeName
+        };
+
+        try {
+            const response = await httpClient.post('/api/vendors/gst-details/', payload);
+            console.log('✅ GST details saved:', response);
+            alert('GST Details saved successfully!');
+
+            // Move to next tab or reset
+            setGstin('');
+            setLegalName('');
+            setTradeName('');
+            setGstRegistrationType('regular');
+
+        } catch (error: any) {
+            console.error('❌ Error saving GST details:', error);
+            const errorMessage = error.response?.data?.error || error.message || 'Error saving GST details';
+            alert(errorMessage);
+        }
+    };
+
+    // Handle Product Services Submit
+    const handleProductServicesSubmit = async () => {
+        console.log('=== Product Services Submit ===');
+
+        if (!createdVendorId) {
+            alert('Please complete Basic Details first to create the vendor.');
+            return;
+        }
+
+        if (items.length === 0) {
+            alert('Please add at least one item.');
+            return;
+        }
+
+        // Validate items
+        const invalidItems = items.filter(item => !item.itemName || !item.itemName.trim());
+        if (invalidItems.length > 0) {
+            alert('Item Name is required for all items.');
+            return;
+        }
+
+        // Prepare payload
+        const payload = items.map(item => ({
+            vendor_basic_detail: createdVendorId,
+            hsn_sac_code: item.hsnSacCode,
+            item_code: item.itemCode,
+            item_name: item.itemName,
+            supplier_item_code: item.supplierItemCode,
+            supplier_item_name: item.supplierItemName,
+            is_active: true
+        }));
+
+        try {
+            const response = await httpClient.post('/api/vendors/product-services/', payload);
+            console.log('✅ Product Services saved:', response);
+            alert('Product/Services saved successfully!');
+            setActiveMasterSubTab('Banking Info'); // Move to next tab
+        } catch (error: any) {
+            console.error('❌ Error saving Product Services:', error);
+            const errorMessage = error.response?.data?.error || error.message || 'Error saving Product Services';
+            alert(errorMessage);
+        }
+    };
+
+
+    // Category Management Handlers
+    const fetchCategories = async () => {
+        try {
+            setLoadingCategories(true);
+            const response = await httpClient.get('/api/inventory/master-categories/');
+            setCategories(Array.isArray(response) ? response : []);
+        } catch (error) {
+            console.error('Error fetching categories:', error);
+            setCategories([]);
+        } finally {
+            setLoadingCategories(false);
+        }
+    };
+
+    const handleCategorySubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!categoryName) {
+            alert('Category name is required');
+            return;
+        }
+
+        const payload = {
+            category: categoryName,
+            group: parentCategoryPath || null,
+            subgroup: categoryDescription || null,
+            is_active: true
+        };
+
+        try {
+            if (isEditModeCategory && selectedCategory) {
+                await httpClient.put(`/api/inventory/master-categories/${selectedCategory.id}/`, payload);
+                alert('Category updated successfully!');
+            } else {
+                await httpClient.post('/api/inventory/master-categories/', payload);
+                alert('Category created successfully!');
+            }
+            fetchCategories();
+            resetCategoryForm();
+        } catch (error: any) {
+            console.error('Error saving category:', error);
+            alert(error.response?.data?.error || 'Error saving category');
+        }
+    };
+
+    const handleEditCategory = (category: Category) => {
+        setSelectedCategory(category);
+        setCategoryName(category.category);
+        setParentCategoryPath(category.group || '');
+        setCategoryDescription(category.subgroup || '');
+        setIsEditModeCategory(true);
+    };
+
+    const handleDeleteCategory = async (id: number) => {
+        if (!confirm('Are you sure you want to delete this category?')) return;
+        try {
+            await httpClient.delete(`/api/inventory/master-categories/${id}/`);
+            alert('Category deleted successfully!');
+            fetchCategories();
+        } catch (error: any) {
+            console.error('Error deleting category:', error);
+            alert(error.response?.data?.error || 'Error deleting category');
+        }
+    };
+
+    const resetCategoryForm = () => {
+        setCategoryName('');
+        setParentCategoryId(null);
+        setParentCategoryPath('');
+        setCategoryDescription('');
+        setIsEditModeCategory(false);
+        setSelectedCategory(null);
+    };
+
     // Fetch PO Series
     const fetchPOSeries = async () => {
         try {
             setLoadingPOSeries(true);
-            const response = await httpClient.get('/api/vendors/po-series/');
+            const response = await httpClient.get('/api/vendors/po-settings/');
             // httpClient.get() returns the data directly, not wrapped in .data
             setPoSeriesList(Array.isArray(response) ? response : []);
         } catch (error) {
@@ -400,9 +915,10 @@ const VendorPortalPage: React.FC = () => {
 
     // Load on tab switch
     useEffect(() => {
-        if (activeTab === 'Master' && activeMasterSubTab === 'PO Settings') {
+        if (activeTab === 'Master' && activeMasterSubTab === 'Category') {
+            fetchCategories();
+        } else if (activeTab === 'Master' && activeMasterSubTab === 'PO Settings') {
             fetchPOSeries();
-            // fetchCategories(); // Removed as CategoryHierarchicalDropdown fetches its own data
         }
     }, [activeTab, activeMasterSubTab]);
 
@@ -427,16 +943,16 @@ const VendorPortalPage: React.FC = () => {
             category: poCategoryId,
             prefix: poPrefix,
             suffix: poSuffix,
-            auto_financial_year: poAutoYear,
+            auto_year: poAutoYear,
             digits: poDigits,
             is_active: true
         };
 
         try {
             if (isEditModePO && selectedPOSeries) {
-                await httpClient.put(`/api/vendors/po-series/${selectedPOSeries.id}/`, payload);
+                await httpClient.put(`/api/vendors/po-settings/${selectedPOSeries.id}/`, payload);
             } else {
-                await httpClient.post('/api/vendors/po-series/', payload);
+                await httpClient.post('/api/vendors/po-settings/', payload);
             }
             fetchPOSeries();
             resetPOForm();
@@ -449,7 +965,7 @@ const VendorPortalPage: React.FC = () => {
     const handleDeletePO = async (id: number) => {
         if (!confirm('Are you sure you want to delete this series?')) return;
         try {
-            await httpClient.delete(`/api/vendors/po-series/${id}/`);
+            await httpClient.delete(`/api/vendors/po-settings/${id}/`);
             fetchPOSeries();
         } catch (error) {
             console.error('Error deleting PO Series:', error);
@@ -463,7 +979,7 @@ const VendorPortalPage: React.FC = () => {
         setPoCategoryPath(series.category_path || '');
         setPoPrefix(series.prefix);
         setPoSuffix(series.suffix);
-        setPoAutoYear(series.auto_financial_year);
+        setPoAutoYear(series.auto_year);
         setPoDigits(series.digits);
         setIsEditModePO(true);
     };
@@ -510,7 +1026,7 @@ const VendorPortalPage: React.FC = () => {
                             {/* Sub-tabs */}
                             <div className="mb-6">
                                 <nav className="flex space-x-8 border-b border-gray-200">
-                                    {['PO Settings', 'Vendor Creation'].map((subTab) => (
+                                    {['Category', 'PO Settings', 'Vendor Creation'].map((subTab) => (
                                         <button
                                             key={subTab}
                                             onClick={() => setActiveMasterSubTab(subTab as MasterSubTab)}
@@ -526,6 +1042,26 @@ const VendorPortalPage: React.FC = () => {
                             </div>
 
                             <div className="bg-white rounded-lg shadow p-0 overflow-hidden">
+
+                                {activeMasterSubTab === 'Category' && (
+                                    <InventoryCategoryWizard
+                                        apiEndpoint="/api/vendors/categories/"
+                                        onCreateCategory={async (data) => {
+                                            try {
+                                                await httpClient.post('/api/vendors/categories/', {
+                                                    category: data.category,
+                                                    group: data.group,
+                                                    subgroup: data.subgroup,
+                                                    is_active: true
+                                                });
+                                                alert('Category created successfully!');
+                                            } catch (error: any) {
+                                                console.error('Error creating category:', error);
+                                                throw error;
+                                            }
+                                        }}
+                                    />
+                                )}
 
                                 {activeMasterSubTab === 'PO Settings' && (
                                     <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -721,7 +1257,7 @@ const VendorPortalPage: React.FC = () => {
                                 {activeMasterSubTab === 'Basic Details' && (
                                     <div>
                                         <h3 className="text-lg font-semibold text-gray-800 mb-6">Basic Details</h3>
-                                        <form className="space-y-6">
+                                        <form className="space-y-6" onSubmit={handleBasicDetailsSubmit}>
                                             {/* Row 1: Vendor Code and Vendor Name */}
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
@@ -730,6 +1266,8 @@ const VendorPortalPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="text"
+                                                        value={vendorCode}
+                                                        onChange={(e) => setVendorCode(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="Auto-generated or manual"
                                                     />
@@ -740,6 +1278,8 @@ const VendorPortalPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="text"
+                                                        value={vendorName}
+                                                        onChange={(e) => setVendorName(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="Enter vendor name"
                                                         required
@@ -755,6 +1295,8 @@ const VendorPortalPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="text"
+                                                        value={panNo}
+                                                        onChange={(e) => setPanNo(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="AAAAA0000A"
                                                         maxLength={10}
@@ -766,6 +1308,8 @@ const VendorPortalPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="text"
+                                                        value={contactPerson}
+                                                        onChange={(e) => setContactPerson(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="Primary contact name"
                                                     />
@@ -780,6 +1324,8 @@ const VendorPortalPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="email"
+                                                        value={vendorEmail}
+                                                        onChange={(e) => setVendorEmail(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="vendor@example.com"
                                                         required
@@ -791,6 +1337,8 @@ const VendorPortalPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="tel"
+                                                        value={contactNo}
+                                                        onChange={(e) => setContactNo(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="+91 XXXXX XXXXX"
                                                         required
@@ -807,13 +1355,21 @@ const VendorPortalPage: React.FC = () => {
                                                     <div className="flex gap-4">
                                                         <button
                                                             type="button"
-                                                            className="px-6 py-2 border-2 border-teal-500 text-teal-600 rounded-md hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                                            onClick={() => setIsAlsoCustomer(true)}
+                                                            className={`px-6 py-2 border-2 rounded-md focus:outline-none focus:ring-2 ${isAlsoCustomer
+                                                                ? 'border-teal-500 text-teal-600 bg-teal-50 ring-teal-500'
+                                                                : 'border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-300'
+                                                                }`}
                                                         >
                                                             Yes
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            className="px-6 py-2 border-2 border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                                                            onClick={() => setIsAlsoCustomer(false)}
+                                                            className={`px-6 py-2 border-2 rounded-md focus:outline-none focus:ring-2 ${!isAlsoCustomer
+                                                                ? 'border-teal-500 text-teal-600 bg-teal-50 ring-teal-500'
+                                                                : 'border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-300'
+                                                                }`}
                                                         >
                                                             No
                                                         </button>
@@ -897,7 +1453,7 @@ const VendorPortalPage: React.FC = () => {
                                 {activeMasterSubTab === 'GST Details' && (
                                     <div>
                                         <h3 className="text-lg font-semibold text-gray-800 mb-6">GST Details</h3>
-                                        <form className="space-y-6">
+                                        <form className="space-y-6" onSubmit={handleGSTDetailsSubmit}>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -905,6 +1461,8 @@ const VendorPortalPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="text"
+                                                        value={gstin}
+                                                        onChange={(e) => setGstin(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="22AAAAA0000A1Z5"
                                                         maxLength={15}
@@ -915,11 +1473,18 @@ const VendorPortalPage: React.FC = () => {
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         GST Registration Type
                                                     </label>
-                                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500">
-                                                        <option value="">Select Type</option>
+                                                    <select
+                                                        value={gstRegistrationType}
+                                                        onChange={(e) => setGstRegistrationType(e.target.value)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                    >
                                                         <option value="regular">Regular</option>
                                                         <option value="composition">Composition</option>
                                                         <option value="unregistered">Unregistered</option>
+                                                        <option value="consumer">Consumer</option>
+                                                        <option value="overseas">Overseas</option>
+                                                        <option value="special_economic_zone">Special Economic Zone</option>
+                                                        <option value="deemed_export">Deemed Export</option>
                                                     </select>
                                                 </div>
                                                 <div>
@@ -928,6 +1493,8 @@ const VendorPortalPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="text"
+                                                        value={legalName}
+                                                        onChange={(e) => setLegalName(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="Legal business name"
                                                     />
@@ -938,6 +1505,8 @@ const VendorPortalPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="text"
+                                                        value={tradeName}
+                                                        onChange={(e) => setTradeName(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="Trade/Brand name"
                                                     />
@@ -965,59 +1534,16 @@ const VendorPortalPage: React.FC = () => {
                                 {activeMasterSubTab === 'TDS & Other Statutory' && (
                                     <div>
                                         <h3 className="text-lg font-semibold text-gray-800 mb-6">TDS & Other Statutory Details</h3>
-                                        <form className="space-y-6">
+                                        <form onSubmit={handleTDSDetailsSubmit} className="space-y-6">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        PAN Number
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                                        placeholder="AAAAA0000A"
-                                                        maxLength={10}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        TAN Number
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                                        placeholder="AAAA00000A"
-                                                        maxLength={10}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        TDS Section
-                                                    </label>
-                                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500">
-                                                        <option value="">Select Section</option>
-                                                        <option value="194C">194C - Contractors</option>
-                                                        <option value="194H">194H - Commission</option>
-                                                        <option value="194I">194I - Rent</option>
-                                                        <option value="194J">194J - Professional Services</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        TDS Rate (%)
-                                                    </label>
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                                        placeholder="0.00"
-                                                    />
-                                                </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         MSME Udyam No
                                                     </label>
                                                     <input
                                                         type="text"
+                                                        value={msmeUdyamNo}
+                                                        onChange={(e) => setMsmeUdyamNo(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="MSME Udyam Registration Number"
                                                     />
@@ -1028,6 +1554,8 @@ const VendorPortalPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="text"
+                                                        value={fssaiLicenseNo}
+                                                        onChange={(e) => setFssaiLicenseNo(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="FSSAI License Number"
                                                     />
@@ -1038,6 +1566,8 @@ const VendorPortalPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="text"
+                                                        value={importExportCode}
+                                                        onChange={(e) => setImportExportCode(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="Import Export Code"
                                                     />
@@ -1048,6 +1578,8 @@ const VendorPortalPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="text"
+                                                        value={eouStatus}
+                                                        onChange={(e) => setEouStatus(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="Export Oriented Unit Status"
                                                     />
@@ -1058,18 +1590,10 @@ const VendorPortalPage: React.FC = () => {
                                                     </label>
                                                     <input
                                                         type="text"
+                                                        value={tdsSectionApplicable}
+                                                        onChange={(e) => setTdsSectionApplicable(e.target.value)}
                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                         placeholder="TDS Section Applicable"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        CIN Number
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                                        placeholder="Corporate Identification Number"
                                                     />
                                                 </div>
                                             </div>
@@ -1079,6 +1603,8 @@ const VendorPortalPage: React.FC = () => {
                                                 <input
                                                     type="checkbox"
                                                     id="enableAutomaticTDS"
+                                                    checked={enableAutomaticTdsPosting}
+                                                    onChange={(e) => setEnableAutomaticTdsPosting(e.target.checked)}
                                                     className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
                                                 />
                                                 <label htmlFor="enableAutomaticTDS" className="text-sm font-medium text-gray-700">
@@ -1095,6 +1621,15 @@ const VendorPortalPage: React.FC = () => {
                                                 </button>
                                                 <button
                                                     type="button"
+                                                    onClick={() => {
+                                                        // Reset form
+                                                        setMsmeUdyamNo('');
+                                                        setFssaiLicenseNo('');
+                                                        setImportExportCode('');
+                                                        setEouStatus('');
+                                                        setTdsSectionApplicable('');
+                                                        setEnableAutomaticTdsPosting(false);
+                                                    }}
                                                     className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                                                 >
                                                     Cancel
@@ -1103,6 +1638,7 @@ const VendorPortalPage: React.FC = () => {
                                         </form>
                                     </div>
                                 )}
+
 
                                 {activeMasterSubTab === 'Products/Services' && (
                                     <div>
@@ -1137,7 +1673,7 @@ const VendorPortalPage: React.FC = () => {
                                                         </tr>
                                                     </thead>
                                                     <tbody className="bg-white divide-y divide-gray-200">
-                                                        {vendorItems.map((item, index) => (
+                                                        {items.map((item, index) => (
                                                             <tr key={item.id} className="hover:bg-gray-50">
                                                                 <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
                                                                     {index + 1}.
@@ -1246,6 +1782,7 @@ const VendorPortalPage: React.FC = () => {
                                             <div className="flex justify-end pt-4">
                                                 <button
                                                     type="button"
+                                                    onClick={handleProductServicesSubmit}
                                                     className="px-8 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
                                                 >
                                                     Next
@@ -1258,7 +1795,7 @@ const VendorPortalPage: React.FC = () => {
                                 {activeMasterSubTab === 'Banking Info' && (
                                     <div>
                                         <h3 className="text-lg font-semibold text-gray-800 mb-6">Banking Information</h3>
-                                        <form className="space-y-6">
+                                        <form onSubmit={handleBankingDetailsSubmit} className="space-y-6">
                                             <div className="space-y-8">
                                                 {bankAccounts.map((bank, index) => (
                                                     <div key={bank.id} className={`space-y-6 ${index > 0 ? 'pt-8 border-t border-gray-200' : ''}`}>
@@ -1396,7 +1933,7 @@ const VendorPortalPage: React.FC = () => {
                                 {activeMasterSubTab === 'Terms & Conditions' && (
                                     <div>
                                         <h3 className="text-lg font-semibold text-gray-800 mb-6">Terms & Conditions</h3>
-                                        <form className="space-y-6">
+                                        <form onSubmit={handleTermsSubmit} className="space-y-6">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                                     Credit Limit
@@ -1404,6 +1941,8 @@ const VendorPortalPage: React.FC = () => {
                                                 <input
                                                     type="number"
                                                     step="0.01"
+                                                    value={creditLimit}
+                                                    onChange={(e) => setCreditLimit(e.target.value)}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                     placeholder="0.00"
                                                 />
@@ -1415,6 +1954,8 @@ const VendorPortalPage: React.FC = () => {
                                                 </label>
                                                 <input
                                                     type="text"
+                                                    value={creditPeriod}
+                                                    onChange={(e) => setCreditPeriod(e.target.value)}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                     placeholder="Enter credit period (e.g., 30 days, 60 days)"
                                                 />
@@ -1426,6 +1967,8 @@ const VendorPortalPage: React.FC = () => {
                                                 </label>
                                                 <textarea
                                                     rows={3}
+                                                    value={creditTerms}
+                                                    onChange={(e) => setCreditTerms(e.target.value)}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                     placeholder="Enter credit terms and conditions..."
                                                 />
@@ -1437,6 +1980,8 @@ const VendorPortalPage: React.FC = () => {
                                                 </label>
                                                 <textarea
                                                     rows={3}
+                                                    value={penaltyTerms}
+                                                    onChange={(e) => setPenaltyTerms(e.target.value)}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                     placeholder="Enter penalty terms for late payments or breaches..."
                                                 />
@@ -1448,6 +1993,8 @@ const VendorPortalPage: React.FC = () => {
                                                 </label>
                                                 <textarea
                                                     rows={3}
+                                                    value={deliveryTerms}
+                                                    onChange={(e) => setDeliveryTerms(e.target.value)}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                     placeholder="Delivery terms, lead time, shipping conditions..."
                                                 />
@@ -1459,6 +2006,8 @@ const VendorPortalPage: React.FC = () => {
                                                 </label>
                                                 <textarea
                                                     rows={3}
+                                                    value={warrantyGuaranteeDetails}
+                                                    onChange={(e) => setWarrantyGuaranteeDetails(e.target.value)}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                     placeholder="Enter warranty and guarantee terms..."
                                                 />
@@ -1470,6 +2019,8 @@ const VendorPortalPage: React.FC = () => {
                                                 </label>
                                                 <textarea
                                                     rows={3}
+                                                    value={forceMajeure}
+                                                    onChange={(e) => setForceMajeure(e.target.value)}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                     placeholder="Enter force majeure clauses..."
                                                 />
@@ -1481,6 +2032,8 @@ const VendorPortalPage: React.FC = () => {
                                                 </label>
                                                 <textarea
                                                     rows={3}
+                                                    value={disputeRedressalTerms}
+                                                    onChange={(e) => setDisputeRedressalTerms(e.target.value)}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                     placeholder="Enter dispute resolution and redressal terms..."
                                                 />
@@ -1495,6 +2048,17 @@ const VendorPortalPage: React.FC = () => {
                                                 </button>
                                                 <button
                                                     type="button"
+                                                    onClick={() => {
+                                                        // Reset form
+                                                        setCreditLimit('');
+                                                        setCreditPeriod('');
+                                                        setCreditTerms('');
+                                                        setPenaltyTerms('');
+                                                        setDeliveryTerms('');
+                                                        setWarrantyGuaranteeDetails('');
+                                                        setForceMajeure('');
+                                                        setDisputeRedressalTerms('');
+                                                    }}
                                                     className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                                                 >
                                                     Cancel

@@ -1,4 +1,4 @@
--- ============================================================================
+﻿-- ============================================================================
 -- AI Accounting Database Schema - Current Database Structure
 -- Total Tables: 36
 -- ============================================================================
@@ -565,29 +565,6 @@ CREATE TABLE `sales_returns` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
--- Table: tenant_users
---------------------------------------------------------------------------------
-CREATE TABLE `tenant_users` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `password` varchar(128) NOT NULL,
-  `last_login` datetime(6) DEFAULT NULL,
-  `username` varchar(150) NOT NULL,
-  `email` varchar(254) NOT NULL,
-  `phone` varchar(15) DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
-  `tenant_id` char(36) NOT NULL,
-  `role` varchar(50) NOT NULL DEFAULT 'STAFF',
-  `selected_submodule_ids` json DEFAULT NULL,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  `role_id` int DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `tenant_users_username_tenant_unique` (`username`,`tenant_id`),
-  KEY `tenant_users_tenant_id_idx` (`tenant_id`),
-  KEY `idx_tenant_user_role` (`role_id`),
-  CONSTRAINT `tenant_users_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 
 -- Table: tenants
 --------------------------------------------------------------------------------
@@ -694,86 +671,6 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB AUTO_INCREMENT=42 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
--- Table: vendor_portal_users
---------------------------------------------------------------------------------
-CREATE TABLE `vendor_portal_users` (
-  `user_id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `vendor_id` bigint NOT NULL,
-  `username` varchar(100) NOT NULL,
-  `password_hash` text NOT NULL,
-  `role` enum('owner','staff') DEFAULT NULL,
-  `last_login` timestamp NULL DEFAULT NULL,
-  `status` enum('active','blocked') DEFAULT 'active',
-  PRIMARY KEY (`user_id`),
-  UNIQUE KEY `uq_vendor_user` (`tenant_id`,`username`),
-  KEY `idx_vpu_tenant` (`tenant_id`),
-  KEY `vendor_id` (`vendor_id`),
-  CONSTRAINT `vendor_portal_users_ibfk_1` FOREIGN KEY (`vendor_id`) REFERENCES `vendors` (`vendor_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: vendors
---------------------------------------------------------------------------------
-CREATE TABLE `vendors` (
-  `vendor_id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `vendor_code` varchar(50) NOT NULL,
-  `vendor_name` varchar(255) NOT NULL,
-  `email` varchar(255) DEFAULT NULL,
-  `mobile_no` varchar(20) DEFAULT NULL,
-  `ledger_id` bigint NOT NULL,
-  `credit_days` int DEFAULT NULL,
-  `opening_balance` decimal(15,2) DEFAULT NULL,
-  `opening_balance_type` enum('debit','credit') DEFAULT NULL,
-  `is_active` tinyint(1) DEFAULT '1',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`vendor_id`),
-  UNIQUE KEY `uq_vendor_tenant_code` (`tenant_id`,`vendor_code`),
-  KEY `idx_vendor_tenant` (`tenant_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: voucher_configurations
---------------------------------------------------------------------------------
-CREATE TABLE `voucher_configurations` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) NOT NULL,
-  `voucher_type` varchar(50) NOT NULL COMMENT 'sales, credit-note, receipts, purchases, debit-note, payments, expenses, journal, contra',
-  `voucher_name` varchar(255) NOT NULL COMMENT 'Custom voucher name',
-  `enable_auto_numbering` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Enable automatic numbering series',
-  `prefix` varchar(50) DEFAULT NULL COMMENT 'Prefix for voucher number (alphanumeric with / and -)',
-  `suffix` varchar(50) DEFAULT NULL COMMENT 'Suffix for voucher number (alphanumeric with / and -)',
-  `start_from` bigint unsigned NOT NULL DEFAULT '1' COMMENT 'Starting number for the series',
-  `current_number` bigint unsigned NOT NULL DEFAULT '1' COMMENT 'Current/next number in the series',
-  `required_digits` int NOT NULL DEFAULT '4' COMMENT 'Number of digits for padding (e.g., 4 = 0001)',
-  `effective_from` date NOT NULL COMMENT 'Start date of voucher series validity',
-  `effective_to` date NOT NULL COMMENT 'End date of voucher series validity',
-  `update_customer_master` tinyint(1) DEFAULT NULL COMMENT 'For sales: whether to update customer master (Yes/No)',
-  `include_from_existing_series_id` bigint DEFAULT NULL COMMENT 'For sales: reference to existing series to include from',
-  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this configuration is active',
-  `created_at` datetime(6) NOT NULL,
-  `updated_at` datetime(6) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `voucher_config_unique` (`tenant_id`,`voucher_type`,`voucher_name`,`effective_from`),
-  KEY `voucher_config_tenant_id_idx` (`tenant_id`),
-  KEY `voucher_config_type_idx` (`voucher_type`),
-  KEY `voucher_config_effective_idx` (`effective_from`,`effective_to`),
-  CONSTRAINT `voucher_config_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Voucher numbering configuration for all voucher types';
-
-
--- Table: warehouses
---------------------------------------------------------------------------------
-CREATE TABLE `warehouses` (
-  `warehouse_id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `warehouse_code` varchar(50) NOT NULL,
-  `warehouse_name` varchar(255) NOT NULL,
-  PRIMARY KEY (`warehouse_id`),
-  UNIQUE KEY `uq_wh_tenant_code` (`tenant_id`,`warehouse_code`),
-  KEY `idx_wh_tenant` (`tenant_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 
@@ -795,3 +692,525 @@ CREATE TABLE `inventory_master_category` (
   KEY `inventory_master_category_category_idx` (`category`),
   CONSTRAINT `inventory_master_category_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+-- Table: vendor_master_category
+--------------------------------------------------------------------------------
+CREATE TABLE `vendor_master_category` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `category` varchar(255) NOT NULL COMMENT 'Top-level category (e.g., RAW MATERIAL, Stores and Spares, Packing Material)',
+  `group` varchar(255) DEFAULT NULL COMMENT 'Group under category (optional)',
+  `subgroup` varchar(255) DEFAULT NULL COMMENT 'Subgroup under group (optional)',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this category is active',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `vendor_category_tenant_unique` (`tenant_id`,`category`,`group`,`subgroup`),
+  KEY `vendor_category_tenant_id_idx` (`tenant_id`),
+  KEY `vendor_category_is_active_idx` (`tenant_id`, `is_active`),
+  KEY `vendor_category_category_idx` (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Master Category - Stores vendor category hierarchy';
+
+
+-- Table: vendor_master_posettings
+--------------------------------------------------------------------------------
+CREATE TABLE `vendor_master_posettings` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `name` varchar(200) NOT NULL COMMENT 'Name of PO Series',
+  `category_id` bigint DEFAULT NULL COMMENT 'Foreign key to inventory_master_category',
+  `prefix` varchar(50) DEFAULT NULL COMMENT 'Prefix for PO number (e.g., PO/)',
+  `suffix` varchar(50) DEFAULT NULL COMMENT 'Suffix for PO number (e.g., /26)',
+  `digits` int NOT NULL DEFAULT '4' COMMENT 'Number of digits for sequence padding',
+  `auto_year` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Auto-include financial year in PO number',
+  `current_number` int NOT NULL DEFAULT '1' COMMENT 'Current/next number in the sequence',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this PO setting is active',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `vendor_posettings_tenant_name_unique` (`tenant_id`,`name`),
+  KEY `vendor_posettings_tenant_id_idx` (`tenant_id`),
+  KEY `vendor_posettings_category_id_idx` (`category_id`),
+  KEY `vendor_posettings_is_active_idx` (`is_active`),
+  CONSTRAINT `vendor_posettings_category_fk` FOREIGN KEY (`category_id`) REFERENCES `inventory_master_category` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor PO Settings for purchase order numbering configuration';
+
+
+-- Table: vendor_master_basicdetail
+--------------------------------------------------------------------------------
+CREATE TABLE `vendor_master_basicdetail` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `vendor_code` varchar(50) DEFAULT NULL COMMENT 'Vendor code (auto-generated or manual)',
+  `vendor_name` varchar(200) NOT NULL COMMENT 'Vendor name',
+  `pan_no` varchar(10) DEFAULT NULL COMMENT 'PAN number',
+  `contact_person` varchar(100) DEFAULT NULL COMMENT 'Contact person name',
+  `email` varchar(255) NOT NULL COMMENT 'Email address',
+  `contact_no` varchar(20) NOT NULL COMMENT 'Contact number',
+  `is_also_customer` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Is this vendor also a customer?',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this vendor is active',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL COMMENT 'Created by user',
+  `updated_by` varchar(100) DEFAULT NULL COMMENT 'Updated by user',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `vendor_basicdetail_tenant_code_unique` (`tenant_id`,`vendor_code`),
+  KEY `vendor_basicdetail_tenant_id_idx` (`tenant_id`),
+  KEY `vendor_basicdetail_tenant_name_idx` (`tenant_id`,`vendor_name`),
+  KEY `vendor_basicdetail_email_idx` (`email`),
+  KEY `vendor_basicdetail_pan_idx` (`pan_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Master Basic Details for vendor creation';
+
+
+-- Table: vendor_master_gstdetails
+--------------------------------------------------------------------------------
+CREATE TABLE `vendor_master_gstdetails` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `vendor_basic_detail_id` bigint DEFAULT NULL COMMENT 'Foreign key to vendor_master_basicdetail',
+  `gstin` varchar(15) NOT NULL COMMENT 'GSTIN number (15 characters)',
+  `gst_registration_type` varchar(50) NOT NULL DEFAULT 'regular' COMMENT 'GST registration type',
+  `legal_name` varchar(200) NOT NULL COMMENT 'Legal name as per GST',
+  `trade_name` varchar(200) DEFAULT NULL COMMENT 'Trade/Brand name',
+  `gst_state` varchar(100) DEFAULT NULL COMMENT 'State of GST registration',
+  `gst_state_code` varchar(2) DEFAULT NULL COMMENT 'State code (2 digits)',
+  `pan_linked_with_gstin` varchar(10) DEFAULT NULL COMMENT 'PAN linked with GSTIN',
+  `date_of_registration` date DEFAULT NULL COMMENT 'Date of GST registration',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this GST detail is active',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL COMMENT 'Created by user',
+  `updated_by` varchar(100) DEFAULT NULL COMMENT 'Updated by user',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `vendor_gstdetails_tenant_gstin_unique` (`tenant_id`,`gstin`),
+  KEY `vendor_gstdetails_tenant_id_idx` (`tenant_id`),
+  KEY `vendor_gstdetails_gstin_idx` (`gstin`),
+  KEY `vendor_gstdetails_vendor_basic_detail_id_idx` (`vendor_basic_detail_id`),
+  CONSTRAINT `vendor_gstdetails_vendor_fk` FOREIGN KEY (`vendor_basic_detail_id`) REFERENCES `vendor_master_basicdetail` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Master GST Details';
+
+
+-- Table: vendor_master_productservices
+--------------------------------------------------------------------------------
+CREATE TABLE `vendor_master_productservices` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `vendor_basic_detail_id` bigint DEFAULT NULL COMMENT 'Foreign key to vendor_master_basicdetail',
+  `hsn_sac_code` varchar(20) DEFAULT NULL COMMENT 'HSN or SAC Code',
+  `item_code` varchar(50) DEFAULT NULL COMMENT 'Internal Item Code',
+  `item_name` varchar(200) NOT NULL COMMENT 'Internal Item Name',
+  `supplier_item_code` varchar(50) DEFAULT NULL COMMENT 'Supplier Item Code',
+  `supplier_item_name` varchar(200) DEFAULT NULL COMMENT 'Supplier Item Name',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this item is active',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL COMMENT 'Created by user',
+  `updated_by` varchar(100) DEFAULT NULL COMMENT 'Updated by user',
+  PRIMARY KEY (`id`),
+  KEY `vendor_prodserv_tenant_id_idx` (`tenant_id`),
+  KEY `vendor_prodserv_vendor_id_idx` (`vendor_basic_detail_id`),
+  KEY `vendor_prodserv_item_code_idx` (`item_code`),
+  CONSTRAINT `vendor_prodserv_vendor_fk` FOREIGN KEY (`vendor_basic_detail_id`) REFERENCES `vendor_master_basicdetail` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Master Products/Services';
+
+
+-- Table: vendor_master_tds
+--------------------------------------------------------------------------------
+CREATE TABLE `vendor_master_tds` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `vendor_basic_detail_id` bigint DEFAULT NULL COMMENT 'Foreign key to vendor_master_basicdetail',
+  `tds_section_applicable` varchar(100) DEFAULT NULL COMMENT 'TDS Section Applicable',
+  `enable_automatic_tds_posting` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Enable automatic TDS posting',
+  `msme_udyam_no` varchar(50) DEFAULT NULL COMMENT 'MSME Udyam Registration Number',
+  `fssai_license_no` varchar(50) DEFAULT NULL COMMENT 'FSSAI License Number',
+  `import_export_code` varchar(50) DEFAULT NULL COMMENT 'Import Export Code (IEC)',
+  `eou_status` varchar(100) DEFAULT NULL COMMENT 'Export Oriented Unit Status',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this TDS detail is active',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL COMMENT 'Created by user',
+  `updated_by` varchar(100) DEFAULT NULL COMMENT 'Updated by user',
+  PRIMARY KEY (`id`),
+  KEY `vendor_tds_tenant_id_idx` (`tenant_id`),
+  KEY `vendor_tds_vendor_basic_detail_id_idx` (`vendor_basic_detail_id`),
+  CONSTRAINT `vendor_tds_vendor_fk` FOREIGN KEY (`vendor_basic_detail_id`) REFERENCES `vendor_master_basicdetail` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Master TDS & Other Statutory Details';
+
+
+
+-- Table: warehouses
+--------------------------------------------------------------------------------
+CREATE TABLE `warehouses` (
+  `warehouse_id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` bigint NOT NULL,
+  `warehouse_code` varchar(50) NOT NULL,
+  `warehouse_name` varchar(255) NOT NULL,
+  PRIMARY KEY (`warehouse_id`),
+  UNIQUE KEY `uq_wh_tenant_code` (`tenant_id`,`warehouse_code`),
+  KEY `idx_wh_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+-- Table: inventory_master_category
+--------------------------------------------------------------------------------
+CREATE TABLE `inventory_master_category` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` char(36) NOT NULL,
+  `category` varchar(255) NOT NULL,
+  `group` varchar(255) DEFAULT NULL,
+  `subgroup` varchar(255) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `inventory_master_category_uniq` (`tenant_id`,`category`,`group`,`subgroup`),
+  KEY `inventory_master_category_tenant_id_idx` (`tenant_id`),
+  KEY `inventory_master_category_is_active_idx` (`tenant_id`, `is_active`),
+  KEY `inventory_master_category_category_idx` (`category`),
+  CONSTRAINT `inventory_master_category_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+--
+-- Table structure for table `vendor_master_banking`
+--
+
+CREATE TABLE IF NOT EXISTS `vendor_master_banking` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `vendor_basic_detail_id` bigint DEFAULT NULL COMMENT 'Foreign key to vendor_master_basicdetail',
+  `bank_account_no` varchar(50) NOT NULL COMMENT 'Bank Account Number',
+  `bank_name` varchar(200) NOT NULL COMMENT 'Bank Name',
+  `ifsc_code` varchar(11) NOT NULL COMMENT 'IFSC Code',
+  `branch_name` varchar(200) DEFAULT NULL COMMENT 'Branch Name',
+  `swift_code` varchar(11) DEFAULT NULL COMMENT 'SWIFT Code',
+  `vendor_branch` varchar(200) DEFAULT NULL COMMENT 'Associate to a vendor branch',
+  `account_type` varchar(20) NOT NULL DEFAULT 'current' COMMENT 'Type of bank account',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this banking detail is active',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL COMMENT 'Created by user',
+  `updated_by` varchar(100) DEFAULT NULL COMMENT 'Updated by user',
+  PRIMARY KEY (`id`),
+  KEY `vendor_banking_tenant_id_idx` (`tenant_id`),
+  KEY `vendor_banking_vendor_basic_detail_id_idx` (`vendor_basic_detail_id`),
+  KEY `vendor_banking_bank_account_no_idx` (`bank_account_no`),
+  CONSTRAINT `vendor_banking_vendor_fk` FOREIGN KEY (`vendor_basic_detail_id`) REFERENCES `vendor_master_basicdetail` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Master Banking Information';  CONSTRAINT `vendor_banking_vendor_fk` FOREIGN KEY (`vendor_basic_detail_id`) REFERENCES `vendor_master_basicdetail` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Master Banking Information';
+
+
+--
+-- Table structure for table `vendor_master_terms`
+--
+
+CREATE TABLE IF NOT EXISTS `vendor_master_terms` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `vendor_basic_detail_id` bigint DEFAULT NULL COMMENT 'Foreign key to vendor_master_basicdetail',
+  `credit_limit` decimal(15,2) DEFAULT NULL COMMENT 'Credit limit amount',
+  `credit_period` varchar(100) DEFAULT NULL COMMENT 'Credit period (e.g., 30 days, 60 days)',
+  `credit_terms` text COMMENT 'Credit terms and conditions',
+  `penalty_terms` text COMMENT 'Penalty terms for late payments or breaches',
+  `delivery_terms` text COMMENT 'Delivery terms, lead time, shipping conditions',
+  `warranty_guarantee_details` text COMMENT 'Warranty and guarantee terms',
+  `force_majeure` text COMMENT 'Force majeure clauses',
+  `dispute_redressal_terms` text COMMENT 'Dispute resolution and redressal terms',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this terms detail is active',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL COMMENT 'Created by user',
+  `updated_by` varchar(100) DEFAULT NULL COMMENT 'Updated by user',
+  PRIMARY KEY (`id`),
+  KEY `vendor_terms_tenant_id_idx` (`tenant_id`),
+  KEY `vendor_terms_vendor_basic_detail_id_idx` (`vendor_basic_detail_id`),
+  CONSTRAINT `vendor_terms_vendor_fk` FOREIGN KEY (`vendor_basic_detail_id`) REFERENCES `vendor_master_basicdetail` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Master Terms and Conditions';
+--
+-- Table structure for table `vendor_transaction_po`
+-- Purchase Order transaction table for vendors
+--
+
+CREATE TABLE IF NOT EXISTS `vendor_transaction_po` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `po_number` varchar(50) NOT NULL COMMENT 'Purchase Order Number',
+  `po_series_id` bigint DEFAULT NULL COMMENT 'Foreign key to vendor_master_posettings',
+  `vendor_basic_detail_id` bigint DEFAULT NULL COMMENT 'Foreign key to vendor_master_basicdetail',
+  `vendor_name` varchar(200) DEFAULT NULL COMMENT 'Vendor name (denormalized)',
+  `branch` varchar(200) DEFAULT NULL COMMENT 'Vendor branch',
+  `address_line1` varchar(255) DEFAULT NULL COMMENT 'Address Line 1',
+  `address_line2` varchar(255) DEFAULT NULL COMMENT 'Address Line 2',
+  `address_line3` varchar(255) DEFAULT NULL COMMENT 'Address Line 3',
+  `city` varchar(100) DEFAULT NULL COMMENT 'City',
+  `state` varchar(100) DEFAULT NULL COMMENT 'State',
+  `country` varchar(100) DEFAULT NULL COMMENT 'Country',
+  `pincode` varchar(20) DEFAULT NULL COMMENT 'Pincode',
+  `email_address` varchar(255) DEFAULT NULL COMMENT 'Email Address',
+  `contract_no` varchar(100) DEFAULT NULL COMMENT 'Contract Number',
+  `receive_by` date DEFAULT NULL COMMENT 'Expected receive date',
+  `receive_at` varchar(200) DEFAULT NULL COMMENT 'Receive at location',
+  `delivery_terms` text COMMENT 'Delivery terms and conditions',
+  `total_taxable_value` decimal(15,2) DEFAULT 0.00 COMMENT 'Total taxable value',
+  `total_tax` decimal(15,2) DEFAULT 0.00 COMMENT 'Total tax amount',
+  `total_value` decimal(15,2) DEFAULT 0.00 COMMENT 'Total PO value',
+  `status` varchar(50) DEFAULT 'Draft' COMMENT 'PO Status: Draft, Pending Approval, Approved, Mailed, Closed',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this PO is active',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL COMMENT 'Created by user',
+  `updated_by` varchar(100) DEFAULT NULL COMMENT 'Updated by user',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `vendor_po_tenant_number_unique` (`tenant_id`,`po_number`),
+  KEY `vendor_po_tenant_id_idx` (`tenant_id`),
+  KEY `vendor_po_series_id_idx` (`po_series_id`),
+  KEY `vendor_po_vendor_id_idx` (`vendor_basic_detail_id`),
+  KEY `vendor_po_status_idx` (`status`),
+  CONSTRAINT `vendor_po_series_fk` FOREIGN KEY (`po_series_id`) REFERENCES `vendor_master_posettings` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `vendor_po_vendor_fk` FOREIGN KEY (`vendor_basic_detail_id`) REFERENCES `vendor_master_basicdetail` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Purchase Order Transactions';
+
+
+--
+-- Separate Master Tables for Each Voucher Type
+-- This replaces the single voucher_configuration table
+-- Each table includes "include_from_existing_series" column
+--
+
+--
+-- Table: master_voucher_sales
+--
+CREATE TABLE IF NOT EXISTS `master_voucher_sales` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `voucher_name` varchar(100) NOT NULL COMMENT 'Voucher name',
+  `prefix` varchar(20) DEFAULT NULL COMMENT 'Prefix for voucher number',
+  `suffix` varchar(20) DEFAULT NULL COMMENT 'Suffix for voucher number',
+  `start_from` int DEFAULT 1 COMMENT 'Starting number',
+  `current_number` int DEFAULT 1 COMMENT 'Current number in sequence',
+  `required_digits` int DEFAULT 4 COMMENT 'Number of digits for padding',
+  `enable_auto_numbering` tinyint(1) DEFAULT 1 COMMENT 'Enable automatic numbering',
+  `update_customer_master` tinyint(1) DEFAULT 0 COMMENT 'Update customer master',
+  `include_from_existing_series` varchar(200) DEFAULT NULL COMMENT 'Include from existing series (dropdown selection)',
+  `effective_from` date DEFAULT NULL COMMENT 'Effective from date',
+  `effective_to` date DEFAULT NULL COMMENT 'Effective to date',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_sales` (`tenant_id`),
+  KEY `idx_voucher_name_sales` (`voucher_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Sales Voucher Master';
+
+--
+-- Table: master_voucher_creditnote
+--
+CREATE TABLE IF NOT EXISTS `master_voucher_creditnote` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `voucher_name` varchar(100) NOT NULL COMMENT 'Voucher name',
+  `prefix` varchar(20) DEFAULT NULL COMMENT 'Prefix for voucher number',
+  `suffix` varchar(20) DEFAULT NULL COMMENT 'Suffix for voucher number',
+  `start_from` int DEFAULT 1 COMMENT 'Starting number',
+  `current_number` int DEFAULT 1 COMMENT 'Current number in sequence',
+  `required_digits` int DEFAULT 4 COMMENT 'Number of digits for padding',
+  `enable_auto_numbering` tinyint(1) DEFAULT 1 COMMENT 'Enable automatic numbering',
+  `include_from_existing_series` varchar(200) DEFAULT NULL COMMENT 'Include from existing series (dropdown selection)',
+  `effective_from` date DEFAULT NULL COMMENT 'Effective from date',
+  `effective_to` date DEFAULT NULL COMMENT 'Effective to date',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_creditnote` (`tenant_id`),
+  KEY `idx_voucher_name_creditnote` (`voucher_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Credit Note Voucher Master';
+
+--
+-- Table: master_voucher_receipts
+--
+CREATE TABLE IF NOT EXISTS `master_voucher_receipts` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `voucher_name` varchar(100) NOT NULL COMMENT 'Voucher name',
+  `prefix` varchar(20) DEFAULT NULL COMMENT 'Prefix for voucher number',
+  `suffix` varchar(20) DEFAULT NULL COMMENT 'Suffix for voucher number',
+  `start_from` int DEFAULT 1 COMMENT 'Starting number',
+  `current_number` int DEFAULT 1 COMMENT 'Current number in sequence',
+  `required_digits` int DEFAULT 4 COMMENT 'Number of digits for padding',
+  `enable_auto_numbering` tinyint(1) DEFAULT 1 COMMENT 'Enable automatic numbering',
+  `include_from_existing_series` varchar(200) DEFAULT NULL COMMENT 'Include from existing series (dropdown selection)',
+  `effective_from` date DEFAULT NULL COMMENT 'Effective from date',
+  `effective_to` date DEFAULT NULL COMMENT 'Effective to date',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_receipts` (`tenant_id`),
+  KEY `idx_voucher_name_receipts` (`voucher_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Receipts Voucher Master';
+
+--
+-- Table: master_voucher_purchases
+--
+CREATE TABLE IF NOT EXISTS `master_voucher_purchases` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `voucher_name` varchar(100) NOT NULL COMMENT 'Voucher name',
+  `prefix` varchar(20) DEFAULT NULL COMMENT 'Prefix for voucher number',
+  `suffix` varchar(20) DEFAULT NULL COMMENT 'Suffix for voucher number',
+  `start_from` int DEFAULT 1 COMMENT 'Starting number',
+  `current_number` int DEFAULT 1 COMMENT 'Current number in sequence',
+  `required_digits` int DEFAULT 4 COMMENT 'Number of digits for padding',
+  `enable_auto_numbering` tinyint(1) DEFAULT 1 COMMENT 'Enable automatic numbering',
+  `include_from_existing_series` varchar(200) DEFAULT NULL COMMENT 'Include from existing series (dropdown selection)',
+  `effective_from` date DEFAULT NULL COMMENT 'Effective from date',
+  `effective_to` date DEFAULT NULL COMMENT 'Effective to date',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_purchases` (`tenant_id`),
+  KEY `idx_voucher_name_purchases` (`voucher_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Purchases Voucher Master';
+
+--
+-- Table: master_voucher_debitnote
+--
+CREATE TABLE IF NOT EXISTS `master_voucher_debitnote` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `voucher_name` varchar(100) NOT NULL COMMENT 'Voucher name',
+  `prefix` varchar(20) DEFAULT NULL COMMENT 'Prefix for voucher number',
+  `suffix` varchar(20) DEFAULT NULL COMMENT 'Suffix for voucher number',
+  `start_from` int DEFAULT 1 COMMENT 'Starting number',
+  `current_number` int DEFAULT 1 COMMENT 'Current number in sequence',
+  `required_digits` int DEFAULT 4 COMMENT 'Number of digits for padding',
+  `enable_auto_numbering` tinyint(1) DEFAULT 1 COMMENT 'Enable automatic numbering',
+  `include_from_existing_series` varchar(200) DEFAULT NULL COMMENT 'Include from existing series (dropdown selection)',
+  `effective_from` date DEFAULT NULL COMMENT 'Effective from date',
+  `effective_to` date DEFAULT NULL COMMENT 'Effective to date',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_debitnote` (`tenant_id`),
+  KEY `idx_voucher_name_debitnote` (`voucher_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Debit Note Voucher Master';
+
+--
+-- Table: master_voucher_payments
+--
+CREATE TABLE IF NOT EXISTS `master_voucher_payments` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `voucher_name` varchar(100) NOT NULL COMMENT 'Voucher name',
+  `prefix` varchar(20) DEFAULT NULL COMMENT 'Prefix for voucher number',
+  `suffix` varchar(20) DEFAULT NULL COMMENT 'Suffix for voucher number',
+  `start_from` int DEFAULT 1 COMMENT 'Starting number',
+  `current_number` int DEFAULT 1 COMMENT 'Current number in sequence',
+  `required_digits` int DEFAULT 4 COMMENT 'Number of digits for padding',
+  `enable_auto_numbering` tinyint(1) DEFAULT 1 COMMENT 'Enable automatic numbering',
+  `include_from_existing_series` varchar(200) DEFAULT NULL COMMENT 'Include from existing series (dropdown selection)',
+  `effective_from` date DEFAULT NULL COMMENT 'Effective from date',
+  `effective_to` date DEFAULT NULL COMMENT 'Effective to date',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_payments` (`tenant_id`),
+  KEY `idx_voucher_name_payments` (`voucher_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Payments Voucher Master';
+
+--
+-- Table: master_voucher_expenses
+--
+CREATE TABLE IF NOT EXISTS `master_voucher_expenses` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `voucher_name` varchar(100) NOT NULL COMMENT 'Voucher name',
+  `prefix` varchar(20) DEFAULT NULL COMMENT 'Prefix for voucher number',
+  `suffix` varchar(20) DEFAULT NULL COMMENT 'Suffix for voucher number',
+  `start_from` int DEFAULT 1 COMMENT 'Starting number',
+  `current_number` int DEFAULT 1 COMMENT 'Current number in sequence',
+  `required_digits` int DEFAULT 4 COMMENT 'Number of digits for padding',
+  `enable_auto_numbering` tinyint(1) DEFAULT 1 COMMENT 'Enable automatic numbering',
+  `include_from_existing_series` varchar(200) DEFAULT NULL COMMENT 'Include from existing series (dropdown selection)',
+  `effective_from` date DEFAULT NULL COMMENT 'Effective from date',
+  `effective_to` date DEFAULT NULL COMMENT 'Effective to date',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_expenses` (`tenant_id`),
+  KEY `idx_voucher_name_expenses` (`voucher_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Expenses Voucher Master';
+
+--
+-- Table: master_voucher_journal
+--
+CREATE TABLE IF NOT EXISTS `master_voucher_journal` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `voucher_name` varchar(100) NOT NULL COMMENT 'Voucher name',
+  `prefix` varchar(20) DEFAULT NULL COMMENT 'Prefix for voucher number',
+  `suffix` varchar(20) DEFAULT NULL COMMENT 'Suffix for voucher number',
+  `start_from` int DEFAULT 1 COMMENT 'Starting number',
+  `current_number` int DEFAULT 1 COMMENT 'Current number in sequence',
+  `required_digits` int DEFAULT 4 COMMENT 'Number of digits for padding',
+  `enable_auto_numbering` tinyint(1) DEFAULT 1 COMMENT 'Enable automatic numbering',
+  `include_from_existing_series` varchar(200) DEFAULT NULL COMMENT 'Include from existing series (dropdown selection)',
+  `effective_from` date DEFAULT NULL COMMENT 'Effective from date',
+  `effective_to` date DEFAULT NULL COMMENT 'Effective to date',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_journal` (`tenant_id`),
+  KEY `idx_voucher_name_journal` (`voucher_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Journal Voucher Master';
+
+--
+-- Table: master_voucher_contra
+--
+CREATE TABLE IF NOT EXISTS `master_voucher_contra` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `voucher_name` varchar(100) NOT NULL COMMENT 'Voucher name',
+  `prefix` varchar(20) DEFAULT NULL COMMENT 'Prefix for voucher number',
+  `suffix` varchar(20) DEFAULT NULL COMMENT 'Suffix for voucher number',
+  `start_from` int DEFAULT 1 COMMENT 'Starting number',
+  `current_number` int DEFAULT 1 COMMENT 'Current number in sequence',
+  `required_digits` int DEFAULT 4 COMMENT 'Number of digits for padding',
+  `enable_auto_numbering` tinyint(1) DEFAULT 1 COMMENT 'Enable automatic numbering',
+  `include_from_existing_series` varchar(200) DEFAULT NULL COMMENT 'Include from existing series (dropdown selection)',
+  `effective_from` date DEFAULT NULL COMMENT 'Effective from date',
+  `effective_to` date DEFAULT NULL COMMENT 'Effective to date',
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `created_by` varchar(100) DEFAULT NULL,
+  `updated_by` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_contra` (`tenant_id`),
+  KEY `idx_voucher_name_contra` (`voucher_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Contra Voucher Master';
+
