@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { httpClient } from '../../services/httpClient';
-import CategoryHierarchicalDropdown from '../../components/CategoryHierarchicalDropdown';
+
+import { InventoryCategoryWizard } from '../../components/InventoryCategoryWizard';
 import Icon from '../../components/Icon'; // Assuming Icon component exists
 import CreateSalesQuotation from './CreateSalesQuotation';
 import CreateSalesOrder from './CreateSalesOrder';
@@ -416,150 +417,28 @@ const CustomerPortalPage: React.FC = () => {
 // -- Mastery Sub-Components --
 
 const CategoryContent: React.FC = () => {
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [categoryName, setCategoryName] = useState('');
-    const [parentCategory, setParentCategory] = useState<{ id: number, fullPath: string } | null>(null);
-    const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
-        fetchCategories();
-    }, []);
-
-    const fetchCategories = async () => {
-        try {
-            setLoading(true);
-            const mockCategories: Category[] = [
-                { id: 1, category: 'RAW MATERIAL', is_active: true, group: null, subgroup: null, full_path: 'RAW MATERIAL' },
-                { id: 2, category: 'Work in Progress', is_active: true, group: null, subgroup: null, full_path: 'Work in Progress' },
-                { id: 3, category: 'Finished goods', is_active: true, group: null, subgroup: null, full_path: 'Finished goods' },
-                { id: 4, category: 'Stores and Spares', is_active: true, group: null, subgroup: null, full_path: 'Stores and Spares' },
-                { id: 5, category: 'Packing Material', is_active: true, group: null, subgroup: null, full_path: 'Packing Material' },
-                { id: 6, category: 'Stock in Trade', is_active: true, group: null, subgroup: null, full_path: 'Stock in Trade' },
-            ];
-
-            let data = mockCategories;
-            try {
-                // Attempt fetch but fallback to mock (wrapped to avoid breaking if backend fails)
-                const response = await httpClient.get<Category[]>('/api/inventory/master-categories/');
-                if (response && Array.isArray(response) && response.length > 0) {
-                    data = response;
-                }
-            } catch (e) {
-                console.log("Using mock categories as backend fetch failed or is empty");
-            }
-
-            // Add simplified full_path if not present or just accept as is
-            const processed = data.map(c => ({
-                ...c,
-                full_path: c.full_path || [c.category, c.group, c.subgroup].filter(Boolean).join(' > ')
-            }));
-            setCategories(processed);
-        } catch (error) {
-            console.error('Error fetching categories', error);
-            // Fallback to mock even in outer catch
-            const mockCategories: Category[] = [
-                { id: 1, category: 'RAW MATERIAL', is_active: true, group: null, subgroup: null, full_path: 'RAW MATERIAL' },
-                { id: 2, category: 'Work in Progress', is_active: true, group: null, subgroup: null, full_path: 'Work in Progress' },
-                { id: 3, category: 'Finished goods', is_active: true, group: null, subgroup: null, full_path: 'Finished goods' },
-                { id: 4, category: 'Stores and Spares', is_active: true, group: null, subgroup: null, full_path: 'Stores and Spares' },
-                { id: 5, category: 'Packing Material', is_active: true, group: null, subgroup: null, full_path: 'Packing Material' },
-                { id: 6, category: 'Stock in Trade', is_active: true, group: null, subgroup: null, full_path: 'Stock in Trade' },
-            ];
-            setCategories(mockCategories);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSave = async () => {
-        if (!categoryName) return;
-        try {
-            // Simplified payload for creation
-            const payload = {
-                category: categoryName,
-                // Map frontend structure to backend expectation. 
-                // Assuming 'group' or 'parent' is the field for parent category ID.
-                // Based on VendorPortal analysis, it might be more complex, but starting simple.
-                parent: parentCategory?.id || null
-            };
-
-            // Note: Actual endpoint for creation might differ or require different fields
-            await httpClient.post('/api/inventory/master-categories/', payload);
-            setCategoryName('');
-            setParentCategory(null);
-            fetchCategories();
-            alert('Category created successfully!');
-        } catch (error) {
-            console.error('Error creating category', error);
-            alert('Failed to create category.');
-        }
-    };
-
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
-            {/* Left Col: Select Category */}
-            <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Select Category</h3>
-                <p className="text-xs text-gray-500 mb-6">
-                    Single click to select level. Double click to expand/collapse categories.
-                    <br />
-                    <span className="text-indigo-600">★ Blue items are your custom categories.</span>
-                </p>
-
-                <div className="space-y-3 pl-2">
-                    {loading ? (
-                        <p className="text-sm text-gray-500">Loading categories...</p>
-                    ) : categories.length === 0 ? (
-                        <p className="text-sm text-gray-500">No categories found.</p>
-                    ) : (
-                        categories.map((cat) => (
-                            <div key={cat.id} className="flex items-center group cursor-pointer">
-                                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-3 group-hover:bg-indigo-500"></span>
-                                <span className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
-                                    {cat.full_path || cat.category}
-                                </span>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
-
-            {/* Right Col: Create New Category */}
-            <div className="border-l border-gray-100 pl-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Create new Category</h3>
-
-                <div className="space-y-6 max-w-md">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                        <input
-                            type="text"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholder="Text"
-                            value={categoryName}
-                            onChange={(e) => setCategoryName(e.target.value)}
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Under</label>
-                        <CategoryHierarchicalDropdown
-                            onSelect={(selection) => setParentCategory(selection)}
-                            value={parentCategory?.fullPath}
-                            placeholder="Select parent category"
-                            className="w-full"
-                        />
-                        <p className="text-xs text-indigo-500 mt-1 cursor-pointer hover:underline">Drop-down list of all existing categories</p>
-                    </div>
-
-                    <button
-                        onClick={handleSave}
-                        className="px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
-                    >
-                        Save
-                    </button>
-                </div>
-            </div>
-        </div>
+        <InventoryCategoryWizard
+            apiEndpoint="/api/customerportal/categories/"
+            // Using default system categories and groups (Inventory/Vendor structure) as requested
+            onCreateCategory={async (data) => {
+                try {
+                    await httpClient.post('/api/customerportal/categories/', {
+                        category: data.category,
+                        group: data.group,
+                        subgroup: data.subgroup,
+                        is_active: true
+                    });
+                    alert('Category created successfully!');
+                    // Wizard will auto-refresh its tree
+                } catch (error: any) {
+                    console.error('Error creating category:', error);
+                    // Checking for specific error message structure from backend
+                    const errorMsg = error.response?.data?.error || error.response?.data?.detail || error.message;
+                    throw new Error(errorMsg);
+                }
+            }}
+        />
     );
 };
 
@@ -572,6 +451,58 @@ const CustomerContent: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All Status');
     const [categoryFilter, setCategoryFilter] = useState('All Categories');
+
+    // Categories State
+    const [categories, setCategories] = useState<Category[]>([]);
+
+    // Data State
+    const [customers, setCustomers] = useState<any[]>([]);
+    const [stockItems, setStockItems] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const fetchCustomers = async () => {
+        try {
+            const response = await httpClient.get<any[]>('/api/customerportal/customer-master/');
+            setCustomers(response);
+        } catch (error) {
+            console.error('Error fetching customers:', error);
+        }
+    };
+
+    const fetchStockItems = async () => {
+        try {
+            const response = await httpClient.get<any[]>('/api/inventory/stock-items/');
+            setStockItems(response.map(item => ({
+                code: item.item_code,
+                name: item.item_name
+            })));
+        } catch (error) {
+            console.error('Error fetching stock items:', error);
+        }
+    };
+
+    useEffect(() => {
+        const fetchAll = async () => {
+            setIsLoading(true);
+            await Promise.all([fetchCategories(), fetchCustomers(), fetchStockItems()]);
+            setIsLoading(false);
+        };
+
+        const fetchCategories = async () => {
+            try {
+                const response = await httpClient.get<Category[]>('/api/customerportal/categories/');
+                const processed = response.map(c => ({
+                    ...c,
+                    full_path: [c.category, c.group, c.subgroup].filter(Boolean).join(' > ')
+                }));
+                setCategories(processed);
+            } catch (error) {
+                console.error('Error fetching categories:', error);
+            }
+        };
+
+        fetchAll();
+    }, []);
 
     // State for vendor linking logic
     const [isVendor, setIsVendor] = useState(false);
@@ -591,7 +522,7 @@ const CustomerContent: React.FC = () => {
         { id: 1, referenceName: '', address: '', contactPerson: '', email: '', contactNumber: '' }
     ]);
     const [productRows, setProductRows] = useState([
-        { id: 1, itemCode: '', itemName: 'Auto-fetched', custItemCode: '', custItemName: '' }
+        { id: 1, itemCode: '', itemName: 'Auto-fetched', uom: '', custItemCode: '', custItemName: '', custUom: '' }
     ]);
     const [statutoryDetails, setStatutoryDetails] = useState({
         msmeNo: '',
@@ -625,6 +556,133 @@ const CustomerContent: React.FC = () => {
         disputeTerms: ''
     });
 
+
+    // Customer Form Data State
+    const [customerFormData, setCustomerFormData] = useState({
+        customer_name: '',
+        customer_code: `CUST-${Date.now().toString().slice(-6)}`, // Generate unique code
+        customer_category: '',
+        pan_number: '',
+        contact_person: '',
+        email_address: '',
+        contact_number: ''
+    });
+
+    // Track created customer ID for progressive saving
+    const [createdCustomerId, setCreatedCustomerId] = useState<number | null>(null);
+
+    // Handle form field changes
+    const handleCustomerFieldChange = (field: string, value: string) => {
+        setCustomerFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    // Save Customer Handler
+    const handleSaveCustomer = async (options: { exit: boolean } = { exit: true }): Promise<boolean> => {
+        // Validation - Basic Details are required for first save
+        if (!customerFormData.customer_name.trim()) {
+            alert('Please enter customer name');
+            return false;
+        }
+
+        try {
+            const payload = {
+                customer_name: customerFormData.customer_name,
+                customer_code: customerFormData.customer_code,
+                customer_category: customerFormData.customer_category || null,
+                pan_number: customerFormData.pan_number || null,
+                contact_person: customerFormData.contact_person || null,
+                email_address: customerFormData.email_address || null,
+                contact_number: customerFormData.contact_number || null,
+                is_also_vendor: isVendor,
+                // GST Details
+                gst_details: isUnregistered ? null : {
+                    gstins: selectedGSTINs,
+                    branches: showBranchDetails ? mockBranches : []
+                },
+                // Products/Services
+                products_services: {
+                    items: productRows
+                },
+                // TDS & Statutory Details
+                msme_no: statutoryDetails.msmeNo || null,
+                fssai_no: statutoryDetails.fssaiNo || null,
+                iec_code: statutoryDetails.iecCode || null,
+                eou_status: statutoryDetails.eouStatus || null,
+                tcs_section: statutoryDetails.tcsSection || null,
+                tcs_enabled: statutoryDetails.tcsEnabled,
+                tds_section: statutoryDetails.tdsSection || null,
+                tds_enabled: statutoryDetails.tdsEnabled,
+                // Banking Info
+                banking_info: bankAccounts.length > 0 ? { accounts: bankAccounts } : null,
+                // Terms & Conditions
+                credit_period: termsDetails.creditPeriod || null,
+                credit_terms: termsDetails.creditTerms || null,
+                penalty_terms: termsDetails.penaltyTerms || null,
+                delivery_terms: termsDetails.deliveryTerms || null,
+                warranty_details: termsDetails.warrantyDetails || null,
+                force_majeure: termsDetails.forceMajeure || null,
+                dispute_terms: termsDetails.disputeTerms || null
+            };
+
+            let response;
+            if (createdCustomerId) {
+                // Update existing customer
+                response = await httpClient.patch(`/api/customerportal/customer-master/${createdCustomerId}/`, payload);
+                if (options.exit) alert('Customer updated successfully!');
+            } else {
+                // Create new customer
+                response = await httpClient.post('/api/customerportal/customer-master/', payload);
+                setCreatedCustomerId(response.id);
+                if (options.exit) alert('Customer created successfully!');
+            }
+
+            if (options.exit) {
+                // Reset form and go back to list view
+                setView('list');
+                setCreatedCustomerId(null);
+                setCustomerFormData({
+                    customer_name: '',
+                    customer_code: `CUST-${Date.now().toString().slice(-6)}`,
+                    customer_category: '',
+                    pan_number: '',
+                    contact_person: '',
+                    email_address: '',
+                    contact_number: ''
+                });
+            }
+            return true;
+        } catch (error: any) {
+            console.error('Error saving customer:', error);
+            let errorMessage = 'Failed to save customer';
+
+            // Check if it's a duplicate entry error
+            if (error.response?.status === 500 && error.response?.data) {
+                const errorText = typeof error.response.data === 'string' ? error.response.data : '';
+                if (errorText.includes('Duplicate entry') || errorText.includes('unique_tenant_customer_code')) {
+                    errorMessage = 'This customer code already exists. Please try again with a new customer.';
+                    // Generate a new customer code
+                    setCustomerFormData(prev => ({
+                        ...prev,
+                        customer_code: `CUST-${Date.now().toString().slice(-6)}`
+                    }));
+                }
+            } else if (error.response?.data) {
+                const errorData = error.response.data;
+                if (errorData.detail) {
+                    errorMessage = errorData.detail;
+                } else if (typeof errorData === 'object') {
+                    errorMessage += ':\n';
+                    Object.keys(errorData).forEach(field => {
+                        const fieldErrors = Array.isArray(errorData[field]) ? errorData[field] : [errorData[field]];
+                        errorMessage += `\n${field}: ${fieldErrors.join(', ')}`;
+                    });
+                }
+            }
+            alert(errorMessage);
+            return false;
+        }
+    };
+
     // Helper to add a new bank account
     const handleAddBank = () => {
         setBankAccounts(prev => [
@@ -653,18 +711,24 @@ const CustomerContent: React.FC = () => {
         ));
     };
 
-    // Mock Data for Items
-    const mockItems = [
-        { code: 'ITEM-001', name: 'Dell Latitude 3520 Laptop' },
-        { code: 'ITEM-002', name: 'Logitech Wireless Mouse' },
-        { code: 'ITEM-003', name: 'HP LaserJet Pro Printer' },
-        { code: 'SERV-001', name: 'Annual Maintenance Contract' },
-    ];
+    const handleProductRowChange = (id: number, field: string, value: string) => {
+        setProductRows(prev => prev.map(row => {
+            if (row.id === id) {
+                const updatedRow = { ...row, [field]: value };
+                if (field === 'itemCode') {
+                    const item = stockItems.find(i => i.code === value);
+                    updatedRow.itemName = item ? item.name : 'Auto-fetched';
+                }
+                return updatedRow;
+            }
+            return row;
+        }));
+    };
 
     const handleAddProductRow = () => {
         setProductRows(prev => [
             ...prev,
-            { id: prev.length + 1, itemCode: '', itemName: 'Auto-fetched', custItemCode: '', custItemName: '' }
+            { id: prev.length + 1, itemCode: '', itemName: 'Auto-fetched', uom: '', custItemCode: '', custItemName: '', custUom: '' }
         ]);
     };
 
@@ -674,19 +738,7 @@ const CustomerContent: React.FC = () => {
         }
     };
 
-    const handleProductRowChange = (id: number, field: string, value: string) => {
-        setProductRows(prev => prev.map(row => {
-            if (row.id === id) {
-                const updatedRow = { ...row, [field]: value };
-                if (field === 'itemCode') {
-                    const item = mockItems.find(i => i.code === value);
-                    updatedRow.itemName = item ? item.name : 'Auto-fetched';
-                }
-                return updatedRow;
-            }
-            return row;
-        }));
-    };
+
 
     // Mock GSTINs for dropdown
     // Mock GSTINs for dropdown
@@ -755,35 +807,17 @@ const CustomerContent: React.FC = () => {
         ));
     };
 
-    // ... (mock data and filter logic)
+    const filteredCustomers = (customers || []).filter(customer => {
+        const name = customer.customer_name || customer.name || '';
+        const code = customer.customer_code || customer.code || '';
+        const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            code.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = statusFilter === 'All Status' || (customer.status || 'Live') === statusFilter;
 
-    // ... (helper functions if any)
+        // Category matching - handle both mock and real customer structures
+        const customerCategory = customer.customer_category_name || customer.category || '';
+        const matchesCategory = categoryFilter === 'All Categories' || customerCategory === categoryFilter;
 
-    if (view === 'create') {
-        // ... (return statement until GST Details)
-        // ...
-    }
-
-
-
-
-
-
-    // Mock Data matching the screenshot
-    const [customers, setCustomers] = useState([
-        { id: 1, category: 'Retail', code: 'CUST-001', name: 'Acme Corporation', status: 'Live' },
-        { id: 2, category: 'Wholesale', code: 'CUST-002', name: 'Global Traders Pvt Ltd', status: 'Live' },
-        { id: 3, category: 'Corporate', code: 'CUST-003', name: 'TechVision Solutions', status: 'Dormant' },
-        { id: 4, category: 'Retail', code: 'CUST-004', name: 'Sunrise Enterprises', status: 'Live' },
-        { id: 5, category: 'Wholesale', code: 'CUST-005', name: 'Metro Supplies Inc', status: 'Dormant' },
-    ]);
-
-    // Filter logic
-    const filteredCustomers = customers.filter(customer => {
-        const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            customer.code.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'All Status' || customer.status === statusFilter;
-        const matchesCategory = categoryFilter === 'All Categories' || customer.category === categoryFilter;
         return matchesSearch && matchesStatus && matchesCategory;
     });
 
@@ -818,42 +852,77 @@ const CustomerContent: React.FC = () => {
                             {/* Row 1 */}
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Customer Name <span className="text-red-500">*</span></label>
-                                <input type="text" className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white" />
+                                <input
+                                    type="text"
+                                    value={customerFormData.customer_name}
+                                    onChange={(e) => handleCustomerFieldChange('customer_name', e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Customer Category</label>
-                                <select className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-600 bg-white">
-                                    <option>Select Category</option>
-                                    <option>Retail</option>
-                                    <option>Wholesale</option>
-                                    <option>Corporate</option>
+                                <select
+                                    value={customerFormData.customer_category}
+                                    onChange={(e) => handleCustomerFieldChange('customer_category', e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-600 bg-white">
+                                    <option value="">Select Category</option>
+                                    {categories.map((cat) => (
+                                        <option key={cat.id} value={cat.id}>
+                                            {cat.full_path || [cat.category, cat.group, cat.subgroup].filter(Boolean).join(' > ')}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
                             {/* Row 2 */}
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Customer Code</label>
-                                <input type="text" value="CUST-006" readOnly className="w-full px-4 py-2.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600" />
+                                <input
+                                    type="text"
+                                    value={customerFormData.customer_code}
+                                    readOnly
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600"
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">PAN Number</label>
-                                <input type="text" className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white" />
+                                <input
+                                    type="text"
+                                    value={customerFormData.pan_number}
+                                    onChange={(e) => handleCustomerFieldChange('pan_number', e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                />
                             </div>
 
                             {/* Row 3 */}
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Contact Person</label>
-                                <input type="text" className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white" />
+                                <input
+                                    type="text"
+                                    value={customerFormData.contact_person}
+                                    onChange={(e) => handleCustomerFieldChange('contact_person', e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
-                                <input type="email" className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white" />
+                                <input
+                                    type="email"
+                                    value={customerFormData.email_address}
+                                    onChange={(e) => handleCustomerFieldChange('email_address', e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                />
                             </div>
 
                             {/* Row 4 */}
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Contact Number</label>
-                                <input type="text" className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white" />
+                                <input
+                                    type="text"
+                                    value={customerFormData.contact_number}
+                                    onChange={(e) => handleCustomerFieldChange('contact_number', e.target.value)}
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                />
                             </div>
                             <div className="md:col-span-1"></div> {/* Spacer */}
 
@@ -967,7 +1036,12 @@ const CustomerContent: React.FC = () => {
                         {/* Footer Buttons */}
                         <div className="flex justify-end gap-4 mt-12 border-t border-gray-200 pt-6">
                             <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">Next</button>
+                            <button
+                                onClick={() => setActiveTab('GST Details')}
+                                className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                            >
+                                Next
+                            </button>
                         </div>
                     </div>
                 )}
@@ -1254,7 +1328,12 @@ const CustomerContent: React.FC = () => {
                         {/* Footer Buttons for GST Tab */}
                         <div className="flex justify-end gap-4 mt-12 border-t border-gray-200 pt-6">
                             <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">Next</button>
+                            <button
+                                onClick={() => setActiveTab('Products/Services')}
+                                className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                            >
+                                Next
+                            </button>
                         </div>
                     </div>
                 )}
@@ -1266,10 +1345,12 @@ const CustomerContent: React.FC = () => {
                             {/* Table Header */}
                             <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                 <div className="col-span-1">No</div>
-                                <div className="col-span-3">Item Code <span className="text-red-500">*</span></div>
-                                <div className="col-span-3">Item Name</div>
+                                <div className="col-span-2">Item Code <span className="text-red-500">*</span></div>
+                                <div className="col-span-2">Item Name</div>
+                                <div className="col-span-1">UOM</div>
                                 <div className="col-span-2">Customer Item Code</div>
                                 <div className="col-span-2">Customer Item Name</div>
+                                <div className="col-span-1">Customer UOM</div>
                                 <div className="col-span-1 text-center">Action</div>
                             </div>
 
@@ -1278,25 +1359,34 @@ const CustomerContent: React.FC = () => {
                                 {productRows.map((row, index) => (
                                     <div key={row.id} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-gray-50/50 transition-colors">
                                         <div className="col-span-1 text-sm text-gray-500 font-medium">{index + 1}</div>
-                                        <div className="col-span-3">
+                                        <div className="col-span-2">
                                             <select
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
                                                 value={row.itemCode}
                                                 onChange={(e) => handleProductRowChange(row.id, 'itemCode', e.target.value)}
                                             >
                                                 <option value="">Select Item</option>
-                                                {mockItems.map(item => (
+                                                {stockItems.map(item => (
                                                     <option key={item.code} value={item.code}>{item.code} - {item.name}</option>
                                                 ))}
                                             </select>
                                         </div>
-                                        <div className="col-span-3">
+                                        <div className="col-span-2">
                                             <input
                                                 type="text"
                                                 readOnly
                                                 className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 text-sm cursor-not-allowed"
                                                 placeholder="Auto-fetched"
                                                 value={row.itemName}
+                                            />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <input
+                                                type="text"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                placeholder="UOM"
+                                                value={(row as any).uom || ''}
+                                                onChange={(e) => handleProductRowChange(row.id, 'uom', e.target.value)}
                                             />
                                         </div>
                                         <div className="col-span-2">
@@ -1315,6 +1405,15 @@ const CustomerContent: React.FC = () => {
                                                 placeholder="Optional"
                                                 value={row.custItemName}
                                                 onChange={(e) => handleProductRowChange(row.id, 'custItemName', e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <input
+                                                type="text"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                placeholder="UOM"
+                                                value={(row as any).custUom || ''}
+                                                onChange={(e) => handleProductRowChange(row.id, 'custUom', e.target.value)}
                                             />
                                         </div>
                                         <div className="col-span-1 flex justify-center">
@@ -1350,7 +1449,12 @@ const CustomerContent: React.FC = () => {
                         {/* Footer Buttons */}
                         <div className="flex justify-end gap-4 border-t border-gray-200 pt-6">
                             <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">Next</button>
+                            <button
+                                onClick={() => setActiveTab('TDS & Other Statutory Details')}
+                                className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                            >
+                                Next
+                            </button>
                         </div>
                     </div>
                 )}
@@ -1526,7 +1630,12 @@ const CustomerContent: React.FC = () => {
                         {/* Footer Buttons */}
                         <div className="flex justify-end gap-4 border-t border-gray-200 pt-6">
                             <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">Next</button>
+                            <button
+                                onClick={() => setActiveTab('Banking Info')}
+                                className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                            >
+                                Next
+                            </button>
                         </div>
                     </div>
                 )}
@@ -1669,7 +1778,12 @@ const CustomerContent: React.FC = () => {
                         {/* Footer Buttons */}
                         <div className="flex justify-end gap-4 border-t border-gray-200 pt-6">
                             <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
-                            <button className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">Next</button>
+                            <button
+                                onClick={() => setActiveTab('Terms & Conditions')}
+                                className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                            >
+                                Next
+                            </button>
                         </div>
                     </div>
                 )}
@@ -1759,13 +1873,18 @@ const CustomerContent: React.FC = () => {
                         <div className="flex justify-end gap-4 border-t border-gray-200 pt-6 mt-8">
                             <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
                             <button
-                                onClick={() => {
-                                    alert('Customer Onboarded Successfully! (Mock)');
-                                    setView('list');
+                                onClick={async () => {
+                                    const success = await handleSaveCustomer({ exit: true });
+                                    if (success) {
+                                        // View change is handled inside handleSaveCustomer when exit: true
+                                    }
                                 }}
                                 className="px-6 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
                             >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                </svg>
                                 Onboard Customer
                             </button>
                         </div>
@@ -1786,7 +1905,19 @@ const CustomerContent: React.FC = () => {
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-gray-900">Customer Management</h3>
                 <button
-                    onClick={() => setView('create')}
+                    onClick={() => {
+                        // Generate a new customer code when creating a new customer
+                        setCustomerFormData({
+                            customer_name: '',
+                            customer_code: `CUST-${Date.now().toString().slice(-6)}`,
+                            customer_category: '',
+                            pan_number: '',
+                            contact_person: '',
+                            email_address: '',
+                            contact_number: ''
+                        });
+                        setView('create');
+                    }}
                     className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors flex items-center gap-2"
                 >
                     <span>+</span> Create New Customer
@@ -1846,19 +1977,25 @@ const CustomerContent: React.FC = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                         {filteredCustomers.map((customer) => (
                             <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{customer.category}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{customer.code}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{customer.name}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {customer.customer_category_name || customer.category || 'N/A'}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    {customer.customer_code || customer.code}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                    {customer.customer_name || customer.name}
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-center">
-                                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${customer.status === 'Live'
+                                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${(customer.status || 'Live') === 'Live'
                                         ? 'bg-green-100 text-green-800'
                                         : 'bg-gray-100 text-gray-600'
                                         }`}>
-                                        {customer.status}
+                                        {customer.status || 'Live'}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                    <button className={`hover:text-red-700 transition-colors ${customer.status === 'Live' ? 'text-gray-300 cursor-not-allowed' : 'text-red-500'
+                                    <button className={`hover:text-red-700 transition-colors ${(customer.status || 'Live') === 'Live' ? 'text-gray-300 cursor-not-allowed' : 'text-red-500'
                                         }`}>
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1889,10 +2026,8 @@ const SalesOrderContent: React.FC = () => {
         autoYear: true,
         digits: 4
     });
-    const [sqList] = useState([
-        { id: 1, name: 'Retail Sales Quotation', category: 'Retail', prefix: 'SQ/RET...', suffix: '', digits: 4 },
-        { id: 2, name: 'Wholesale SQ', category: 'Wholesale', prefix: 'SQ/WS...', suffix: '/24-25', digits: 4 },
-    ]);
+    const [sqList, setSqList] = useState<any[]>([]);
+    const [sqLoading, setSqLoading] = useState(false);
 
     // Sales Order State
     const [soForm, setSoForm] = useState({
@@ -1903,24 +2038,123 @@ const SalesOrderContent: React.FC = () => {
         autoYear: true,
         digits: 4
     });
-    const [soList] = useState([
-        { id: 1, name: 'Retail Sales Order', category: 'Retail', displayDetails: 'SO/RET... (4 digits)', digits: 4 },
-        { id: 2, name: 'Corporate SO', category: 'Corporate', displayDetails: 'SO/CORP... (5 digits)', digits: 5 },
-    ]);
+    const [soList, setSoList] = useState<any[]>([]);
+    const [soLoading, setSoLoading] = useState(false);
 
     const isSQ = subTab === 'Sales Quotation';
     const form = isSQ ? sqForm : soForm;
     const setForm = isSQ ? setSqForm : setSoForm;
     const list = isSQ ? sqList : soList;
+    const loading = isSQ ? sqLoading : soLoading;
+
+    // Fetch Sales Quotation Series from API
+    const fetchSalesQuotationSeries = async () => {
+        try {
+            setSqLoading(true);
+            const response = await httpClient.get<any[]>('/api/customerportal/sales-quotation-series/');
+            setSqList(response || []);
+        } catch (error) {
+            console.error('Error fetching sales quotation series:', error);
+            setSqList([]);
+        } finally {
+            setSqLoading(false);
+        }
+    };
+
+    // Load data when component mounts or tab changes
+    useEffect(() => {
+        if (subTab === 'Sales Quotation') {
+            fetchSalesQuotationSeries();
+        }
+    }, [subTab]);
 
     const handleChange = (field: string, value: any) => {
         setForm(prev => ({ ...prev, [field]: value }));
     };
 
     const getPreview = () => {
-        const yearPart = form.autoYear ? '/2026' : ''; // Mock year
+        const currentYear = new Date().getFullYear();
+        const yearPart = form.autoYear ? `/${currentYear}` : '';
         const numberPart = '0'.repeat(Math.max(0, form.digits - 1)) + '1';
         return `${form.prefix}${yearPart}${form.suffix}/${numberPart}`;
+    };
+
+    // Save Sales Quotation Series
+    const handleSaveSeries = async () => {
+        if (!form.name.trim()) {
+            alert('Please enter a series name');
+            return;
+        }
+        if (!form.category) {
+            alert('Please select a customer category');
+            return;
+        }
+
+        try {
+            const payload = {
+                series_name: form.name.trim(),
+                customer_category: form.category,
+                prefix: form.prefix,
+                suffix: form.suffix,
+                required_digits: form.digits,
+                auto_year: form.autoYear,
+                current_number: 0
+            };
+
+            await httpClient.post('/api/customerportal/sales-quotation-series/', payload);
+            alert('Series saved successfully!');
+
+            await fetchSalesQuotationSeries();
+
+            setSqForm({
+                name: '',
+                category: '',
+                prefix: 'SQ/',
+                suffix: '/24-25',
+                autoYear: true,
+                digits: 4
+            });
+        } catch (error: any) {
+            console.error('Error saving series:', error);
+            let errorMessage = 'Failed to save series';
+            if (error.response?.data) {
+                const errorData = error.response.data;
+                if (errorData.detail) {
+                    errorMessage = errorData.detail;
+                } else if (typeof errorData === 'object') {
+                    errorMessage += ':\n';
+                    Object.keys(errorData).forEach(field => {
+                        const fieldErrors = Array.isArray(errorData[field]) ? errorData[field] : [errorData[field]];
+                        errorMessage += `\n${field}: ${fieldErrors.join(', ')}`;
+                    });
+                }
+            }
+            alert(errorMessage);
+        }
+    };
+
+    const handleDeleteSeries = async (id: number) => {
+        if (!window.confirm('Are you sure you want to delete this series?')) return;
+        try {
+            await httpClient.delete(`/api/customerportal/sales-quotation-series/${id}/`);
+            alert('Series deleted successfully!');
+            await fetchSalesQuotationSeries();
+        } catch (error) {
+            console.error('Error deleting series:', error);
+            alert('Failed to delete series');
+        }
+    };
+
+    const handleEditSeries = (series: any) => {
+        setSqForm({
+            name: series.series_name || '',
+            category: series.customer_category || '',
+            prefix: series.prefix || 'SQ/',
+            suffix: series.suffix || '/24-25',
+            autoYear: series.auto_year !== undefined ? series.auto_year : true,
+            digits: series.required_digits || 4
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     return (
@@ -2024,7 +2258,10 @@ const SalesOrderContent: React.FC = () => {
                         <p className="text-xl font-bold text-gray-800 font-mono">{getPreview()}</p>
                     </div>
 
-                    <button className="w-full py-2.5 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 transition-colors">
+                    <button
+                        onClick={handleSaveSeries}
+                        disabled={!form.name || !form.category}
+                        className="w-full py-2.5 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
                         Save Series
                     </button>
                 </div>
@@ -2072,6 +2309,29 @@ const LongTermContractsContent: React.FC = () => {
     const [view, setView] = useState<'list' | 'create'>('list');
     const [activeTab, setActiveTab] = useState('Basic Details');
     const [automateBilling, setAutomateBilling] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [contracts, setContracts] = useState<any[]>([]);
+
+    // Basic Details State
+    const [basicDetails, setBasicDetails] = useState({
+        contractNumber: 'CT-2026-224', // Auto-generated
+        customerId: '',
+        customerName: '',
+        branchId: '',
+        contractType: '',
+        validityFrom: '',
+        validityTo: '',
+        contractDocument: ''
+    });
+
+    // Billing Configuration State
+    const [billingConfig, setBillingConfig] = useState({
+        billStartDate: '',
+        billingFrequency: '',
+        voucherName: '',
+        billPeriodFrom: '',
+        billPeriodTo: ''
+    });
 
     // Products State
     const [contractProducts, setContractProducts] = useState([
@@ -2112,14 +2372,114 @@ const LongTermContractsContent: React.FC = () => {
         others: ''
     });
 
-    // Mock Data
-    const contracts = [
-        { id: 1, contractNo: 'CT-2026-001', customerName: 'Acme Corporation', type: 'Rate Contract', validFrom: '2026-01-01', validTo: '2026-12-31' },
-        { id: 2, contractNo: 'CT-2026-002', customerName: 'Tech Solutions Ltd', type: 'Service Contract', validFrom: '2026-02-01', validTo: '2027-01-31' },
-        { id: 3, contractNo: 'CT-2026-003', customerName: 'Global Enterprises Inc', type: 'AMC', validFrom: '2026-03-01', validTo: '2027-02-28' },
-        { id: 4, contractNo: 'CT-2025-045', customerName: 'Retail Chain Pvt Ltd', type: 'Rate Contract', validFrom: '2025-10-01', validTo: '2026-09-30' },
-        { id: 5, contractNo: 'CT-2026-005', customerName: 'Manufacturing Co Ltd', type: 'Service Contract', validFrom: '2026-01-15', validTo: '2026-07-14' },
-    ];
+    // Fetch contracts on component mount
+    useEffect(() => {
+        if (view === 'list') {
+            fetchContracts();
+        }
+    }, [view]);
+
+    const fetchContracts = async () => {
+        try {
+            const response = await httpClient.get('/api/customerportal/long-term-contracts/');
+            setContracts((response as any).data || []);
+        } catch (error) {
+            console.error('Error fetching contracts:', error);
+            setContracts([]);
+        }
+    };
+
+    const handleSaveContract = async () => {
+        setLoading(true);
+        try {
+            // Prepare contract data
+            const contractData = {
+                contract_number: basicDetails.contractNumber,
+                customer_id: parseInt(basicDetails.customerId) || null,
+                customer_name: basicDetails.customerName,
+                branch_id: parseInt(basicDetails.branchId) || null,
+                contract_type: basicDetails.contractType,
+                contract_validity_from: basicDetails.validityFrom,
+                contract_validity_to: basicDetails.validityTo,
+                contract_document: basicDetails.contractDocument,
+                automate_billing: automateBilling,
+                bill_start_date: automateBilling ? billingConfig.billStartDate : null,
+                billing_frequency: automateBilling ? billingConfig.billingFrequency : null,
+                voucher_name: automateBilling ? billingConfig.voucherName : null,
+                bill_period_from: automateBilling ? billingConfig.billPeriodFrom : null,
+                bill_period_to: automateBilling ? billingConfig.billPeriodTo : null,
+                products_services: contractProducts.map(p => ({
+                    item_code: p.itemCode,
+                    item_name: p.itemName,
+                    customer_item_name: p.customerItemName,
+                    qty_min: p.qtyMin ? parseFloat(p.qtyMin) : null,
+                    qty_max: p.qtyMax ? parseFloat(p.qtyMax) : null,
+                    price_min: p.priceMin ? parseFloat(p.priceMin) : null,
+                    price_max: p.priceMax ? parseFloat(p.priceMax) : null,
+                    acceptable_price_deviation: p.deviation
+                })),
+                terms_conditions: {
+                    payment_terms: terms.paymentTerms,
+                    penalty_terms: terms.penaltyTerms,
+                    force_majeure: terms.forceMajeure,
+                    termination_clause: terms.terminationClause,
+                    dispute_terms: terms.disputeTerms,
+                    others: terms.others
+                }
+            };
+
+            console.log('Saving contract:', contractData);
+
+            const response = await httpClient.post('/api/customerportal/long-term-contracts/', contractData);
+
+            console.log('Contract saved successfully:', (response as any).data);
+            alert('Contract Created Successfully!');
+
+            // Reset form
+            resetForm();
+            setView('list');
+        } catch (error: any) {
+            console.error('Error saving contract:', error);
+            const errorMessage = error.response?.data?.error || error.message || 'Failed to create contract';
+            alert(`Error: ${errorMessage}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const resetForm = () => {
+        setBasicDetails({
+            contractNumber: 'CT-2026-224',
+            customerId: '',
+            customerName: '',
+            branchId: '',
+            contractType: '',
+            validityFrom: '',
+            validityTo: '',
+            contractDocument: ''
+        });
+        setBillingConfig({
+            billStartDate: '',
+            billingFrequency: '',
+            voucherName: '',
+            billPeriodFrom: '',
+            billPeriodTo: ''
+        });
+        setContractProducts([
+            { id: 1, itemCode: '', itemName: 'Product Name', customerItemName: '', qtyMin: '', qtyMax: '', priceMin: '', priceMax: '', deviation: '' }
+        ]);
+        setTerms({
+            paymentTerms: '',
+            penaltyTerms: '',
+            forceMajeure: '',
+            terminationClause: '',
+            disputeTerms: '',
+            others: ''
+        });
+        setAutomateBilling(false);
+        setActiveTab('Basic Details');
+    };
+
 
     const getBadgeStyle = (type: string) => {
         switch (type) {
@@ -2169,13 +2529,17 @@ const LongTermContractsContent: React.FC = () => {
                                             <input
                                                 type="text"
                                                 disabled
-                                                value="CT-2026-224"
+                                                value={basicDetails.contractNumber}
                                                 className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 text-sm focus:ring-indigo-500 focus:border-indigo-500"
                                             />
                                         </div>
                                         <div>
                                             <label className="block text-xs font-semibold text-gray-700 mb-1">Contract Type <span className="text-red-500">*</span></label>
-                                            <select className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white">
+                                            <select
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+                                                value={basicDetails.contractType}
+                                                onChange={(e) => setBasicDetails({ ...basicDetails, contractType: e.target.value })}
+                                            >
                                                 <option value="">Select Type</option>
                                                 <option value="Rate Contract">Rate Contract</option>
                                                 <option value="Service Contract">Service Contract</option>
@@ -2184,7 +2548,12 @@ const LongTermContractsContent: React.FC = () => {
                                         </div>
                                         <div>
                                             <label className="block text-xs font-semibold text-gray-700 mb-1">Contract Validity From <span className="text-red-500">*</span></label>
-                                            <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm placeholder-gray-400" />
+                                            <input
+                                                type="date"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm placeholder-gray-400"
+                                                value={basicDetails.validityFrom}
+                                                onChange={(e) => setBasicDetails({ ...basicDetails, validityFrom: e.target.value })}
+                                            />
                                         </div>
                                     </div>
 
@@ -2192,7 +2561,18 @@ const LongTermContractsContent: React.FC = () => {
                                     <div className="space-y-6">
                                         <div>
                                             <label className="block text-xs font-semibold text-gray-700 mb-1">Customer Name <span className="text-red-500">*</span></label>
-                                            <select className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white">
+                                            <select
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+                                                value={basicDetails.customerId}
+                                                onChange={(e) => {
+                                                    const selectedOption = e.target.options[e.target.selectedIndex];
+                                                    setBasicDetails({
+                                                        ...basicDetails,
+                                                        customerId: e.target.value,
+                                                        customerName: selectedOption.text
+                                                    });
+                                                }}
+                                            >
                                                 <option value="">Select Customer</option>
                                                 <option value="1">Acme Corporation</option>
                                                 <option value="2">Tech Solutions Ltd</option>
@@ -2200,7 +2580,11 @@ const LongTermContractsContent: React.FC = () => {
                                         </div>
                                         <div>
                                             <label className="block text-xs font-semibold text-gray-700 mb-1">Branch <span className="text-red-500">*</span></label>
-                                            <select className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white">
+                                            <select
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+                                                value={basicDetails.branchId}
+                                                onChange={(e) => setBasicDetails({ ...basicDetails, branchId: e.target.value })}
+                                            >
                                                 <option value="">Select Branch</option>
                                                 <option value="1">Bangalore HO</option>
                                                 <option value="2">Pune Branch</option>
@@ -2208,7 +2592,12 @@ const LongTermContractsContent: React.FC = () => {
                                         </div>
                                         <div>
                                             <label className="block text-xs font-semibold text-gray-700 mb-1">Contract Validity To <span className="text-red-500">*</span></label>
-                                            <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm placeholder-gray-400" />
+                                            <input
+                                                type="date"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm placeholder-gray-400"
+                                                value={basicDetails.validityTo}
+                                                onChange={(e) => setBasicDetails({ ...basicDetails, validityTo: e.target.value })}
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -2244,11 +2633,20 @@ const LongTermContractsContent: React.FC = () => {
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
                                                     <label className="block text-xs font-semibold text-gray-700 mb-1">Bill Start Date <span className="text-red-500">*</span></label>
-                                                    <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white" />
+                                                    <input
+                                                        type="date"
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+                                                        value={billingConfig.billStartDate}
+                                                        onChange={(e) => setBillingConfig({ ...billingConfig, billStartDate: e.target.value })}
+                                                    />
                                                 </div>
                                                 <div>
                                                     <label className="block text-xs font-semibold text-gray-700 mb-1">Billing Frequency <span className="text-red-500">*</span></label>
-                                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white">
+                                                    <select
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+                                                        value={billingConfig.billingFrequency}
+                                                        onChange={(e) => setBillingConfig({ ...billingConfig, billingFrequency: e.target.value })}
+                                                    >
                                                         <option value="">Select Frequency</option>
                                                         <option value="Weekly">Weekly</option>
                                                         <option value="Monthly">Monthly</option>
@@ -2256,17 +2654,40 @@ const LongTermContractsContent: React.FC = () => {
                                                         <option value="Half-Yearly">Half-Yearly</option>
                                                     </select>
                                                 </div>
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Voucher Name <span className="text-red-500">*</span></label>
+                                                    <select
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+                                                        value={billingConfig.voucherName}
+                                                        onChange={(e) => setBillingConfig({ ...billingConfig, voucherName: e.target.value })}
+                                                    >
+                                                        <option value="">Select Voucher</option>
+                                                        <option value="sales">Sales Invoice</option>
+                                                        <option value="service">Service Invoice</option>
+                                                        <option value="recurring">Recurring Invoice</option>
+                                                    </select>
+                                                </div>
                                                 <div className="md:col-span-2">
                                                     <label className="block text-xs font-semibold text-gray-700 mb-1">Bill Period <span className="text-red-500">*</span></label>
                                                     <div className="flex items-center gap-4">
                                                         <div className="flex-1">
                                                             <span className="text-xs text-gray-500 mb-1 block">From</span>
-                                                            <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white" />
+                                                            <input
+                                                                type="date"
+                                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+                                                                value={billingConfig.billPeriodFrom}
+                                                                onChange={(e) => setBillingConfig({ ...billingConfig, billPeriodFrom: e.target.value })}
+                                                            />
                                                         </div>
                                                         <span className="mt-5 text-gray-400">to</span>
                                                         <div className="flex-1">
                                                             <span className="text-xs text-gray-500 mb-1 block">To</span>
-                                                            <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white" />
+                                                            <input
+                                                                type="date"
+                                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+                                                                value={billingConfig.billPeriodTo}
+                                                                onChange={(e) => setBillingConfig({ ...billingConfig, billPeriodTo: e.target.value })}
+                                                            />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -2495,14 +2916,14 @@ const LongTermContractsContent: React.FC = () => {
                                         if (activeTab === 'Basic Details') setActiveTab('Products / Services');
                                         else if (activeTab === 'Products / Services') setActiveTab('Terms & Conditions');
                                         else if (activeTab === 'Terms & Conditions') {
-                                            alert('Contract Created Successfully!');
-                                            setView('list');
+                                            handleSaveContract();
                                         }
                                     }}
-                                    className={`px-8 py-2 text-white rounded-md text-sm font-medium transition-colors ${activeTab === 'Terms & Conditions' ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                                    disabled={loading}
+                                    className={`px-8 py-2 text-white rounded-md text-sm font-medium transition-colors ${activeTab === 'Terms & Conditions' ? 'bg-green-600 hover:bg-green-700 disabled:bg-gray-400' : 'bg-indigo-600 hover:bg-indigo-700'
                                         }`}
                                 >
-                                    {activeTab === 'Terms & Conditions' ? 'Save' : 'Next'}
+                                    {loading ? 'Saving...' : (activeTab === 'Terms & Conditions' ? 'Save' : 'Next')}
                                 </button>
                             </div>
                         </div>
@@ -2583,7 +3004,6 @@ const ReceiptContent: React.FC = () => {
         bankAccount: '',
         bankReferenceNo: ''
     });
-
     // Mock receipt data - sorted by most recent first
     const receipts = [
         {

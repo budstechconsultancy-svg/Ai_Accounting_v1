@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'accounting',
     'inventory',
     'vendors',  # Vendor Portal
+    'customerportal',  # Customer Portal
     'rest_framework_simplejwt',
     'reports',
 ]
