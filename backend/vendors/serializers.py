@@ -1,10 +1,3 @@
-from rest_framework import serializers
-from .models import POSeries
+# This file is deprecated - POSeries has been removed
+# All serializers are now in vendor_serializers.py and posettings_serializers.py
 
-class POSeriesSerializer(serializers.ModelSerializer):
-    category_name = serializers.CharField(source='category.name', read_only=True)
-    category_path = serializers.CharField(source='category.full_path', read_only=True)
-    
-    class Meta:
-        model = POSeries
-        fields = '__all__'

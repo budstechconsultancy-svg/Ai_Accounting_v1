@@ -29,6 +29,7 @@ interface InventoryCategoryWizardProps {
         group: string | null;
         subgroup: string | null;
     }) => Promise<void>;
+    apiEndpoint?: string; // Optional API endpoint, defaults to inventory
 }
 
 // Hardcoded base categories (System Categories)
@@ -41,28 +42,47 @@ const SYSTEM_CATEGORIES = [
     'Stock in Trade'
 ];
 
-export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = ({ onCreateCategory }) => {
+export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = ({ onCreateCategory, apiEndpoint = '/api/inventory/master-categories/' }) => {
     const [loading, setLoading] = useState(false);
     const [treeData, setTreeData] = useState<TreeNode[]>([]);
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
-    const [newGroupName, setNewGroupName] = useState('');
-    const [newSubgroupName, setNewSubgroupName] = useState('');
+
+    const [restoredNodes, setRestoredNodes] = useState<Set<string>>(new Set());
+
+    // NEW: We need to store API data to rebuild tree without re-fetching
+    const [apiData, setApiData] = useState<MasterCategory[]>([]);
+
+    const [formData, setFormData] = useState({
+        category: '',
+        group: '',
+        subgroup: ''
+    });
 
     useEffect(() => {
         fetchMasterCategories();
-    }, []);
+    }, [apiEndpoint]); // Re-fetch when endpoint changes
+
+    // Re-build tree when apiData or restoredNodes change
+    useEffect(() => {
+        buildTree(apiData);
+    }, [apiData, restoredNodes]);
+
 
     const fetchMasterCategories = async () => {
+        setLoading(true);
         try {
-            setLoading(true);
-            // Use httpClient for proper authentication and error handling
-            const data = await httpClient.get<MasterCategory[]>('/api/inventory/master-categories/');
-            buildTree(data);
+            const response = await httpClient.get<MasterCategory[]>(apiEndpoint);
+            if (response && Array.isArray(response)) {
+                setApiData(response); // Store the fetched data
+                // buildTree(response); // buildTree is now called by the useEffect hook
+            }
         } catch (error) {
-            console.error('Error loading master categories:', error);
-            // Fallback to system categories if API fails
-            buildTree([]);
+            console.error('Error fetching categories:', error);
+            // Fallback to system categories + manual build if API fails?
+            // For now, just show system categories by passing empty array to buildTree
+            setApiData([]); // Clear API data on error
+            // buildTree([]); // buildTree is now called by the useEffect hook
         } finally {
             setLoading(false);
         }
@@ -71,19 +91,62 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
     const buildTree = (data: MasterCategory[]) => {
         const rootMap = new Map<string, TreeNode>();
 
-        // 1. Initialize System Categories
+        // Default groups and subgroups for ALL categories
+        const DEFAULT_GROUPS = [
+            {
+                name: 'With in country (Indigenous)',
+                subgroups: ['Consumables', 'Machinery Spares', 'Others']
+            },
+            {
+                name: 'Import',
+                subgroups: ['Consumables', 'Machinery Spares', 'Others']
+            }
+        ];
+
+        // 1. Initialize System Categories with default groups and subgroups
         SYSTEM_CATEGORIES.forEach(catName => {
-            rootMap.set(catName, {
+            const categoryNode: TreeNode = {
                 id: `root-${catName}`,
                 name: catName,
                 children: [],
                 level: 0,
                 isSystem: true,
                 data: { category: catName, group: null, subgroup: null }
+            };
+
+            // Add default groups and subgroups to each system category
+            DEFAULT_GROUPS.forEach(groupData => {
+                const groupNode: TreeNode = {
+                    id: `group-${catName}-${groupData.name}`,
+                    name: groupData.name,
+                    children: [],
+                    level: 1,
+                    isSystem: true,
+                    data: { category: catName, group: groupData.name, subgroup: null }
+                };
+
+                // Add subgroups ONLY for 'Stores and Spares'
+                if (catName === 'Stores and Spares') {
+                    groupData.subgroups.forEach(subgroupName => {
+                        const subgroupNode: TreeNode = {
+                            id: `sub-${catName}-${groupData.name}-${subgroupName}`,
+                            name: subgroupName,
+                            children: [],
+                            level: 2,
+                            isSystem: true,
+                            data: { category: catName, group: groupData.name, subgroup: subgroupName }
+                        };
+                        groupNode.children.push(subgroupNode);
+                    });
+                }
+
+                categoryNode.children.push(groupNode);
             });
+
+            rootMap.set(catName, categoryNode);
         });
 
-        // 2. Process fetched data to build hierarchy
+        // 2. Process fetched data to build hierarchy (for custom categories)
         data.forEach(item => {
             const catName = item.category;
 
@@ -185,14 +248,89 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
         setExpandedNodes(newExpanded);
     };
 
-    const selectNodeForPreview = (node: TreeNode) => {
+    const handleNodeSelect = (node: TreeNode) => {
         setSelectedNode(node);
-        setNewGroupName('');
-        setNewSubgroupName('');
+
+        // Update form data based on selection
+        setFormData({
+            category: node.data.category,
+            group: node.data.group || '',
+            subgroup: node.data.subgroup || ''
+        });
 
         // Auto-expand if selecting a root/group to make workflow smoother
         if (!expandedNodes.has(node.id)) {
             toggleNode(node.id);
+        }
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!selectedNode) {
+            alert('Please select a category.');
+            return;
+        }
+
+        // Validation: At least one field (group or subgroup) must be filled
+        if (selectedNode.level === 0 && !formData.group.trim() && !formData.subgroup.trim()) {
+            alert('Please enter either a Group Name or Subgroup Name (or both)');
+            return;
+        }
+
+        if (selectedNode.level === 1 && !formData.subgroup.trim()) {
+            // If selected Group, user MUST enter Subgroup
+            alert('Please enter a Subgroup Name');
+            return;
+        }
+
+        try {
+            // Scenario 1: Selected Root (Category) -> Create Group and/or Subgroup
+            if (selectedNode.level === 0) {
+                await onCreateCategory({
+                    category: selectedNode.data.category,
+                    group: formData.group.trim() || null,
+                    subgroup: formData.subgroup.trim() || null
+                });
+            }
+            // Scenario 2: Selected Group -> Create Subgroup
+            else if (selectedNode.level === 1) {
+                await onCreateCategory({
+                    category: selectedNode.data.category,
+                    group: selectedNode.data.group,
+                    subgroup: formData.subgroup.trim()
+                });
+            }
+
+            // Success
+            setFormData(prev => ({ ...prev, group: '', subgroup: '' })); // Clear inputs
+            fetchMasterCategories(); // Refresh tree
+
+        } catch (error: any) {
+            // Check for duplicate error
+            const errorMsg = error.toString();
+            if (errorMsg.includes('Duplicate') || errorMsg.includes('IntegrityError') || errorMsg.includes('already exists')) {
+                // It's a duplicate! Reveal it if it was hidden.
+                const restoreKey = `${selectedNode.data.category}-${formData.group.trim() || 'null'}-${formData.subgroup.trim() || 'null'}`;
+
+                // Add to restored set
+                setRestoredNodes(prev => new Set(prev).add(restoreKey));
+
+                alert("Category already exists! It has been restored to the view.");
+                setFormData(prev => ({ ...prev, group: '', subgroup: '' })); // Clear inputs
+                fetchMasterCategories(); // Re-fetch to ensure the restored item is visible
+            } else {
+                console.error("Error creating category:", error);
+                alert(`Error creating category: ${error.message || error}`);
+            }
         }
     };
 
@@ -207,7 +345,7 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
                     <div
                         className={`flex items-center py-1.5 px-2 cursor-pointer hover:bg-gray-100 rounded transition-colors ${isSelected ? 'bg-blue-100 text-blue-700 font-medium border-l-2 border-blue-500' : ''
                             } ${!node.isSystem && node.level === 0 ? 'text-blue-600' : ''}`}
-                        onClick={() => selectNodeForPreview(node)}
+                        onClick={() => handleNodeSelect(node)}
                         onDoubleClick={() => {
                             if (hasChildren || node.level < 2) {
                                 toggleNode(node.id);
@@ -242,60 +380,6 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
                 </div>
             );
         });
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!selectedNode) {
-            alert('Please select a category.');
-            return;
-        }
-
-        // Validation: At least one field (group or subgroup) must be filled
-        if (selectedNode.level === 0 && !newGroupName.trim() && !newSubgroupName.trim()) {
-            alert('Please enter either a Group Name or Subgroup Name (or both)');
-            return;
-        }
-
-        if (selectedNode.level === 1 && !newSubgroupName.trim()) {
-            // If selected Group, user MUST enter Subgroup
-            alert('Please enter a Subgroup Name');
-            return;
-        }
-
-        try {
-            // Scenario 1: Selected Root (Category) -> Create Group and/or Subgroup
-            if (selectedNode.level === 0) {
-                await onCreateCategory({
-                    category: selectedNode.data.category,
-                    group: newGroupName.trim() || null,
-                    subgroup: newSubgroupName.trim() || null
-                });
-            }
-            // Scenario 2: Selected Group -> Create Subgroup
-            else if (selectedNode.level === 1) {
-                await onCreateCategory({
-                    category: selectedNode.data.category,
-                    group: selectedNode.data.group,
-                    subgroup: newSubgroupName.trim()
-                });
-            }
-
-            // Refresh tree
-            fetchMasterCategories();
-
-            // Clear inputs
-            setNewGroupName('');
-            setNewSubgroupName('');
-
-            // Note: We don't auto-expand here because fetchMasterCategories replaces the tree nodes
-            // Ideally we'd preserve expansion state but for now standard refresh is fine.
-
-        } catch (error) {
-            console.error("Error creating category:", error);
-            alert("Failed to create. It might already exist.");
-        }
     };
 
     return (
@@ -356,8 +440,9 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
                                         // If Root selected, allow typing Group
                                         <input
                                             type="text"
-                                            value={newGroupName}
-                                            onChange={(e) => setNewGroupName(e.target.value)}
+                                            name="group"
+                                            value={formData.group}
+                                            onChange={handleInputChange}
                                             className="w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder-gray-400 bg-white text-gray-800 text-sm"
                                             placeholder="Enter Group Name"
                                             autoFocus
@@ -370,7 +455,7 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
                                     ) : (
                                         <input
                                             type="text"
-                                            value=""
+                                            value={formData.group}
                                             disabled
                                             className="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 text-gray-400 text-sm cursor-not-allowed"
                                             placeholder="Enter Group Name"
@@ -395,8 +480,9 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
                                     ) : (
                                         <input
                                             type="text"
-                                            value={newSubgroupName}
-                                            onChange={(e) => setNewSubgroupName(e.target.value)}
+                                            name="subgroup"
+                                            value={formData.subgroup}
+                                            onChange={handleInputChange}
                                             disabled={!selectedNode || selectedNode.level > 1}
                                             className={`w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder-gray-400 text-sm ${!selectedNode || selectedNode.level > 1
                                                 ? 'bg-gray-50 text-gray-400 cursor-not-allowed'

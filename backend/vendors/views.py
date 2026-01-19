@@ -1,9 +1,3 @@
-from rest_framework import viewsets
-from rest_framework.permissions import AllowAny
-from .models import POSeries
-from .serializers import POSeriesSerializer
+# This file is deprecated - POSeries has been removed
+# All vendor functionality is now in vendor_api.py and posettings_api.py
 
-class POSeriesViewSet(viewsets.ModelViewSet):
-    queryset = POSeries.objects.all()
-    serializer_class = POSeriesSerializer
-    permission_classes = [AllowAny]  # TODO: Add proper authentication
