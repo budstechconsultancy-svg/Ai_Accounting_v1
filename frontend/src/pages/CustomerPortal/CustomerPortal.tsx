@@ -4617,7 +4617,8 @@ const SalesContent: React.FC = () => {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100">
                                         {customer.days0to45 > 0 ? formatCurrency(customer.days0to45) : '-'}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100">
+                                    <td
+                                              className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100">
                                         {customer.days45to90 > 0 ? formatCurrency(customer.days45to90) : '-'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100">
