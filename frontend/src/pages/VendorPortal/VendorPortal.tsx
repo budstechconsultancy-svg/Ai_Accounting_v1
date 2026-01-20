@@ -4,7 +4,7 @@ import { httpClient } from '../../services/httpClient';
 import CategoryHierarchicalDropdown from '../../components/CategoryHierarchicalDropdown';
 import { InventoryCategoryWizard } from '../../components/InventoryCategoryWizard';
 
-type VendorTab = 'Master' | 'Transaction' | 'Report';
+type VendorTab = 'Master' | 'Transaction';
 type MasterSubTab = 'Category' | 'PO Settings' | 'Vendor Creation' | 'Basic Details' | 'GST Details' | 'Products/Services' | 'TDS & Other Statutory' | 'Banking Info' | 'Terms & Conditions';
 type TransactionSubTab = 'Purchase Orders' | 'Procurement' | 'Payment';
 type POSubTab = 'Dashboard' | 'Create PO' | 'Pending PO' | 'Executed PO';
@@ -56,6 +56,27 @@ interface VendorBasicDetail {
 }
 
 const VendorPortalPage: React.FC = () => {
+    // GST Details Interfaces (Defined inside to avoid placement issues, or better moved out if stable)
+    // Actually, moving them here
+    interface PlaceOfBusiness {
+        id: string;
+        referenceName: string;
+        address: string;
+        contactPerson: string;
+        email: string;
+        contactNumber: string;
+        isExpanded?: boolean;
+    }
+
+    interface GSTRecord {
+        id: string;
+        gstin: string;
+        registrationType: 'Regular' | 'Composition' | 'SEZ' | 'Unregistered';
+        tradeName?: string;
+        legalName?: string;
+        placesOfBusiness: PlaceOfBusiness[];
+        isExpanded?: boolean;
+    }
     // Tab State
     const [activeTab, setActiveTab] = useState<VendorTab>('Master');
     const [activeMasterSubTab, setActiveMasterSubTab] = useState<MasterSubTab>('Category');
@@ -63,6 +84,7 @@ const VendorPortalPage: React.FC = () => {
     const [activePOSubTab, setActivePOSubTab] = useState<POSubTab>('Dashboard');
     const [activeCreatePOSubTab, setActiveCreatePOSubTab] = useState<CreatePOSubTab>('Draft PO');
     const [activeProcurementSubTab, setActiveProcurementSubTab] = useState<ProcurementSubTab>('Dashboard');
+    const [activePaymentSubTab, setActivePaymentSubTab] = useState<ProcurementSubTab>('Dashboard');
 
     // Category Management State
     const [categories, setCategories] = useState<Category[]>([]);
@@ -152,10 +174,166 @@ const VendorPortalPage: React.FC = () => {
         }
     ]);
 
+    // GST Details State
+    const [gstRecords, setGstRecords] = useState<GSTRecord[]>([
+        {
+            id: '1',
+            gstin: '',
+            registrationType: 'Regular',
+            placesOfBusiness: [],
+            isExpanded: true
+        }
+    ]);
+    const [loadingGstFetch, setLoadingGstFetch] = useState(false);
+
+    // GST Handler Functions
+    const handleAddGstRecord = () => {
+        setGstRecords([...gstRecords, {
+            id: Date.now().toString(),
+            gstin: '',
+            registrationType: 'Regular',
+            placesOfBusiness: [],
+            isExpanded: true
+        }]);
+    };
+
+    const handleRemoveGstRecord = (id: string) => {
+        if (gstRecords.length > 1) {
+            setGstRecords(gstRecords.filter(record => record.id !== id));
+        }
+    };
+
+    const handleGstChange = (id: string, field: keyof GSTRecord, value: any) => {
+        setGstRecords(gstRecords.map(record => {
+            if (record.id === id) {
+                if (field === 'registrationType' && value === 'Unregistered') {
+                    return { ...record, [field]: value, gstin: '', placesOfBusiness: [] };
+                }
+                return { ...record, [field]: value };
+            }
+            return record;
+        }));
+    };
+
+    const handleFetchGstDetails = async (id: string) => {
+        setLoadingGstFetch(true);
+        // Simulate API call
+        setTimeout(() => {
+            setGstRecords(gstRecords.map(r => {
+                if (r.id === id) {
+                    return {
+                        ...r,
+                        tradeName: 'Mock Trade Name Ltd',
+                        legalName: 'Mock Legal Name Ltd',
+                        placesOfBusiness: [
+                            {
+                                id: Date.now().toString() + '_1',
+                                referenceName: 'Main Branch', // Default populated
+                                address: '123, Business Park, Tech City, India',
+                                contactPerson: 'John Doe',
+                                email: 'john@example.com',
+                                contactNumber: '9876543210',
+                                isExpanded: true
+                            },
+                            {
+                                id: Date.now().toString() + '_2',
+                                referenceName: 'Warehouse 1',
+                                address: '456, Industrial Area, Tech City, India',
+                                contactPerson: 'Jane Smith',
+                                email: 'jane@example.com',
+                                contactNumber: '9876541111',
+                                isExpanded: false
+                            }
+                        ]
+                    };
+                }
+                return r;
+            }));
+            setLoadingGstFetch(false);
+        }, 1000);
+    };
+
+    const toggleGstExpand = (id: string) => {
+        setGstRecords(gstRecords.map(r => r.id === id ? { ...r, isExpanded: !r.isExpanded } : r));
+    };
+
+    const togglePobExpand = (recordId: string, pobId: string) => {
+        setGstRecords(gstRecords.map(r => {
+            if (r.id === recordId) {
+                return {
+                    ...r,
+                    placesOfBusiness: r.placesOfBusiness.map(p =>
+                        p.id === pobId ? { ...p, isExpanded: !p.isExpanded } : p
+                    )
+                };
+            }
+            return r;
+        }));
+    };
+
+    const updatePobField = (recordId: string, pobId: string, field: keyof PlaceOfBusiness, value: string) => {
+        setGstRecords(gstRecords.map(r => {
+            if (r.id === recordId) {
+                return {
+                    ...r,
+                    placesOfBusiness: r.placesOfBusiness.map(p =>
+                        p.id === pobId ? { ...p, [field]: value } : p
+                    )
+                };
+            }
+            return r;
+        }));
+    };
+
+    const handleAddPob = (recordId: string) => {
+        setGstRecords(gstRecords.map(r => {
+            if (r.id === recordId) {
+                return {
+                    ...r,
+                    placesOfBusiness: [
+                        ...r.placesOfBusiness,
+                        {
+                            id: Date.now().toString(),
+                            referenceName: '',
+                            address: '',
+                            contactPerson: '',
+                            email: '',
+                            contactNumber: '',
+                            isExpanded: true
+                        }
+                    ]
+                };
+            }
+            return r;
+        }));
+    };
+
+    const handleRemovePob = (recordId: string, pobId: string) => {
+        setGstRecords(gstRecords.map(r => {
+            if (r.id === recordId) {
+                return {
+                    ...r,
+                    placesOfBusiness: r.placesOfBusiness.filter(p => p.id !== pobId)
+                };
+            }
+            return r;
+        }));
+    };
+
+    const handleSubmitGST = (e: React.FormEvent) => {
+        e.preventDefault();
+        console.log('GST Details Submitted:', gstRecords);
+        setActiveMasterSubTab('Products/Services');
+    };
+
     // View PO Modal State
     const [showViewPOModal, setShowViewPOModal] = useState(false);
     const [selectedPO, setSelectedPO] = useState<any>(null);
     const [isEditingPO, setIsEditingPO] = useState(false);
+
+    // Cancel PO Modal State
+    const [showCancelPOModal, setShowCancelPOModal] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
 
 
 
@@ -167,6 +345,9 @@ const VendorPortalPage: React.FC = () => {
         vendorName: string;
         address: string;
         status: 'Draft' | 'Pending Approval' | 'Approved' | 'Mailed' | 'Closed';
+        receiveBy?: string;
+        receiveAt?: string;
+        deliveryTerms?: string;
     }
 
     const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([
@@ -320,13 +501,83 @@ const VendorPortalPage: React.FC = () => {
     const handleSavePODetails = () => {
         // Handle save logic here
         console.log('Saving PO:', selectedPO);
+
+        // Update the purchaseOrders list with the modified PO
+        setPurchaseOrders(purchaseOrders.map(po => po.id === selectedPO.id ? selectedPO : po));
+
         setIsEditingPO(false);
         // In real implementation, you would call an API to save the changes
     };
 
     const handleCancelEditPO = () => {
+        // Revert to original data from purchaseOrders list
+        const originalPO = purchaseOrders.find(po => po.id === selectedPO.id);
+        if (originalPO) {
+            setSelectedPO(originalPO);
+        }
         setIsEditingPO(false);
-        // Optionally reload the original PO data here
+    };
+
+    const handleApprovePO = () => {
+        const updatedPO = { ...selectedPO, status: 'Approved' };
+        setPurchaseOrders(purchaseOrders.map(po => po.id === selectedPO.id ? updatedPO : po));
+        setSelectedPO(updatedPO);
+    };
+
+    const handleMailPO = () => {
+        const updatedPO = { ...selectedPO, status: 'Mailed' };
+        setPurchaseOrders(purchaseOrders.map(po => po.id === selectedPO.id ? updatedPO : po));
+        setSelectedPO(updatedPO);
+        setShowViewPOModal(false);
+    };
+
+    const handleCancelPOClick = () => {
+        // Open the cancel reason modal
+        setShowCancelPOModal(true);
+    };
+
+    const handleConfirmCancelPO = () => {
+        // Validate that reason is provided
+        if (!cancelReason.trim()) {
+            alert('Please provide a reason for cancellation');
+            return;
+        }
+
+        // Remove the PO from the list (or update status to 'Cancelled')
+        setPurchaseOrders(purchaseOrders.filter(po => po.id !== selectedPO.id));
+
+        console.log(`PO ${selectedPO.poNumber} cancelled. Reason: ${cancelReason}`);
+
+        // Close both modals and reset state
+        setShowCancelPOModal(false);
+        setShowViewPOModal(false);
+        setCancelReason('');
+        setSelectedPO(null);
+    };
+
+    const handleCloseCancelModal = () => {
+        setShowCancelPOModal(false);
+        setCancelReason('');
+    };
+
+    // Navigate to next tab in Vendor Creation workflow
+    const handleNextVendorTab = () => {
+        const tabSequence: MasterSubTab[] = [
+            'Basic Details',
+            'GST Details',
+            'Products/Services',
+            'TDS & Other Statutory',
+            'Banking Info',
+            'Terms & Conditions'
+        ];
+
+        const currentIndex = tabSequence.indexOf(activeMasterSubTab);
+        if (currentIndex >= 0 && currentIndex < tabSequence.length - 1) {
+            setActiveMasterSubTab(tabSequence[currentIndex + 1]);
+        } else {
+            // Last tab - go back to Vendor Creation dashboard
+            setActiveMasterSubTab('Vendor Creation');
+        }
     };
 
 
@@ -362,6 +613,7 @@ const VendorPortalPage: React.FC = () => {
         id: number;
         date: string;
         takenFrom: 'Purchase' | 'Payment' | 'Sales' | 'Receipt';
+        invoiceNo?: string; // Invoice number for the transaction
         ledger: string;
         status: 'Paid' | 'Unpaid' | 'Partially Paid';
         debit: number;
@@ -375,11 +627,11 @@ const VendorPortalPage: React.FC = () => {
 
     // Mock Ledger Data (filtered by vendor in real app)
     const mockLedgerEntries: LedgerEntry[] = [
-        { id: 1, date: '2023-10-28', takenFrom: 'Purchase', ledger: 'Purchase A/c', status: 'Unpaid', debit: 45000, credit: 0, runningBalance: 45000 },
-        { id: 2, date: '2023-10-25', takenFrom: 'Payment', ledger: 'HDFC Bank', status: 'Paid', debit: 0, credit: 15000, runningBalance: 30000 },
-        { id: 3, date: '2023-10-20', takenFrom: 'Purchase', ledger: 'Purchase A/c', status: 'Partially Paid', debit: 12000, credit: 0, runningBalance: 42000 },
-        { id: 4, date: '2023-10-15', takenFrom: 'Receipt', ledger: 'Cash', status: 'Paid', debit: 0, credit: 5000, runningBalance: 37000 },
-        { id: 5, date: '2023-10-10', takenFrom: 'Sales', ledger: 'Sales A/c', status: 'Paid', debit: 0, credit: 2000, runningBalance: 35000 },
+        { id: 1, date: '2023-10-28', takenFrom: 'Purchase', invoiceNo: 'INV-2023-001', ledger: 'Purchase A/c', status: 'Unpaid', debit: 45000, credit: 0, runningBalance: 45000 },
+        { id: 2, date: '2023-10-25', takenFrom: 'Payment', invoiceNo: undefined, ledger: 'HDFC Bank', status: 'Paid', debit: 0, credit: 15000, runningBalance: 30000 },
+        { id: 3, date: '2023-10-20', takenFrom: 'Purchase', invoiceNo: 'INV-2023-002', ledger: 'Purchase A/c', status: 'Partially Paid', debit: 12000, credit: 0, runningBalance: 42000 },
+        { id: 4, date: '2023-10-15', takenFrom: 'Receipt', invoiceNo: undefined, ledger: 'Cash', status: 'Paid', debit: 0, credit: 5000, runningBalance: 37000 },
+        { id: 5, date: '2023-10-10', takenFrom: 'Sales', invoiceNo: 'INV-2023-003', ledger: 'Sales A/c', status: 'Paid', debit: 0, credit: 2000, runningBalance: 35000 },
     ].map(item => ({
         ...item,
         takenFrom: item.takenFrom as LedgerEntry['takenFrom'],
@@ -401,6 +653,26 @@ const VendorPortalPage: React.FC = () => {
         { month: 'December', debit: 0, credit: 0, closingBalance: 65000 },
     ];
 
+    // Updated procurement aging data with column-based structure
+    interface VendorAgingData {
+        id: number;
+        vendorCode: string;
+        vendorName: string;
+        amount0to45: string;
+        amount45to90: string;
+        amount6m: string;
+        amount1yr: string;
+        status: 'Pending' | 'Paid' | 'Overdue';
+    }
+
+    const vendorAgingTableData: VendorAgingData[] = [
+        { id: 1, vendorCode: 'VEN-001', vendorName: 'Alpha Raw Materials', amount0to45: '₹ 45,000', amount45to90: '-', amount6m: '-', amount1yr: '-', status: 'Pending' },
+        { id: 2, vendorCode: 'VEN-005', vendorName: 'Beta Supplies', amount0to45: '₹ 12,500', amount45to90: '-', amount6m: '-', amount1yr: '-', status: 'Pending' },
+        { id: 3, vendorCode: 'VEN-012', vendorName: 'Gamma Corp', amount0to45: '₹ 78,000', amount45to90: '-', amount6m: '-', amount1yr: '-', status: 'Overdue' },
+        { id: 4, vendorCode: 'VEN-003', vendorName: 'Delta Industries', amount0to45: '-', amount45to90: '₹ 1,20,000', amount6m: '-', amount1yr: '-', status: 'Pending' },
+    ];
+
+    // Keep the old structure for backward compatibility with other parts
     const procurementAgingData: AgingBucket[] = [
         {
             id: '0-90',
@@ -426,6 +698,52 @@ const VendorPortalPage: React.FC = () => {
     const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([
         { id: 1, accountNumber: '', bankName: '', ifscCode: '', branchName: '', swiftCode: '', vendorBranch: '', accountType: 'Savings' }
     ]);
+
+    // Payment Bills Interface and Data
+    // Payment Bills Interface and Data
+    interface LogEntry {
+        action: string;
+        user: string;
+        date: string;
+    }
+
+    interface PaymentBill {
+        id: number;
+        date: string;
+        vendorReferenceName: string;
+        voucherNo: string;
+        supplierInvoiceNo: string;
+        amount: string;
+        status: 'Pending' | 'Approved' | 'Posted' | 'Initiated';
+        actionLog?: LogEntry[];
+        category: 'Raw Material' | 'Stock-in Trade' | 'Consumables' | 'Stores & Spares' | 'Services';
+    }
+
+    const [paymentBills, setPaymentBills] = useState<PaymentBill[]>([
+        { id: 1, date: '2023-11-15', vendorReferenceName: 'Alpha Raw Materials', voucherNo: 'V-001', supplierInvoiceNo: 'INV-2023-001', amount: '₹ 45,000', status: 'Pending', category: 'Raw Material', actionLog: [] },
+        { id: 2, date: '2023-11-10', vendorReferenceName: 'Beta Supplies', voucherNo: 'V-002', supplierInvoiceNo: 'INV-2023-002', amount: '₹ 12,500', status: 'Pending', category: 'Raw Material', actionLog: [] },
+        {
+            id: 3, date: '2023-11-05', vendorReferenceName: 'Gamma Corp', voucherNo: 'V-003', supplierInvoiceNo: 'INV-2023-003', amount: '₹ 78,000', status: 'Approved', category: 'Services',
+            actionLog: [{ action: 'Approved', user: 'John Doe', date: '2023-11-06 10:30 AM' }]
+        },
+        {
+            id: 4, date: '2023-10-28', vendorReferenceName: 'Delta Industries', voucherNo: 'V-004', supplierInvoiceNo: 'INV-2023-004', amount: '₹ 1,20,000', status: 'Posted', category: 'Stock-in Trade',
+            actionLog: [{ action: 'Approved', user: 'Jane Smith', date: '2023-10-29 02:15 PM' }]
+        },
+        {
+            id: 5, date: '2023-10-20', vendorReferenceName: 'Epsilon Trading', voucherNo: 'V-005', supplierInvoiceNo: 'INV-2023-005', amount: '₹ 56,700', status: 'Initiated', category: 'Consumables',
+            actionLog: [{ action: 'Approved', user: 'Mike Johnson', date: '2023-10-21 09:45 AM' }]
+        },
+    ]);
+
+    const [paymentSortOrder, setPaymentSortOrder] = useState<'recent' | 'earliest'>('recent');
+    const [showPostPaymentModal, setShowPostPaymentModal] = useState(false);
+    const [selectedBillForPayment, setSelectedBillForPayment] = useState<PaymentBill | null>(null);
+    const [postPaymentForm, setPostPaymentForm] = useState({
+        dateOfPayment: '',
+        bankAccount: '',
+        bankReferenceNo: ''
+    });
 
     const handleAddBank = () => {
         const newBank: BankAccount = {
@@ -1004,7 +1322,7 @@ const VendorPortalPage: React.FC = () => {
                 {/* Main Tabs */}
                 <div className="mb-6">
                     <nav className="flex space-x-8 border-b border-gray-200" aria-label="Vendor Portal Tabs">
-                        {['Master', 'Transaction', 'Report'].map((tab) => (
+                        {['Master', 'Transaction'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab as VendorTab)}
@@ -1255,8 +1573,17 @@ const VendorPortalPage: React.FC = () => {
                                 )}
 
                                 {activeMasterSubTab === 'Basic Details' && (
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-gray-800 mb-6">Basic Details</h3>
+                                    <div className="p-6">
+                                        <div className="flex items-center mb-6">
+                                            <button
+                                                onClick={() => setActiveMasterSubTab('Vendor Creation')}
+                                                className="mr-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                                title="Back to Vendor Creation"
+                                            >
+                                                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                                            </button>
+                                            <h3 className="text-lg font-semibold text-gray-800">Basic Details</h3>
+                                        </div>
                                         <form className="space-y-6" onSubmit={handleBasicDetailsSubmit}>
                                             {/* Row 1: Vendor Code and Vendor Name */}
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1432,18 +1759,19 @@ const VendorPortalPage: React.FC = () => {
                                             </div>
 
                                             {/* Action Buttons */}
-                                            <div className="flex gap-3 pt-4">
-                                                <button
-                                                    type="submit"
-                                                    className="px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
-                                                >
-                                                    Save & Continue
-                                                </button>
+                                            <div className="flex justify-between pt-4">
                                                 <button
                                                     type="button"
                                                     className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                                                 >
                                                     Cancel
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleNextVendorTab}
+                                                    className="px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
+                                                >
+                                                    Next
                                                 </button>
                                             </div>
                                         </form>
@@ -1451,80 +1779,210 @@ const VendorPortalPage: React.FC = () => {
                                 )}
 
                                 {activeMasterSubTab === 'GST Details' && (
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-gray-800 mb-6">GST Details</h3>
-                                        <form className="space-y-6" onSubmit={handleGSTDetailsSubmit}>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        GSTIN <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={gstin}
-                                                        onChange={(e) => setGstin(e.target.value)}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                                        placeholder="22AAAAA0000A1Z5"
-                                                        maxLength={15}
-                                                        required
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        GST Registration Type
-                                                    </label>
-                                                    <select
-                                                        value={gstRegistrationType}
-                                                        onChange={(e) => setGstRegistrationType(e.target.value)}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                                    >
-                                                        <option value="regular">Regular</option>
-                                                        <option value="composition">Composition</option>
-                                                        <option value="unregistered">Unregistered</option>
-                                                        <option value="consumer">Consumer</option>
-                                                        <option value="overseas">Overseas</option>
-                                                        <option value="special_economic_zone">Special Economic Zone</option>
-                                                        <option value="deemed_export">Deemed Export</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Legal Name (As per GST)
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={legalName}
-                                                        onChange={(e) => setLegalName(e.target.value)}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                                        placeholder="Legal business name"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Trade Name
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={tradeName}
-                                                        onChange={(e) => setTradeName(e.target.value)}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                                        placeholder="Trade/Brand name"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className="flex gap-3 pt-4">
+                                    <div className="p-6">
+                                        <div className="flex justify-between items-center mb-6">
+                                            <div className="flex items-center">
                                                 <button
-                                                    type="submit"
-                                                    className="px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
+                                                    onClick={() => setActiveMasterSubTab('Vendor Creation')}
+                                                    className="mr-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                                    title="Back to Vendor Creation"
                                                 >
-                                                    Save & Continue
+                                                    <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                                                 </button>
+                                                <h3 className="text-lg font-semibold text-gray-800">GST Details</h3>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={handleAddGstRecord}
+                                                className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
+                                            >
+                                                + Add Another GSTIN
+                                            </button>
+                                        </div>
+
+                                        <form className="space-y-8" onSubmit={handleSubmitGST}>
+                                            {gstRecords.map((record, index) => (
+                                                <div key={record.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                                    {/* GSTIN Accordion Header */}
+                                                    <div className="flex justify-between items-center cursor-pointer mb-4" onClick={() => toggleGstExpand(record.id)}>
+                                                        <div className="flex items-center gap-2">
+                                                            <svg className={`w-5 h-5 transition-transform ${record.isExpanded ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                            </svg>
+                                                            <h4 className="font-medium text-gray-800">GSTIN #{index + 1} {record.gstin ? `- ${record.gstin}` : ''}</h4>
+                                                        </div>
+                                                        {index > 0 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => { e.stopPropagation(); handleRemoveGstRecord(record.id); }}
+                                                                className="text-red-500 hover:text-red-700 text-sm"
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {/* GSTIN Body */}
+                                                    {record.isExpanded && (
+                                                        <div className="space-y-6 pl-4 border-l-2 border-teal-100">
+
+                                                            {/* GSTIN & Fetch */}
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                                <div>
+                                                                    <label className="block text-sm font-medium text-gray-700 mb-2">GSTIN</label>
+                                                                    <div className="flex gap-2">
+                                                                        <input
+                                                                            type="text"
+                                                                            value={record.gstin}
+                                                                            onChange={(e) => handleGstChange(record.id, 'gstin', e.target.value)}
+                                                                            className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100"
+                                                                            placeholder="22AAAAA0000A1Z5"
+                                                                            disabled={record.registrationType === 'Unregistered'}
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleFetchGstDetails(record.id)}
+                                                                            disabled={record.registrationType === 'Unregistered' || loadingGstFetch || !record.gstin}
+                                                                            className="px-4 py-2 border border-teal-500 text-teal-600 rounded-md hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                                                                        >
+                                                                            {loadingGstFetch ? 'Fetching...' : 'Fetch Branch Details'}
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div>
+                                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Registration Type</label>
+                                                                    <select
+                                                                        value={record.registrationType}
+                                                                        onChange={(e) => handleGstChange(record.id, 'registrationType', e.target.value)}
+                                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                                    >
+                                                                        <option value="Regular">Regular</option>
+                                                                        <option value="Composition">Composition</option>
+                                                                        <option value="SEZ">SEZ</option>
+                                                                        <option value="Unregistered">Unregistered</option>
+                                                                    </select>
+                                                                </div>
+
+                                                                {record.registrationType !== 'Unregistered' && (
+                                                                    <>
+                                                                        <div>
+                                                                            <label className="block text-sm font-medium text-gray-700 mb-2">Legal Name</label>
+                                                                            <input
+                                                                                type="text"
+                                                                                value={record.legalName || ''}
+                                                                                readOnly
+                                                                                className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                                                                            />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-sm font-medium text-gray-700 mb-2">Trade Name</label>
+                                                                            <input
+                                                                                type="text"
+                                                                                value={record.tradeName || ''}
+                                                                                readOnly
+                                                                                className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                                                                            />
+                                                                        </div>
+                                                                    </>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Places of Business */}
+                                                            <div className="mt-6">
+                                                                <h5 className="font-medium text-gray-700 mb-3 flex items-center justify-between">
+                                                                    <span>Places of Business</span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleAddPob(record.id)}
+                                                                        className="text-xs font-medium text-teal-600 hover:text-teal-800 border border-teal-600 rounded px-2 py-1 hover:bg-teal-50 transition-colors"
+                                                                    >
+                                                                        + Add Manual Branch
+                                                                    </button>
+                                                                </h5>
+
+                                                                {record.placesOfBusiness.length > 0 ? (
+                                                                    <div className="space-y-4">
+                                                                        {record.placesOfBusiness.map((pob, pIndex) => (
+                                                                            <div key={pob.id} className="border border-gray-200 rounded p-3 bg-white">
+                                                                                {/* POB Accordion */}
+                                                                                <div className="flex justify-between items-center cursor-pointer" onClick={() => togglePobExpand(record.id, pob.id)}>
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <svg className={`w-4 h-4 transition-transform ${pob.isExpanded ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                                                        </svg>
+                                                                                        <span className="font-medium text-sm text-gray-800">{pob.referenceName || `Branch ${pIndex + 1}`} - {pob.address}</span>
+                                                                                    </div>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={(e) => { e.stopPropagation(); handleRemovePob(record.id, pob.id); }}
+                                                                                        className="text-red-500 hover:text-red-700 text-xs px-2 border border-transparent hover:border-red-200 rounded"
+                                                                                    >
+                                                                                        Remove
+                                                                                    </button>
+                                                                                </div>
+
+                                                                                {/* POB Fields */}
+                                                                                {pob.isExpanded && (
+                                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                                                                                        <div>
+                                                                                            <label className="block text-xs font-medium text-gray-500 mb-1">Reference Name</label>
+                                                                                            <input type="text" value={pob.referenceName} onChange={(e) => updatePobField(record.id, pob.id, 'referenceName', e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm" />
+                                                                                        </div>
+                                                                                        <div>
+                                                                                            <label className="block text-xs font-medium text-gray-500 mb-1">Address</label>
+                                                                                            <textarea
+                                                                                                rows={2}
+                                                                                                value={pob.address}
+                                                                                                onChange={(e) => updatePobField(record.id, pob.id, 'address', e.target.value)}
+                                                                                                className={`w-full px-3 py-1.5 border border-gray-300 rounded text-sm ${record.registrationType !== 'Unregistered' && pob.address && pob.referenceName !== '' ? 'bg-gray-50' : ''}`}
+                                                                                                placeholder="Enter address"
+                                                                                            />
+                                                                                        </div>
+                                                                                        <div>
+                                                                                            <label className="block text-xs font-medium text-gray-500 mb-1">Contact Person</label>
+                                                                                            <input type="text" value={pob.contactPerson} onChange={(e) => updatePobField(record.id, pob.id, 'contactPerson', e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm" />
+                                                                                        </div>
+                                                                                        <div>
+                                                                                            <label className="block text-xs font-medium text-gray-500 mb-1">Email Address</label>
+                                                                                            <input type="email" value={pob.email} onChange={(e) => updatePobField(record.id, pob.id, 'email', e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm" />
+                                                                                        </div>
+                                                                                        <div>
+                                                                                            <label className="block text-xs font-medium text-gray-500 mb-1">Contact No</label>
+                                                                                            <input type="tel" value={pob.contactNumber} onChange={(e) => updatePobField(record.id, pob.id, 'contactNumber', e.target.value)} className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm" />
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="p-4 bg-gray-50 border border-gray-200 rounded text-sm text-gray-500 text-center">
+                                                                        {record.registrationType === 'Unregistered' ?
+                                                                            'Add a branch manually to continue.' :
+                                                                            'No places of business found. Fetch via GSTIN or add manually.'
+                                                                        }
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+
+                                            <div className="flex justify-between pt-4">
                                                 <button
                                                     type="button"
                                                     className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                                                 >
                                                     Cancel
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleNextVendorTab}
+                                                    className="px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
+                                                >
+                                                    Next
                                                 </button>
                                             </div>
                                         </form>
@@ -1532,8 +1990,17 @@ const VendorPortalPage: React.FC = () => {
                                 )}
 
                                 {activeMasterSubTab === 'TDS & Other Statutory' && (
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-gray-800 mb-6">TDS & Other Statutory Details</h3>
+                                    <div className="p-6">
+                                        <div className="flex items-center mb-6">
+                                            <button
+                                                onClick={() => setActiveMasterSubTab('Vendor Creation')}
+                                                className="mr-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                                title="Back to Vendor Creation"
+                                            >
+                                                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                                            </button>
+                                            <h3 className="text-lg font-semibold text-gray-800">TDS & Other Statutory Details</h3>
+                                        </div>
                                         <form onSubmit={handleTDSDetailsSubmit} className="space-y-6">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
@@ -1612,13 +2079,7 @@ const VendorPortalPage: React.FC = () => {
                                                 </label>
                                             </div>
 
-                                            <div className="flex gap-3 pt-4">
-                                                <button
-                                                    type="submit"
-                                                    className="px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
-                                                >
-                                                    Save & Continue
-                                                </button>
+                                            <div className="flex justify-between pt-4">
                                                 <button
                                                     type="button"
                                                     onClick={() => {
@@ -1634,6 +2095,13 @@ const VendorPortalPage: React.FC = () => {
                                                 >
                                                     Cancel
                                                 </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleNextVendorTab}
+                                                    className="px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
+                                                >
+                                                    Next
+                                                </button>
                                             </div>
                                         </form>
                                     </div>
@@ -1641,8 +2109,17 @@ const VendorPortalPage: React.FC = () => {
 
 
                                 {activeMasterSubTab === 'Products/Services' && (
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-gray-800 mb-6">Products/Services</h3>
+                                    <div className="p-6">
+                                        <div className="flex items-center mb-6">
+                                            <button
+                                                onClick={() => setActiveMasterSubTab('Vendor Creation')}
+                                                className="mr-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                                title="Back to Vendor Creation"
+                                            >
+                                                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                                            </button>
+                                            <h3 className="text-lg font-semibold text-gray-800">Products/Services</h3>
+                                        </div>
                                         <div className="space-y-6">
                                             {/* Table for Items */}
                                             <div className="overflow-x-auto">
@@ -1779,10 +2256,16 @@ const VendorPortalPage: React.FC = () => {
                                             </div>
 
                                             {/* Next Button */}
-                                            <div className="flex justify-end pt-4">
+                                            <div className="flex justify-between pt-4">
                                                 <button
                                                     type="button"
-                                                    onClick={handleProductServicesSubmit}
+                                                    className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleNextVendorTab}
                                                     className="px-8 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
                                                 >
                                                     Next
@@ -1793,8 +2276,17 @@ const VendorPortalPage: React.FC = () => {
                                 )}
 
                                 {activeMasterSubTab === 'Banking Info' && (
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-gray-800 mb-6">Banking Information</h3>
+                                    <div className="p-6">
+                                        <div className="flex items-center mb-6">
+                                            <button
+                                                onClick={() => setActiveMasterSubTab('Vendor Creation')}
+                                                className="mr-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                                title="Back to Vendor Creation"
+                                            >
+                                                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                                            </button>
+                                            <h3 className="text-lg font-semibold text-gray-800">Banking Information</h3>
+                                        </div>
                                         <form onSubmit={handleBankingDetailsSubmit} className="space-y-6">
                                             <div className="space-y-8">
                                                 {bankAccounts.map((bank, index) => (
@@ -1918,9 +2410,16 @@ const VendorPortalPage: React.FC = () => {
                                             </div>
 
                                             {/* Next Button */}
-                                            <div className="flex justify-end gap-3 pt-4">
+                                            <div className="flex justify-between pt-4">
                                                 <button
-                                                    type="submit"
+                                                    type="button"
+                                                    className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleNextVendorTab}
                                                     className="px-8 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
                                                 >
                                                     Next
@@ -1931,8 +2430,17 @@ const VendorPortalPage: React.FC = () => {
                                 )}
 
                                 {activeMasterSubTab === 'Terms & Conditions' && (
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-gray-800 mb-6">Terms & Conditions</h3>
+                                    <div className="p-6">
+                                        <div className="flex items-center mb-6">
+                                            <button
+                                                onClick={() => setActiveMasterSubTab('Vendor Creation')}
+                                                className="mr-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                                title="Back to Vendor Creation"
+                                            >
+                                                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                                            </button>
+                                            <h3 className="text-lg font-semibold text-gray-800">Terms & Conditions</h3>
+                                        </div>
                                         <form onSubmit={handleTermsSubmit} className="space-y-6">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2039,13 +2547,7 @@ const VendorPortalPage: React.FC = () => {
                                                 />
                                             </div>
 
-                                            <div className="flex gap-3 pt-4">
-                                                <button
-                                                    type="submit"
-                                                    className="px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
-                                                >
-                                                    Onboard Vendor
-                                                </button>
+                                            <div className="flex justify-between pt-4">
                                                 <button
                                                     type="button"
                                                     onClick={() => {
@@ -2062,6 +2564,13 @@ const VendorPortalPage: React.FC = () => {
                                                     className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                                                 >
                                                     Cancel
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleNextVendorTab}
+                                                    className="px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
+                                                >
+                                                    Finish
                                                 </button>
                                             </div>
                                         </form>
@@ -2463,7 +2972,7 @@ const VendorPortalPage: React.FC = () => {
                                                                 <table className="min-w-full divide-y divide-gray-200">
                                                                     <thead className="bg-gray-50">
                                                                         <tr>
-                                                                            {['Date', 'Taken from', 'Ledger', 'Status', 'Debit', 'Credit', 'Running balance'].map((header) => (
+                                                                            {['Date', 'Transfer from', 'Invoice No', 'Ledger', 'Status', 'Debit', 'Credit', 'Running balance'].map((header) => (
                                                                                 <th key={header} className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider align-top">
                                                                                     <div className="mb-2">{header}</div>
                                                                                     <input
@@ -2480,6 +2989,7 @@ const VendorPortalPage: React.FC = () => {
                                                                             <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
                                                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.date}</td>
                                                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.takenFrom}</td>
+                                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">{entry.invoiceNo || '-'}</td>
                                                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.ledger}</td>
                                                                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                                                                                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
@@ -2496,7 +3006,7 @@ const VendorPortalPage: React.FC = () => {
                                                                         ))}
                                                                         {/* Totals Footer */}
                                                                         <tr className="bg-gray-50 font-bold border-t-2 border-gray-300">
-                                                                            <td colSpan={4} className="px-6 py-4 text-right text-sm text-gray-900 uppercase">Total</td>
+                                                                            <td colSpan={5} className="px-6 py-4 text-right text-sm text-gray-900 uppercase">Total</td>
                                                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-t-2 border-gray-400">
                                                                                 {mockLedgerEntries.reduce((acc, curr) => acc + curr.debit, 0).toLocaleString('en-IN')}
                                                                             </td>
@@ -2531,72 +3041,55 @@ const VendorPortalPage: React.FC = () => {
                                                                 Back to Dashboard
                                                             </button>
                                                         </div>
-                                                        <div className="space-y-4">
-                                                            {procurementAgingData.map((bucket) => (
-                                                                <div key={bucket.id} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
-                                                                    <button
-                                                                        onClick={() => setExpandedAgingBucket(expandedAgingBucket === bucket.id ? null : bucket.id)}
-                                                                        className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
-                                                                    >
-                                                                        <div className="flex items-center space-x-3">
-                                                                            <svg className={`w-5 h-5 text-gray-500 transform transition-transform duration-200 ${expandedAgingBucket === bucket.id ? 'rotate-0' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                                            </svg>
-                                                                            <span className="font-semibold text-gray-800 text-lg">{bucket.label}</span>
-                                                                        </div>
-                                                                        {bucket.items.length > 0 && (
-                                                                            <span className="bg-teal-100 text-teal-800 text-xs font-medium px-2.5 py-0.5 rounded-full">{bucket.items.length} items</span>
-                                                                        )}
-                                                                    </button>
-                                                                    {expandedAgingBucket === bucket.id && (
-                                                                        <div className="border-t border-gray-200">
-                                                                            {bucket.items.length > 0 ? (
-                                                                                <div className="overflow-x-auto">
-                                                                                    <table className="min-w-full divide-y divide-gray-200">
-                                                                                        <thead className="bg-gray-50">
-                                                                                            <tr>
-                                                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor Code</th>
-                                                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor Name</th>
-                                                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                                                                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                                                                                            </tr>
-                                                                                        </thead>
-                                                                                        <tbody className="bg-white divide-y divide-gray-200">
-                                                                                            {bucket.items.map((item) => (
-                                                                                                <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                                                                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.vendorCode}</td>
-                                                                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.vendorName}</td>
-                                                                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.amount}</td>
-                                                                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                                                                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${item.status === 'Overdue' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                                                                                                            }`}>
-                                                                                                            {item.status}
-                                                                                                        </span>
-                                                                                                    </td>
-                                                                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                                                                        <button
-                                                                                                            onClick={() => setSelectedProcurementVendor(item)}
-                                                                                                            className="text-blue-600 hover:text-blue-900 flex items-center justify-end w-full"
-                                                                                                            title="View Ledger"
-                                                                                                        >
-                                                                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                                                                                        </button>
-                                                                                                    </td>
-                                                                                                </tr>
-                                                                                            ))}
-                                                                                        </tbody>
-                                                                                    </table>
-                                                                                </div>
-                                                                            ) : (
-                                                                                <div className="p-8 text-center text-gray-500 bg-white">
-                                                                                    No items found in this period.
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            ))}
+
+                                                        {/* Aging Table with Columns */}
+                                                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                                                            <div className="overflow-x-auto">
+                                                                <table className="min-w-full divide-y divide-gray-200">
+                                                                    <thead className="bg-gray-50">
+                                                                        <tr>
+                                                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor Code</th>
+                                                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor Name</th>
+                                                                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">0-45</th>
+                                                                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">45-90</th>
+                                                                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">&gt;6m</th>
+                                                                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">&gt;1yr</th>
+
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody className="bg-white divide-y divide-gray-200">
+                                                                        {vendorAgingTableData.map((vendor) => (
+                                                                            <tr key={vendor.id} className="hover:bg-gray-50 transition-colors">
+                                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{vendor.vendorCode}</td>
+                                                                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            // Convert to ProcurementItem format for ledger view
+                                                                                            const procurementItem: ProcurementItem = {
+                                                                                                id: vendor.id,
+                                                                                                vendorCode: vendor.vendorCode,
+                                                                                                vendorName: vendor.vendorName,
+                                                                                                amount: vendor.amount0to45 !== '-' ? vendor.amount0to45 : vendor.amount45to90,
+                                                                                                status: vendor.status
+                                                                                            };
+                                                                                            setSelectedProcurementVendor(procurementItem);
+                                                                                        }}
+                                                                                        className="text-blue-600 hover:text-blue-900 hover:underline font-medium text-left"
+                                                                                        title="View Ledger"
+                                                                                    >
+                                                                                        {vendor.vendorName}
+                                                                                    </button>
+                                                                                </td>
+                                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">{vendor.amount0to45}</td>
+                                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">{vendor.amount45to90}</td>
+                                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">{vendor.amount6m}</td>
+                                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">{vendor.amount1yr}</td>
+
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
@@ -2606,572 +3099,965 @@ const VendorPortalPage: React.FC = () => {
                                 )}
                                 {activeTransactionSubTab === 'Payment' && (
                                     <div>
-                                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment</h3>
-                                        <p className="text-gray-500">Manage payments here.</p>
+                                        {activePaymentSubTab === 'Dashboard' ? (
+                                            <div>
+                                                <div className="mb-8">
+                                                    <h2 className="text-2xl font-bold text-gray-800">Payment</h2>
+                                                    <p className="text-sm text-gray-500 mt-1">Select a procurement category to manage.</p>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                    {[
+                                                        { name: 'Raw Material', desc: 'Manage raw material procurement', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /> },
+                                                        { name: 'Stock-in Trade', desc: 'Manage stock-in trade items', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /> },
+                                                        { name: 'Consumables', desc: 'Manage consumable items', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /> },
+                                                        { name: 'Stores & Spares', desc: 'Manage stores and spares', icon: <g><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></g> },
+                                                        { name: 'Services', desc: 'Manage service procurement', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /> },
+                                                    ].map((item) => {
+                                                        const totalPendingAmount = paymentBills
+                                                            .filter(bill => bill.status !== 'Posted' && bill.category === item.name)
+                                                            .reduce((sum, bill) => {
+                                                                const amount = parseFloat(bill.amount.replace(/[^0-9.-]+/g, ""));
+                                                                return sum + amount;
+                                                            }, 0);
+                                                        const formattedTotal = totalPendingAmount.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+
+                                                        return (
+                                                            <button
+                                                                key={item.name}
+                                                                onClick={() => setActivePaymentSubTab(item.name as ProcurementSubTab)}
+                                                                className="p-6 border-2 border-gray-200 rounded-xl hover:border-teal-500 hover:shadow-lg transition-all duration-200 text-left group bg-white relative"
+                                                            >
+                                                                <div className="flex items-center justify-between mb-4">
+                                                                    <div className="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center text-teal-600 group-hover:bg-teal-600 group-hover:text-white transition-colors">
+                                                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            {item.icon}
+                                                                        </svg>
+                                                                    </div>
+                                                                    <svg className="w-5 h-5 text-gray-300 group-hover:text-teal-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                                    </svg>
+                                                                </div>
+                                                                <div className="flex justify-between items-end">
+                                                                    <div>
+                                                                        <h3 className="text-lg font-bold text-gray-800 group-hover:text-teal-600 transition-colors">{item.name}</h3>
+                                                                        <p className="text-sm text-gray-500 mt-1">{item.desc}</p>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <p className="text-lg font-bold text-gray-800">{formattedTotal}</p>
+                                                                        <p className="text-xs text-red-600 font-semibold mt-1">Credit</p>
+                                                                    </div>
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <div className="flex items-center justify-between mb-6">
+                                                    <div>
+                                                        <div className="flex items-center space-x-2 text-sm text-gray-500 mb-1">
+                                                            <button onClick={() => setActivePaymentSubTab('Dashboard')} className="hover:text-teal-600 hover:underline">
+                                                                Payment
+                                                            </button>
+                                                            <span>/</span>
+                                                            <span className="text-teal-600 font-medium">{activePaymentSubTab}</span>
+                                                        </div>
+                                                        <h2 className="text-2xl font-bold text-gray-800">{activePaymentSubTab}</h2>
+                                                        <p className="text-sm text-gray-500">Manage {activePaymentSubTab.toLowerCase()} payments here.</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setActivePaymentSubTab('Dashboard')}
+                                                        className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                                                    >
+                                                        Back to Dashboard
+                                                    </button>
+                                                </div>
+
+                                                {/* Sort Controls */}
+                                                <div className="mb-4 flex justify-end">
+                                                    <select
+                                                        value={paymentSortOrder}
+                                                        onChange={(e) => setPaymentSortOrder(e.target.value as 'recent' | 'earliest')}
+                                                        className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                                    >
+                                                        <option value="recent">Recent bills on top</option>
+                                                        <option value="earliest">Earliest bills on top</option>
+                                                    </select>
+                                                </div>
+
+                                                {/* Payment Bills Table */}
+                                                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                                                    <div className="overflow-x-auto">
+                                                        <table className="min-w-full divide-y divide-gray-200">
+                                                            <thead className="bg-gray-50">
+                                                                <tr>
+                                                                    {['Date', 'Vendor Reference Name', 'Voucher No', 'Supplier Invoice No.', 'Amount', 'Approve', 'Action', 'Status'].map((header) => (
+                                                                        <th key={header} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider align-top">
+                                                                            <div className="mb-2">{header}</div>
+                                                                            <input
+                                                                                type="text"
+                                                                                placeholder={`Filter ${header}`}
+                                                                                className="block w-full text-xs border-gray-300 rounded-md shadow-sm focus:border-teal-500 focus:ring-teal-500 py-1 px-2"
+                                                                            />
+                                                                        </th>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                                {[...paymentBills]
+                                                                    .filter(bill => bill.status !== 'Posted' && bill.category === activePaymentSubTab) // Filter by category and exclude Posted
+                                                                    .sort((a, b) => {
+                                                                        const dateA = new Date(a.date).getTime();
+                                                                        const dateB = new Date(b.date).getTime();
+                                                                        return paymentSortOrder === 'recent' ? dateB - dateA : dateA - dateB;
+                                                                    })
+                                                                    .map((bill) => (
+                                                                        <tr key={bill.id} className="hover:bg-gray-50 transition-colors">
+                                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{bill.date}</td>
+                                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{bill.vendorReferenceName}</td>
+                                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{bill.voucherNo}</td>
+                                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{bill.supplierInvoiceNo}</td>
+                                                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{bill.amount}</td>
+
+                                                                            {/* Approve Column */}
+                                                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                                                {bill.status !== 'Posted' && (
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            // Toggle between Pending and Approved
+                                                                                            const now = new Date();
+                                                                                            const formattedDate = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                                                                            const newStatus = bill.status === 'Approved' ? 'Pending' : 'Approved';
+                                                                                            const actionType = newStatus === 'Approved' ? 'Approved' : 'Unapproved';
+
+                                                                                            setPaymentBills(paymentBills.map(b =>
+                                                                                                b.id === bill.id
+                                                                                                    ? {
+                                                                                                        ...b,
+                                                                                                        status: newStatus,
+                                                                                                        actionLog: [
+                                                                                                            ...(b.actionLog || []),
+                                                                                                            { action: actionType, user: 'Current User', date: formattedDate }
+                                                                                                        ]
+                                                                                                    }
+                                                                                                    : b
+                                                                                            ));
+                                                                                        }}
+                                                                                        className={`px-3 py-1 text-white text-xs rounded ${bill.status === 'Approved' || bill.status === 'Initiated'
+                                                                                            ? 'bg-red-600 hover:bg-red-700'
+                                                                                            : 'bg-green-600 hover:bg-green-700'
+                                                                                            }`}
+                                                                                        title={bill.status === 'Approved' || bill.status === 'Initiated' ? "Unapprove" : "Approve (Super users only)"}
+                                                                                    >
+                                                                                        {bill.status === 'Approved' || bill.status === 'Initiated' ? 'Unapprove' : 'Approve'}
+                                                                                    </button>
+                                                                                )}
+                                                                            </td>
+
+                                                                            {/* Action Column */}
+                                                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                                                <div className="flex flex-col space-y-2">
+                                                                                    {bill.status !== 'Posted' && (
+                                                                                        <>
+                                                                                            <button
+                                                                                                className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                                                                                                title="Initiate & Post"
+                                                                                            >
+                                                                                                Initiate & Post
+                                                                                            </button>
+                                                                                            <button
+                                                                                                onClick={() => {
+                                                                                                    setSelectedBillForPayment(bill);
+                                                                                                    setShowPostPaymentModal(true);
+                                                                                                }}
+                                                                                                className="px-3 py-1 bg-teal-600 text-white text-xs rounded hover:bg-teal-700"
+                                                                                                title="Post Payment"
+                                                                                            >
+                                                                                                Post
+                                                                                            </button>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                            </td>
+
+                                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                                <div className="flex items-center space-x-2">
+                                                                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${bill.status === 'Posted' ? 'bg-green-100 text-green-800' :
+                                                                                        bill.status === 'Approved' ? 'bg-blue-100 text-blue-800' :
+                                                                                            bill.status === 'Initiated' ? 'bg-purple-100 text-purple-800' :
+                                                                                                'bg-yellow-100 text-yellow-800'
+                                                                                        }`}>
+                                                                                        {bill.status}
+                                                                                    </span>
+                                                                                    {bill.actionLog && bill.actionLog.length > 0 && (
+                                                                                        <button
+                                                                                            onClick={() => {
+                                                                                                const logMessages = bill.actionLog?.map(log =>
+                                                                                                    `${log.action} by ${log.user} on ${log.date}`
+                                                                                                ).join('\n');
+                                                                                                alert(`Action History:\n\n${logMessages}`);
+                                                                                            }}
+                                                                                            className="text-gray-500 hover:text-teal-600 focus:outline-none transition-colors"
+                                                                                            title="View Action History"
+                                                                                        >
+                                                                                            <span className="sr-only">View info</span>
+                                                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                                                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                                                                            </svg>
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
                         </div>
                     )}
 
-                    {activeTab === 'Report' && (
-                        <div className="p-6 bg-white rounded-lg shadow">
-                            <h3 className="text-lg font-semibold text-gray-800 mb-4">Vendor Reports</h3>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Create PO Modal */}
-            {showCreatePOModal && (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-                    <div className="relative top-10 mx-auto p-8 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white mb-20">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-2xl font-bold text-gray-900">Create PO</h3>
-                            <button
-                                onClick={() => setShowCreatePOModal(false)}
-                                className="text-gray-400 hover:text-gray-500"
-                            >
-                                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        <div className="space-y-6">
-                            {/* Form Fields */}
-                            <div className="grid grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">PO Series Name</label>
-                                    <select
-                                        value={createPOForm.poSeriesName}
-                                        onChange={(e) => handleCreatePOFormChange('poSeriesName', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    >
-                                        <option value="">Select Vendor Settings</option>
-                                        <option value="series1">Series 1</option>
-                                        <option value="series2">Series 2</option>
-                                    </select>
-                                    <p className="text-xs text-gray-500 mt-1">Show as "New PO" when clicked "New"</p>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">PO #</label>
-                                    <input
-                                        type="text"
-                                        value={createPOForm.poNumber}
-                                        onChange={(e) => handleCreatePOFormChange('poNumber', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                        placeholder="Automated Series"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Vendor Name</label>
-                                    <select
-                                        value={createPOForm.vendorName}
-                                        onChange={(e) => handleCreatePOFormChange('vendorName', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    >
-                                        <option value="">Select Vendor</option>
-                                        <option value="vendor1">Vendor 1</option>
-                                        <option value="vendor2">Vendor 2</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Branch</label>
-                                    <select
-                                        value={createPOForm.branch}
-                                        onChange={(e) => handleCreatePOFormChange('branch', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    >
-                                        <option value="">Select Branch</option>
-                                        <option value="branch1">Branch 1</option>
-                                        <option value="branch2">Branch 2</option>
-                                    </select>
-                                    <p className="text-xs text-gray-500 mt-1">Reference Name in Vendor Master</p>
-                                </div>
 
 
-                                <div className="col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
-                                    <input
-                                        type="text"
-                                        value={createPOForm.addressLine1}
-                                        onChange={(e) => handleCreatePOFormChange('addressLine1', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                        placeholder="Autofill using branch"
-                                    />
-                                </div>
-
-                                <div className="col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 2</label>
-                                    <input
-                                        type="text"
-                                        value={createPOForm.addressLine2}
-                                        onChange={(e) => handleCreatePOFormChange('addressLine2', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    />
-                                </div>
-
-                                <div className="col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 3</label>
-                                    <input
-                                        type="text"
-                                        value={createPOForm.addressLine3}
-                                        onChange={(e) => handleCreatePOFormChange('addressLine3', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-                                    <input
-                                        type="text"
-                                        value={createPOForm.city}
-                                        onChange={(e) => handleCreatePOFormChange('city', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
-                                    <input
-                                        type="text"
-                                        value={createPOForm.state}
-                                        onChange={(e) => handleCreatePOFormChange('state', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
-                                    <input
-                                        type="text"
-                                        value={createPOForm.country}
-                                        onChange={(e) => handleCreatePOFormChange('country', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Pincode</label>
-                                    <input
-                                        type="text"
-                                        value={createPOForm.pincode}
-                                        onChange={(e) => handleCreatePOFormChange('pincode', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-                                    <input
-                                        type="email"
-                                        value={createPOForm.emailAddress}
-                                        onChange={(e) => handleCreatePOFormChange('emailAddress', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Contract No</label>
-                                    <input
-                                        type="text"
-                                        value={createPOForm.contractNo}
-                                        onChange={(e) => handleCreatePOFormChange('contractNo', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Items Section */}
-                            <div>
-                                <div className="flex justify-between items-center mb-4">
-                                    <h4 className="text-lg font-semibold text-gray-900">Items</h4>
+                    {/* Create PO Modal */}
+                    {showCreatePOModal && (
+                        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                            <div className="relative top-10 mx-auto p-8 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white mb-20">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-2xl font-bold text-gray-900">Create PO</h3>
                                     <button
-                                        onClick={handleAddPOItem}
-                                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700"
+                                        onClick={() => setShowCreatePOModal(false)}
+                                        className="text-gray-400 hover:text-gray-500"
                                     >
-                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                         </svg>
-                                        Add Item
                                     </button>
                                 </div>
 
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Code</th>
-                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Name</th>
-                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier Item Code</th>
-                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Negotiated Rate</th>
-                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Rate</th>
-                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taxable Value</th>
-                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST</th>
-                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Value</th>
-                                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {poItems.map((item, index) => (
-                                                <tr key={item.id}>
-                                                    <td className="px-3 py-2">
-                                                        <input
-                                                            type="text"
-                                                            value={item.itemCode}
-                                                            onChange={(e) => handlePOItemChange(item.id, 'itemCode', e.target.value)}
-                                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                                            placeholder="Pull from vendor"
-                                                        />
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                        <input
-                                                            type="text"
-                                                            value={item.itemName}
-                                                            onChange={(e) => handlePOItemChange(item.id, 'itemName', e.target.value)}
-                                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                                        />
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                        <input
-                                                            type="text"
-                                                            value={item.supplierItemCode}
-                                                            onChange={(e) => handlePOItemChange(item.id, 'supplierItemCode', e.target.value)}
-                                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                                        />
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                        <input
-                                                            type="text"
-                                                            value={item.quantity}
-                                                            onChange={(e) => handlePOItemChange(item.id, 'quantity', e.target.value)}
-                                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                                            placeholder="Qty+UoC"
-                                                        />
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                        <input
-                                                            type="text"
-                                                            value={item.negotiatedRate}
-                                                            onChange={(e) => handlePOItemChange(item.id, 'negotiatedRate', e.target.value)}
-                                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                                        />
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                        <input
-                                                            type="text"
-                                                            value={item.finalRate}
-                                                            onChange={(e) => handlePOItemChange(item.id, 'finalRate', e.target.value)}
-                                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                                            placeholder="Manual entry"
-                                                        />
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                        <input
-                                                            type="text"
-                                                            value={item.taxableValue}
-                                                            onChange={(e) => handlePOItemChange(item.id, 'taxableValue', e.target.value)}
-                                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                                            placeholder="Quantity x"
-                                                        />
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                        <input
-                                                            type="text"
-                                                            value={item.gst}
-                                                            onChange={(e) => handlePOItemChange(item.id, 'gst', e.target.value)}
-                                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                                        />
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                        <input
-                                                            type="text"
-                                                            value={item.netValue}
-                                                            onChange={(e) => handlePOItemChange(item.id, 'netValue', e.target.value)}
-                                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                                        />
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                        <button
-                                                            onClick={() => handleRemovePOItem(item.id)}
-                                                            className="text-red-600 hover:text-red-900"
-                                                            disabled={poItems.length === 1}
-                                                        >
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            {/* Totals Section */}
-                            <div className="grid grid-cols-3 gap-6 bg-gray-50 p-4 rounded-lg">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Total Taxable Value</label>
-                                    <input
-                                        type="text"
-                                        readOnly
-                                        value="0.00"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Total Tax</label>
-                                    <input
-                                        type="text"
-                                        readOnly
-                                        value="0.00"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Total Value</label>
-                                    <input
-                                        type="text"
-                                        readOnly
-                                        value="0.00"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 font-semibold"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Additional Fields */}
-                            <div className="grid grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Receive by</label>
-                                    <input
-                                        type="date"
-                                        value={createPOForm.receiveBy}
-                                        onChange={(e) => handleCreatePOFormChange('receiveBy', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">Calendar option to select date</p>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Receive at</label>
-                                    <select
-                                        value={createPOForm.receiveAt}
-                                        onChange={(e) => handleCreatePOFormChange('receiveAt', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                    >
-                                        <option value="">Select Location</option>
-                                        <option value="warehouse1">Warehouse 1</option>
-                                        <option value="warehouse2">Warehouse 2</option>
-                                        <option value="store1">Store 1</option>
-                                    </select>
-                                    <p className="text-xs text-gray-500 mt-1">Drop-down of locations from Inventory Module</p>
-                                </div>
-
-                                <div className="col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Delivery terms</label>
-                                    <textarea
-                                        value={createPOForm.deliveryTerms}
-                                        onChange={(e) => handleCreatePOFormChange('deliveryTerms', e.target.value)}
-                                        rows={3}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                        placeholder="Enter delivery terms and conditions"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex justify-end space-x-4 pt-6 border-t">
-                                <button
-                                    onClick={() => setShowCreatePOModal(false)}
-                                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleSubmitPO}
-                                    className="px-6 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700"
-                                >
-                                    Create PO
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* View PO Details Modal */}
-            {showViewPOModal && selectedPO && (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-                    <div className="relative top-10 mx-auto p-8 border w-11/12 max-w-5xl shadow-lg rounded-md bg-white mb-20">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-2xl font-bold text-gray-900">Purchase Order Details</h3>
-                            <button
-                                onClick={() => setShowViewPOModal(false)}
-                                className="text-gray-400 hover:text-gray-500"
-                            >
-                                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        <div className="space-y-6">
-                            {/* PO Header Information */}
-                            <div className="bg-blue-50 p-6 rounded-lg">
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">PO Number</label>
-                                        <p className="text-lg font-bold text-blue-900">{selectedPO.poNumber}</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">PO Date</label>
-                                        <p className="text-gray-900">{selectedPO.poDate}</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
-                                        <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${selectedPO.status === 'Pending Approval'
-                                            ? 'bg-orange-100 text-orange-800 border border-orange-200'
-                                            : 'bg-blue-100 text-blue-800 border border-blue-200'
-                                            }`}>
-                                            {selectedPO.status}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Vendor Information */}
-                            <div>
-                                <h4 className="text-lg font-semibold text-gray-900 mb-4">Vendor Information</h4>
-                                <div className="grid grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Vendor Name</label>
-                                        <p className="text-gray-900">{selectedPO.vendorName}</p>
-                                    </div>
-                                    <div className="col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                                        <p className="text-gray-900">{selectedPO.address}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Items Section - Placeholder */}
-                            <div>
-                                <h4 className="text-lg font-semibold text-gray-900 mb-4">Items</h4>
-                                <div className="bg-gray-50 p-4 rounded-lg">
-                                    <p className="text-gray-600 text-center py-4">
-                                        Item details will be displayed here when connected to backend
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Totals Section - Placeholder */}
-                            <div className="grid grid-cols-3 gap-6 bg-gray-50 p-4 rounded-lg border-t-2 border-gray-300">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Total Taxable Value</label>
-                                    <p className="text-lg font-semibold text-gray-900">₹ 0.00</p>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Total Tax</label>
-                                    <p className="text-lg font-semibold text-gray-900">₹ 0.00</p>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Total Value</label>
-                                    <p className="text-lg font-bold text-blue-900">₹ 0.00</p>
-                                </div>
-                            </div>
-
-                            {/* Additional Information - Placeholder */}
-                            <div>
-                                <h4 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h4>
-                                <div className="grid grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Receive By</label>
-                                        <p className="text-gray-900">-</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Receive At</label>
-                                        <p className="text-gray-900">-</p>
-                                    </div>
-                                    <div className="col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Terms</label>
-                                        <p className="text-gray-900">-</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex justify-between pt-6 border-t">
-                                <div className="flex space-x-4">
-                                    {/* Show Edit button only for Pending Approval status when not editing */}
-                                    {!isEditingPO && selectedPO.status === 'Pending Approval' && (
-                                        <button
-                                            onClick={handleEditPODetails}
-                                            className="px-6 py-2 border border-teal-600 text-teal-600 rounded-md hover:bg-teal-50"
-                                        >
-                                            Edit
-                                        </button>
-                                    )}
-                                    {/* Show Cancel and Save when editing */}
-                                    {isEditingPO && (
-                                        <>
-                                            <button
-                                                onClick={handleCancelEditPO}
-                                                className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                <div className="space-y-6">
+                                    {/* Form Fields */}
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">PO Series Name</label>
+                                            <select
+                                                value={createPOForm.poSeriesName}
+                                                onChange={(e) => handleCreatePOFormChange('poSeriesName', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                                             >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                onClick={handleSavePODetails}
-                                                className="px-6 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700"
+                                                <option value="">Select Vendor Settings</option>
+                                                <option value="series1">Series 1</option>
+                                                <option value="series2">Series 2</option>
+                                            </select>
+                                            <p className="text-xs text-gray-500 mt-1">Show as "New PO" when clicked "New"</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">PO #</label>
+                                            <input
+                                                type="text"
+                                                value={createPOForm.poNumber}
+                                                onChange={(e) => handleCreatePOFormChange('poNumber', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                                placeholder="Automated Series"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Vendor Name</label>
+                                            <select
+                                                value={createPOForm.vendorName}
+                                                onChange={(e) => handleCreatePOFormChange('vendorName', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                                             >
-                                                Save
+                                                <option value="">Select Vendor</option>
+                                                <option value="vendor1">Vendor 1</option>
+                                                <option value="vendor2">Vendor 2</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Branch</label>
+                                            <select
+                                                value={createPOForm.branch}
+                                                onChange={(e) => handleCreatePOFormChange('branch', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            >
+                                                <option value="">Select Branch</option>
+                                                <option value="branch1">Branch 1</option>
+                                                <option value="branch2">Branch 2</option>
+                                            </select>
+                                            <p className="text-xs text-gray-500 mt-1">Reference Name in Vendor Master</p>
+                                        </div>
+
+
+                                        <div className="col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
+                                            <input
+                                                type="text"
+                                                value={createPOForm.addressLine1}
+                                                onChange={(e) => handleCreatePOFormChange('addressLine1', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                                placeholder="Autofill using branch"
+                                            />
+                                        </div>
+
+                                        <div className="col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 2</label>
+                                            <input
+                                                type="text"
+                                                value={createPOForm.addressLine2}
+                                                onChange={(e) => handleCreatePOFormChange('addressLine2', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            />
+                                        </div>
+
+                                        <div className="col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 3</label>
+                                            <input
+                                                type="text"
+                                                value={createPOForm.addressLine3}
+                                                onChange={(e) => handleCreatePOFormChange('addressLine3', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                                            <input
+                                                type="text"
+                                                value={createPOForm.city}
+                                                onChange={(e) => handleCreatePOFormChange('city', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                                            <input
+                                                type="text"
+                                                value={createPOForm.state}
+                                                onChange={(e) => handleCreatePOFormChange('state', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                                            <input
+                                                type="text"
+                                                value={createPOForm.country}
+                                                onChange={(e) => handleCreatePOFormChange('country', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Pincode</label>
+                                            <input
+                                                type="text"
+                                                value={createPOForm.pincode}
+                                                onChange={(e) => handleCreatePOFormChange('pincode', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                                            <input
+                                                type="email"
+                                                value={createPOForm.emailAddress}
+                                                onChange={(e) => handleCreatePOFormChange('emailAddress', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Contract No</label>
+                                            <input
+                                                type="text"
+                                                value={createPOForm.contractNo}
+                                                onChange={(e) => handleCreatePOFormChange('contractNo', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Items Section */}
+                                    <div>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h4 className="text-lg font-semibold text-gray-900">Items</h4>
+                                            <button
+                                                onClick={handleAddPOItem}
+                                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700"
+                                            >
+                                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                                </svg>
+                                                Add Item
                                             </button>
-                                        </>
-                                    )}
-                                    {/* Show Cancel button only for Approved status when not editing */}
-                                    {!isEditingPO && selectedPO.status === 'Approved' && (
+                                        </div>
+
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                                                <thead className="bg-gray-50">
+                                                    <tr>
+                                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Code</th>
+                                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Name</th>
+                                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier Item Code</th>
+                                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Negotiated Rate</th>
+                                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Rate</th>
+                                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taxable Value</th>
+                                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST</th>
+                                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Value</th>
+                                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="bg-white divide-y divide-gray-200">
+                                                    {poItems.map((item, index) => (
+                                                        <tr key={item.id}>
+                                                            <td className="px-3 py-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={item.itemCode}
+                                                                    onChange={(e) => handlePOItemChange(item.id, 'itemCode', e.target.value)}
+                                                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                                                    placeholder="Pull from vendor"
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={item.itemName}
+                                                                    onChange={(e) => handlePOItemChange(item.id, 'itemName', e.target.value)}
+                                                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={item.supplierItemCode}
+                                                                    onChange={(e) => handlePOItemChange(item.id, 'supplierItemCode', e.target.value)}
+                                                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={item.quantity}
+                                                                    onChange={(e) => handlePOItemChange(item.id, 'quantity', e.target.value)}
+                                                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                                                    placeholder="Qty+UoC"
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={item.negotiatedRate}
+                                                                    onChange={(e) => handlePOItemChange(item.id, 'negotiatedRate', e.target.value)}
+                                                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={item.finalRate}
+                                                                    onChange={(e) => handlePOItemChange(item.id, 'finalRate', e.target.value)}
+                                                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                                                    placeholder="Manual entry"
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={item.taxableValue}
+                                                                    onChange={(e) => handlePOItemChange(item.id, 'taxableValue', e.target.value)}
+                                                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                                                    placeholder="Quantity x"
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={item.gst}
+                                                                    onChange={(e) => handlePOItemChange(item.id, 'gst', e.target.value)}
+                                                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={item.netValue}
+                                                                    onChange={(e) => handlePOItemChange(item.id, 'netValue', e.target.value)}
+                                                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                                                />
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                <button
+                                                                    onClick={() => handleRemovePOItem(item.id)}
+                                                                    className="text-red-600 hover:text-red-900"
+                                                                    disabled={poItems.length === 1}
+                                                                >
+                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                    </svg>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* Totals Section */}
+                                    <div className="grid grid-cols-3 gap-6 bg-gray-50 p-4 rounded-lg">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Total Taxable Value</label>
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                value="0.00"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Total Tax</label>
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                value="0.00"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Total Value</label>
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                value="0.00"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 font-semibold"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Additional Fields */}
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Receive by</label>
+                                            <input
+                                                type="date"
+                                                value={createPOForm.receiveBy}
+                                                onChange={(e) => handleCreatePOFormChange('receiveBy', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">Calendar option to select date</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Receive at</label>
+                                            <select
+                                                value={createPOForm.receiveAt}
+                                                onChange={(e) => handleCreatePOFormChange('receiveAt', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            >
+                                                <option value="">Select Location</option>
+                                                <option value="warehouse1">Warehouse 1</option>
+                                                <option value="warehouse2">Warehouse 2</option>
+                                                <option value="store1">Store 1</option>
+                                            </select>
+                                            <p className="text-xs text-gray-500 mt-1">Drop-down of locations from Inventory Module</p>
+                                        </div>
+
+                                        <div className="col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Delivery terms</label>
+                                            <textarea
+                                                value={createPOForm.deliveryTerms}
+                                                onChange={(e) => handleCreatePOFormChange('deliveryTerms', e.target.value)}
+                                                rows={3}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                                placeholder="Enter delivery terms and conditions"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex justify-end space-x-4 pt-6 border-t">
                                         <button
-                                            onClick={() => setShowViewPOModal(false)}
+                                            onClick={() => setShowCreatePOModal(false)}
                                             className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                                         >
                                             Cancel
                                         </button>
-                                    )}
-                                </div>
-                                <div className="flex space-x-4">
-                                    <button
-                                        onClick={() => setShowViewPOModal(false)}
-                                        className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                                    >
-                                        Close
-                                    </button>
-                                    {!isEditingPO && selectedPO.status === 'Pending Approval' && (
                                         <button
-                                            className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                                            onClick={handleSubmitPO}
+                                            className="px-6 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700"
                                         >
-                                            Approve PO
+                                            Create PO
                                         </button>
-                                    )}
-                                    {!isEditingPO && selectedPO.status === 'Approved' && (
-                                        <button
-                                            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                                        >
-                                            Mail PO
-                                        </button>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* View PO Details Modal */}
+                    {showViewPOModal && selectedPO && (
+                        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                            <div className="relative top-10 mx-auto p-8 border w-11/12 max-w-5xl shadow-lg rounded-md bg-white mb-20">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-2xl font-bold text-gray-900">Purchase Order Details</h3>
+                                    <button
+                                        onClick={() => setShowViewPOModal(false)}
+                                        className="text-gray-400 hover:text-gray-500"
+                                    >
+                                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                <div className="space-y-6">
+                                    {/* PO Header Information */}
+                                    <div className="bg-blue-50 p-6 rounded-lg">
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-1">PO Number</label>
+                                                <p className="text-lg font-bold text-blue-900">{selectedPO.poNumber}</p>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-1">PO Date</label>
+                                                <p className="text-gray-900">{selectedPO.poDate}</p>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
+                                                <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full ${selectedPO.status === 'Pending Approval'
+                                                    ? 'bg-orange-100 text-orange-800 border border-orange-200'
+                                                    : 'bg-blue-100 text-blue-800 border border-blue-200'
+                                                    }`}>
+                                                    {selectedPO.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Vendor Information */}
+                                    <div>
+                                        <h4 className="text-lg font-semibold text-gray-900 mb-4">Vendor Information</h4>
+                                        <div className="grid grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Vendor Name</label>
+                                                <p className="text-gray-900">{selectedPO.vendorName}</p>
+                                            </div>
+                                            <div className="col-span-2">
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                                                {isEditingPO ? (
+                                                    <textarea
+                                                        value={selectedPO.address}
+                                                        onChange={(e) => setSelectedPO({ ...selectedPO, address: e.target.value })}
+                                                        rows={3}
+                                                        className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                ) : (
+                                                    <p className="text-gray-900">{selectedPO.address}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Items Section - Placeholder */}
+                                    <div>
+                                        <h4 className="text-lg font-semibold text-gray-900 mb-4">Items</h4>
+                                        <div className="bg-gray-50 p-4 rounded-lg">
+                                            <p className="text-gray-600 text-center py-4">
+                                                Item details will be displayed here when connected to backend
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Totals Section - Placeholder */}
+                                    <div className="grid grid-cols-3 gap-6 bg-gray-50 p-4 rounded-lg border-t-2 border-gray-300">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Total Taxable Value</label>
+                                            <p className="text-lg font-semibold text-gray-900">₹ 0.00</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Total Tax</label>
+                                            <p className="text-lg font-semibold text-gray-900">₹ 0.00</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Total Value</label>
+                                            <p className="text-lg font-bold text-blue-900">₹ 0.00</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Additional Information - Placeholder */}
+                                    <div>
+                                        <h4 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h4>
+                                        <div className="grid grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Receive By</label>
+                                                {isEditingPO ? (
+                                                    <input
+                                                        type="date"
+                                                        value={selectedPO.receiveBy || ''}
+                                                        onChange={(e) => setSelectedPO({ ...selectedPO, receiveBy: e.target.value })}
+                                                        className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                ) : (
+                                                    <p className="text-gray-900">{selectedPO.receiveBy || '-'}</p>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Receive At</label>
+                                                {isEditingPO ? (
+                                                    <input
+                                                        type="text"
+                                                        value={selectedPO.receiveAt || ''}
+                                                        onChange={(e) => setSelectedPO({ ...selectedPO, receiveAt: e.target.value })}
+                                                        className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="Enter location"
+                                                    />
+                                                ) : (
+                                                    <p className="text-gray-900">{selectedPO.receiveAt || '-'}</p>
+                                                )}
+                                            </div>
+                                            <div className="col-span-2">
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Terms</label>
+                                                {isEditingPO ? (
+                                                    <textarea
+                                                        value={selectedPO.deliveryTerms || ''}
+                                                        onChange={(e) => setSelectedPO({ ...selectedPO, deliveryTerms: e.target.value })}
+                                                        rows={2}
+                                                        className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="Enter delivery terms"
+                                                    />
+                                                ) : (
+                                                    <p className="text-gray-900">{selectedPO.deliveryTerms || '-'}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex justify-between pt-6 border-t">
+                                        <div className="flex space-x-4">
+                                            {/* Show Edit button only for Pending Approval status when not editing */}
+                                            {!isEditingPO && selectedPO.status === 'Pending Approval' && (
+                                                <button
+                                                    onClick={handleEditPODetails}
+                                                    className="px-6 py-2 border border-teal-600 text-teal-600 rounded-md hover:bg-teal-50"
+                                                >
+                                                    Edit
+                                                </button>
+                                            )}
+                                            {/* Show Cancel and Save when editing */}
+                                            {isEditingPO && (
+                                                <>
+                                                    <button
+                                                        onClick={handleCancelEditPO}
+                                                        className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        onClick={handleSavePODetails}
+                                                        className="px-6 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700"
+                                                    >
+                                                        Save
+                                                    </button>
+                                                </>
+                                            )}
+                                            {/* Show Cancel button only for Approved status when not editing */}
+                                            {!isEditingPO && selectedPO.status === 'Approved' && (
+                                                <button
+                                                    onClick={handleCancelPOClick}
+                                                    className="px-6 py-2 border border-red-500 text-red-600 rounded-md hover:bg-red-50"
+                                                >
+                                                    Cancel PO
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex space-x-4">
+                                            <button
+                                                onClick={() => setShowViewPOModal(false)}
+                                                className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                            >
+                                                Close
+                                            </button>
+                                            {!isEditingPO && selectedPO.status === 'Pending Approval' && (
+                                                <button
+                                                    onClick={handleApprovePO}
+                                                    className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                                                >
+                                                    Approve PO
+                                                </button>
+                                            )}
+                                            {!isEditingPO && selectedPO.status === 'Approved' && (
+                                                <button
+                                                    onClick={handleMailPO}
+                                                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                                >
+                                                    Mail PO
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Cancel PO Reason Modal */}
+                    {showCancelPOModal && selectedPO && (
+                        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                            <div className="relative top-20 mx-auto p-8 border w-full max-w-md shadow-lg rounded-md bg-white">
+                                <div className="mb-6">
+                                    <h3 className="text-2xl font-bold text-gray-900">Cancel Purchase Order</h3>
+                                    <p className="text-sm text-gray-500 mt-2">PO Number: <span className="font-semibold text-gray-700">{selectedPO.poNumber}</span></p>
+                                    <p className="text-sm text-gray-500">Vendor: <span className="font-semibold text-gray-700">{selectedPO.vendorName}</span></p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {/* Cancellation Reason */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Reason for Cancellation <span className="text-red-500">*</span>
+                                        </label>
+                                        <textarea
+                                            value={cancelReason}
+                                            onChange={(e) => setCancelReason(e.target.value)}
+                                            rows={4}
+                                            placeholder="Please provide a detailed reason for cancelling this PO..."
+                                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+                                        />
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex justify-end space-x-3 pt-4">
+                                        <button
+                                            onClick={handleCloseCancelModal}
+                                            className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                        >
+                                            Back
+                                        </button>
+                                        <button
+                                            onClick={handleConfirmCancelPO}
+                                            className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                                        >
+                                            Confirm Cancellation
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+
+                    {/* Post Payment Modal */}
+                    {showPostPaymentModal && selectedBillForPayment && (
+                        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                            <div className="relative top-20 mx-auto p-8 border w-full max-w-md shadow-lg rounded-md bg-white">
+                                <div className="mb-6">
+                                    <h3 className="text-2xl font-bold text-gray-900">Post Payment</h3>
+                                    <p className="text-sm text-gray-500 mt-1">Bill: {selectedBillForPayment.voucherNo} - {selectedBillForPayment.vendorReferenceName}</p>
+                                    <p className="text-sm font-medium text-gray-700 mt-1">Amount: {selectedBillForPayment.amount}</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {/* Date of Payment */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Date of payment
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={postPaymentForm.dateOfPayment}
+                                            onChange={(e) => setPostPaymentForm({ ...postPaymentForm, dateOfPayment: e.target.value })}
+                                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                                        />
+                                    </div>
+
+                                    {/* Bank Account Dropdown */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Bank account
+                                        </label>
+                                        <select
+                                            value={postPaymentForm.bankAccount}
+                                            onChange={(e) => setPostPaymentForm({ ...postPaymentForm, bankAccount: e.target.value })}
+                                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                                        >
+                                            <option value="">Select bank account</option>
+                                            <option value="cash">Cash</option>
+                                            <option value="bank1">HDFC Bank - Current Account</option>
+                                            <option value="bank2">ICICI Bank - Savings Account</option>
+                                            <option value="bank3">SBI Bank - OD/CC Account</option>
+                                            <option value="bank4">Axis Bank - Current Account</option>
+                                        </select>
+                                        <p className="text-xs text-gray-500 mt-1">Drop-down list of all Bank, Bank OD/CC account</p>
+                                    </div>
+
+                                    {/* Bank Reference No (hidden if cash is selected) */}
+                                    {postPaymentForm.bankAccount && postPaymentForm.bankAccount !== 'cash' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Bank Reference No.
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={postPaymentForm.bankReferenceNo}
+                                                onChange={(e) => setPostPaymentForm({ ...postPaymentForm, bankReferenceNo: e.target.value })}
+                                                placeholder="Enter bank reference number"
+                                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="mt-6 flex justify-end space-x-3">
+                                    <button
+                                        onClick={() => {
+                                            setShowPostPaymentModal(false);
+                                            setSelectedBillForPayment(null);
+                                            setPostPaymentForm({ dateOfPayment: '', bankAccount: '', bankReferenceNo: '' });
+                                        }}
+                                        className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            // Handle post payment logic here
+                                            console.log('Posting payment:', postPaymentForm);
+                                            // Update bill status to Posted
+                                            setPaymentBills(paymentBills.map(bill =>
+                                                bill.id === selectedBillForPayment.id ? { ...bill, status: 'Posted' as const } : bill
+                                            ));
+                                            setShowPostPaymentModal(false);
+                                            setSelectedBillForPayment(null);
+                                            setPostPaymentForm({ dateOfPayment: '', bankAccount: '', bankReferenceNo: '' });
+                                        }}
+                                        className="px-6 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700"
+                                    >
+                                        Post & Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
-            )}
-        </div>
+            </div>
+        </div >
     );
 };
 

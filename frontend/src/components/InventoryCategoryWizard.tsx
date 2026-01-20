@@ -32,17 +32,33 @@ interface InventoryCategoryWizardProps {
     apiEndpoint?: string; // Optional API endpoint, defaults to inventory
 }
 
-// Hardcoded base categories (System Categories)
-const SYSTEM_CATEGORIES = [
-    'RAW MATERIAL',
+// Hardcoded base categories (System Categories) - Default
+const DEFAULT_SYSTEM_CATEGORIES = [
+    'Raw Material',
     'Work in Progress',
-    'Finished goods',
+    'Finished Goods',
     'Stores and Spares',
     'Packing Material',
     'Stock in Trade'
 ];
 
-export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = ({ onCreateCategory, apiEndpoint = '/api/inventory/master-categories/' }) => {
+const DEFAULT_GROUPS_DATA = [
+    {
+        name: 'With in country (Indigenous)',
+        subgroups: ['Consumables', 'Machinery Spares', 'Others']
+    },
+    {
+        name: 'Import',
+        subgroups: ['Consumables', 'Machinery Spares', 'Others']
+    }
+];
+
+export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = ({
+    onCreateCategory,
+    apiEndpoint = '/api/inventory/master-categories/',
+    systemCategories = DEFAULT_SYSTEM_CATEGORIES,
+    defaultGroups = DEFAULT_GROUPS_DATA
+}) => {
     const [loading, setLoading] = useState(false);
     const [treeData, setTreeData] = useState<TreeNode[]>([]);
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -66,7 +82,7 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
     // Re-build tree when apiData or restoredNodes change
     useEffect(() => {
         buildTree(apiData);
-    }, [apiData, restoredNodes]);
+    }, [apiData, restoredNodes, systemCategories, defaultGroups]);
 
 
     const fetchMasterCategories = async () => {
@@ -91,20 +107,10 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
     const buildTree = (data: MasterCategory[]) => {
         const rootMap = new Map<string, TreeNode>();
 
-        // Default groups and subgroups for ALL categories
-        const DEFAULT_GROUPS = [
-            {
-                name: 'With in country (Indigenous)',
-                subgroups: ['Consumables', 'Machinery Spares', 'Others']
-            },
-            {
-                name: 'Import',
-                subgroups: ['Consumables', 'Machinery Spares', 'Others']
-            }
-        ];
+
 
         // 1. Initialize System Categories with default groups and subgroups
-        SYSTEM_CATEGORIES.forEach(catName => {
+        systemCategories.forEach(catName => {
             const categoryNode: TreeNode = {
                 id: `root-${catName}`,
                 name: catName,
@@ -115,7 +121,7 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
             };
 
             // Add default groups and subgroups to each system category
-            DEFAULT_GROUPS.forEach(groupData => {
+            defaultGroups.forEach(groupData => {
                 const groupNode: TreeNode = {
                     id: `group-${catName}-${groupData.name}`,
                     name: groupData.name,
@@ -125,8 +131,24 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
                     data: { category: catName, group: groupData.name, subgroup: null }
                 };
 
-                // Add subgroups ONLY for 'Stores and Spares'
-                if (catName === 'Stores and Spares') {
+                // Logic for adding subgroups
+                // If this is the specific 'Inventory' case with 'Stores and Spares', keep original logic
+                if (catName === 'Stores and Spares' && defaultGroups === DEFAULT_GROUPS_DATA) {
+                    groupData.subgroups.forEach(subgroupName => {
+                        const subgroupNode: TreeNode = {
+                            id: `sub-${catName}-${groupData.name}-${subgroupName}`,
+                            name: subgroupName,
+                            children: [],
+                            level: 2,
+                            isSystem: true,
+                            data: { category: catName, group: groupData.name, subgroup: subgroupName }
+                        };
+                        groupNode.children.push(subgroupNode);
+                    });
+                }
+                // If custom groups are provided (not the default inventory ones), we apply subgroups to ALL categories
+                // This allows other modules (like Customer) to have subgroups for all their categories if defined
+                else if (defaultGroups !== DEFAULT_GROUPS_DATA && groupData.subgroups && groupData.subgroups.length > 0) {
                     groupData.subgroups.forEach(subgroupName => {
                         const subgroupNode: TreeNode = {
                             id: `sub-${catName}-${groupData.name}-${subgroupName}`,
@@ -146,22 +168,9 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
             rootMap.set(catName, categoryNode);
         });
 
-        // 2. Process fetched data to build hierarchy (for custom categories)
-        data.forEach(item => {
+        // 2. Process fetched data to build hierarchy (only for standard/system categories)
+        data.filter(item => rootMap.has(item.category)).forEach(item => {
             const catName = item.category;
-
-            // Ensure root category exists (even if not in SYSTEM_CATEGORIES, handling custom roots if allowed)
-            if (!rootMap.has(catName)) {
-                rootMap.set(catName, {
-                    id: `root-${catName}`,
-                    name: catName,
-                    children: [],
-                    level: 0,
-                    isSystem: false, // Custom root
-                    data: { category: catName, group: null, subgroup: null }
-                });
-            }
-
             const rootNode = rootMap.get(catName)!;
 
             // Handle three cases:
@@ -220,8 +229,8 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
         // Convert Map to Array and Sort
         const sortedRoots = Array.from(rootMap.values()).sort((a, b) => {
             // System categories first, then alphabetical
-            const aSys = SYSTEM_CATEGORIES.indexOf(a.name);
-            const bSys = SYSTEM_CATEGORIES.indexOf(b.name);
+            const aSys = systemCategories.indexOf(a.name);
+            const bSys = systemCategories.indexOf(b.name);
             if (aSys !== -1 && bSys !== -1) return aSys - bSys;
             if (aSys !== -1) return -1;
             if (bSys !== -1) return 1;
@@ -343,8 +352,7 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
             return (
                 <div key={node.id} style={{ marginLeft: `${node.level * 20}px` }}>
                     <div
-                        className={`flex items-center py-1.5 px-2 cursor-pointer hover:bg-gray-100 rounded transition-colors ${isSelected ? 'bg-blue-100 text-blue-700 font-medium border-l-2 border-blue-500' : ''
-                            } ${!node.isSystem && node.level === 0 ? 'text-blue-600' : ''}`}
+                        className={`flex items-center py-1.5 px-2 cursor-pointer hover:bg-gray-100 rounded transition-colors ${isSelected ? 'bg-blue-100 text-blue-700 font-medium border-l-2 border-blue-500' : ''}`}
                         onClick={() => handleNodeSelect(node)}
                         onDoubleClick={() => {
                             if (hasChildren || node.level < 2) {
@@ -363,12 +371,12 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
                                 {isExpanded ? '−' : '+'}
                             </span>
                         ) : (
-                            <span className={`mr-1 text-xs w-4 text-center ${!node.isSystem ? 'text-blue-500' : 'text-gray-400'}`}>
-                                {node.level === 0 ? (node.isSystem ? '•' : '★') : '•'}
+                            <span className="mr-1 text-xs w-4 text-center text-gray-400">
+                                •
                             </span>
                         )}
 
-                        <span className={`text-sm select-none truncate ${!node.isSystem ? 'font-medium' : ''}`}>
+                        <span className="text-sm select-none truncate">
                             {node.name}
                         </span>
                     </div>
@@ -394,7 +402,7 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
                     <div className="p-4 border-b border-gray-200">
                         <h3 className="font-semibold text-gray-800 text-sm">Select Category</h3>
                         <p className="text-xs text-gray-500 mt-0.5">Single click to select level. Double click to expand/collapse categories.</p>
-                        <p className="text-xs text-blue-600 mt-1">★ Blue items are your custom categories.</p>
+
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-3">
