@@ -58,9 +58,9 @@ const CategoryHierarchicalDropdown: React.FC<DropdownProps> = ({
             console.error('Error fetching categories:', error);
             // Fallback mock data
             const mockCategories: Category[] = [
-                { id: 1, category: 'RAW MATERIAL', is_active: true, group: null, subgroup: null, full_path: 'RAW MATERIAL' },
+                { id: 1, category: 'Raw Material', is_active: true, group: null, subgroup: null, full_path: 'Raw Material' },
                 { id: 2, category: 'Work in Progress', is_active: true, group: null, subgroup: null, full_path: 'Work in Progress' },
-                { id: 3, category: 'Finished goods', is_active: true, group: null, subgroup: null, full_path: 'Finished goods' },
+                { id: 3, category: 'Finished Goods', is_active: true, group: null, subgroup: null, full_path: 'Finished Goods' },
                 { id: 4, category: 'Stores and Spares', is_active: true, group: null, subgroup: null, full_path: 'Stores and Spares' },
                 { id: 5, category: 'Packing Material', is_active: true, group: null, subgroup: null, full_path: 'Packing Material' },
                 { id: 6, category: 'Stock in Trade', is_active: true, group: null, subgroup: null, full_path: 'Stock in Trade' },
