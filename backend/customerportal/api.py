@@ -15,7 +15,10 @@ from .models import (
     CustomerTransaction,
     CustomerSalesQuotation,
     CustomerSalesOrder,
-    CustomerMasterLongTermContractBasicDetail
+    CustomerMasterLongTermContractBasicDetail,
+    CustomerTransactionSalesQuotationGeneral,
+    CustomerTransactionSalesQuotationSpecific,
+    CustomerTransactionSalesOrderBasicDetails
 )
 from .serializers import (
     CustomerMasterSerializer,
@@ -27,7 +30,10 @@ from .serializers import (
     CustomerSalesOrderSerializer,
     CustomerMasterLongTermContractBasicDetailSerializer,
     CustomerMasterLongTermContractProductServiceSerializer,
-    CustomerMasterLongTermContractTermsConditionSerializer
+    CustomerMasterLongTermContractTermsConditionSerializer,
+    CustomerTransactionSalesQuotationGeneralSerializer,
+    CustomerTransactionSalesQuotationSpecificSerializer,
+    CustomerTransactionSalesOrderSerializer
 )
 
 
@@ -150,10 +156,45 @@ class CustomerMasterCustomerViewSet(viewsets.ModelViewSet):
             return CustomerMasterCustomer.objects.filter(tenant_id=tenant_id, is_deleted=False)
         return CustomerMasterCustomer.objects.none()
     
+    def create(self, request, *args, **kwargs):
+        """Override create to add logging"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info("=" * 80)
+        logger.info("CUSTOMER CREATE REQUEST RECEIVED")
+        logger.info("=" * 80)
+        logger.info(f"User: {request.user.username}")
+        logger.info(f"Tenant ID: {getattr(request.user, 'tenant_id', 'NOT SET')}")
+        logger.info(f"Request Data Keys: {list(request.data.keys())}")
+        logger.info(f"Full Request Data: {request.data}")
+        
+        # Check for Terms & Conditions specifically
+        terms_fields = ['credit_period', 'credit_terms', 'penalty_terms', 'delivery_terms', 
+                       'warranty_details', 'force_majeure', 'dispute_terms']
+        terms_data = {k: request.data.get(k) for k in terms_fields if k in request.data}
+        logger.info(f"Terms & Conditions Data: {terms_data}")
+        
+        try:
+            response = super().create(request, *args, **kwargs)
+            logger.info("✅ Customer created successfully!")
+            logger.info(f"Response: {response.data}")
+            return response
+        except Exception as e:
+            logger.error(f"❌ Error creating customer: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise
+    
     def perform_create(self, serializer):
         """Set tenant_id and created_by when creating"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         user = self.request.user
         tenant_id = getattr(user, 'tenant_id', None)
+        
+        logger.info(f"perform_create called with tenant_id: {tenant_id}")
         
         if not tenant_id:
             from rest_framework.exceptions import ValidationError
@@ -163,6 +204,8 @@ class CustomerMasterCustomerViewSet(viewsets.ModelViewSet):
             tenant_id=tenant_id,
             created_by=user.username if hasattr(user, 'username') else None
         )
+        
+        logger.info("perform_create completed successfully")
     
     @action(detail=True, methods=['post'])
     def deactivate(self, request, pk=None):
@@ -378,3 +421,60 @@ class CustomerMasterLongTermContractViewSet(viewsets.ModelViewSet):
         contract.is_deleted = True
         contract.save()
         return Response({'status': 'contract deactivated'})
+
+
+class CustomerTransactionSalesQuotationGeneralViewSet(viewsets.ModelViewSet):
+    """ViewSet for General Sales Quotations"""
+    permission_classes = [IsAuthenticated]
+    serializer_class = CustomerTransactionSalesQuotationGeneralSerializer
+    
+    def get_queryset(self):
+        user = self.request.user
+        tenant_id = getattr(user, 'tenant_id', None)
+        if tenant_id:
+            return CustomerTransactionSalesQuotationGeneral.objects.filter(tenant_id=tenant_id).order_by('-created_at')
+        return CustomerTransactionSalesQuotationGeneral.objects.none()
+    
+    def perform_create(self, serializer):
+        user = self.request.user
+        tenant_id = getattr(user, 'tenant_id', None)
+        created_by = getattr(user, 'full_name', user.username)
+        serializer.save(tenant_id=tenant_id, created_by=created_by)
+
+
+class CustomerTransactionSalesQuotationSpecificViewSet(viewsets.ModelViewSet):
+    """ViewSet for Specific Sales Quotations"""
+    permission_classes = [IsAuthenticated]
+    serializer_class = CustomerTransactionSalesQuotationSpecificSerializer
+    
+    def get_queryset(self):
+        user = self.request.user
+        tenant_id = getattr(user, 'tenant_id', None)
+        if tenant_id:
+            return CustomerTransactionSalesQuotationSpecific.objects.filter(tenant_id=tenant_id).order_by('-created_at')
+        return CustomerTransactionSalesQuotationSpecific.objects.none()
+    
+    def perform_create(self, serializer):
+        user = self.request.user
+        tenant_id = getattr(user, 'tenant_id', None)
+        created_by = getattr(user, 'full_name', user.username)
+        serializer.save(tenant_id=tenant_id, created_by=created_by)
+
+
+class CustomerTransactionSalesOrderViewSet(viewsets.ModelViewSet):
+    """ViewSet for Sales Order (with 5 tables structure)"""
+    permission_classes = [IsAuthenticated]
+    serializer_class = CustomerTransactionSalesOrderSerializer
+    
+    def get_queryset(self):
+        user = self.request.user
+        tenant_id = getattr(user, 'tenant_id', None)
+        if tenant_id:
+            return CustomerTransactionSalesOrderBasicDetails.objects.filter(tenant_id=tenant_id).order_by('-created_at')
+        return CustomerTransactionSalesOrderBasicDetails.objects.none()
+    
+    def perform_create(self, serializer):
+        user = self.request.user
+        tenant_id = getattr(user, 'tenant_id', None)
+        created_by = getattr(user, 'full_name', user.username)
+        serializer.save(tenant_id=tenant_id, created_by=created_by)

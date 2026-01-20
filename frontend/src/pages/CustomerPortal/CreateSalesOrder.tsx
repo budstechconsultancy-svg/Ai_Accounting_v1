@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { httpClient } from '../../services/httpClient';
 
 interface ItemRow {
     id: number;
@@ -17,12 +18,12 @@ interface CreateSalesOrderProps {
 
 const CreateSalesOrder: React.FC<CreateSalesOrderProps> = ({ onCancel }) => {
     // Section 1: Basic Details
-    const [soSeries, setSOSeries] = useState('');
-    const [soNumber, setSONumber] = useState('SO-2024-001'); // Auto-generated
+    const [soSeries, setSOSeries] = useState('SO-2024');
+    const [soNumber, setSONumber] = useState(`SO-${Date.now().toString().slice(-6)}`); // Auto-generated unique ID
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [customerPONumber, setCustomerPONumber] = useState('');
-    const [customerName, setCustomerName] = useState('');
-    const [branch, setBranch] = useState('');
+    const [customerName, setCustomerName] = useState('customer1');
+    const [branch, setBranch] = useState('main');
     const [address, setAddress] = useState('');
     const [email, setEmail] = useState('');
     const [contactNumber, setContactNumber] = useState('');
@@ -33,7 +34,7 @@ const CreateSalesOrder: React.FC<CreateSalesOrderProps> = ({ onCancel }) => {
 
     // Section 3: Item Details
     const [items, setItems] = useState<ItemRow[]>([
-        { id: 1, itemCode: '', itemName: '', quantity: '', price: '', taxableValue: 0, gst: 0, netValue: 0 }
+        { id: 1, itemCode: 'ITEM-001', itemName: 'Sample Product', quantity: '1', price: '100', taxableValue: 100, gst: 18, netValue: 118 }
     ]);
 
     // Section 4: Totals
@@ -52,6 +53,7 @@ const CreateSalesOrder: React.FC<CreateSalesOrderProps> = ({ onCancel }) => {
     // Section 7: Salesperson
     const [employeeId, setEmployeeId] = useState('');
     const [employeeName, setEmployeeName] = useState('');
+    const [salespersonInCharge, setSalespersonInCharge] = useState('');
 
     // Calculate item values
     const calculateItemValues = (item: ItemRow): ItemRow => {
@@ -113,10 +115,100 @@ const CreateSalesOrder: React.FC<CreateSalesOrderProps> = ({ onCancel }) => {
         }));
     };
 
-    const handleSave = () => {
-        console.log('Saving sales order...', { soNumber, customerName, items });
-        alert('Sales Order saved successfully!');
+    const handleSave = async () => {
+        try {
+            // Validate required fields
+            if (!soSeries) {
+                alert('Please select SO Series Name');
+                return;
+            }
+            if (!customerName) {
+                alert('Please select Customer Name');
+                return;
+            }
+            if (!branch) {
+                alert('Please select Branch');
+                return;
+            }
+            if (!date) {
+                alert('Please select Date');
+                return;
+            }
+            // detailed item validation
+            if (items.length === 0) {
+                alert('Please add at least one item');
+                return;
+            }
+
+            const invalidItem = items.find(i => !i.itemCode || !i.quantity || !i.price);
+            if (invalidItem) {
+                alert(`Please fill in all details for item #${invalidItem.id} (Code, Qty, Price)`);
+                return;
+            }
+
+            // Prepare the data structure for backend
+            const salesOrderData = {
+                // Basic Details
+                so_series_name: soSeries,
+                so_number: soNumber,
+                date: date,
+                customer_po_number: customerPONumber || null,
+                customer_name: customerName,
+                branch: branch,
+                address: address || null,
+                email: email || null,
+                contact_number: contactNumber || null,
+                // quotation_type/number removed from here - moved to quotation_details
+
+                // Items
+                items: items.map(item => ({
+                    item_code: item.itemCode,
+                    item_name: item.itemName,
+                    quantity: parseFloat(item.quantity) || 0,
+                    price: parseFloat(item.price) || 0,
+                    taxable_value: item.taxableValue,
+                    gst: item.gst,
+                    net_value: item.netValue
+                })),
+
+                // Delivery Terms
+                delivery_terms: {
+                    deliver_at: deliverAt || null,
+                    delivery_date: deliveryDate || null
+                },
+
+                // Payment and Salesperson (Combined)
+                payment_and_salesperson: {
+                    credit_period: creditPeriod || null,
+                    salesperson_in_charge: salespersonInCharge || null,
+                    employee_id: employeeId || null,
+                    employee_name: employeeName || null
+                },
+
+                // Quotation Details (New table)
+                quotation_details: {
+                    quotation_type: quotationType || null,
+                    quotation_number: quotationNumber || null
+                }
+            };
+
+            console.log('Sending sales order data:', salesOrderData);
+
+            // Send to backend API using httpClient (automatically handles auth)
+            const result = await httpClient.post('/api/customerportal/sales-orders/', salesOrderData);
+
+            console.log('Sales order saved successfully:', result);
+            alert('Sales Order saved successfully!');
+
+            // Optionally call onCancel to go back to the list
+            onCancel();
+
+        } catch (error) {
+            console.error('Error saving sales order:', error);
+            alert(`Error saving sales order: ${error.message}`);
+        }
     };
+
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -493,6 +585,8 @@ const CreateSalesOrder: React.FC<CreateSalesOrderProps> = ({ onCancel }) => {
                                 </label>
                                 <input
                                     type="text"
+                                    value={salespersonInCharge}
+                                    onChange={(e) => setSalespersonInCharge(e.target.value)}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                                     placeholder=""
                                 />

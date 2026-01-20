@@ -18,7 +18,16 @@ from .database import (
     CustomerMasterCustomerTermsCondition,
     CustomerMasterLongTermContractBasicDetail,
     CustomerMasterLongTermContractProductService,
-    CustomerMasterLongTermContractTermsCondition
+    CustomerMasterLongTermContractTermsCondition,
+    CustomerTransactionSalesQuotationGeneral,
+    CustomerTransactionSalesQuotationGeneralItem,
+    CustomerTransactionSalesQuotationSpecific,
+    CustomerTransactionSalesQuotationSpecificItem,
+    CustomerTransactionSalesOrderBasicDetails,
+    CustomerTransactionSalesOrderItemDetails,
+    CustomerTransactionSalesOrderDeliveryTerms,
+    CustomerTransactionSalesOrderPaymentAndSalesperson,
+    CustomerTransactionSalesOrderQuotationDetails
 )
 
 __all__ = [
@@ -37,5 +46,14 @@ __all__ = [
     'CustomerMasterCustomerTermsCondition',
     'CustomerMasterLongTermContractBasicDetail',
     'CustomerMasterLongTermContractProductService',
-    'CustomerMasterLongTermContractTermsCondition'
+    'CustomerMasterLongTermContractTermsCondition',
+    'CustomerTransactionSalesQuotationGeneral',
+    'CustomerTransactionSalesQuotationGeneralItem',
+    'CustomerTransactionSalesQuotationSpecific',
+    'CustomerTransactionSalesQuotationSpecificItem',
+    'CustomerTransactionSalesOrderBasicDetails',
+    'CustomerTransactionSalesOrderItemDetails',
+    'CustomerTransactionSalesOrderDeliveryTerms',
+    'CustomerTransactionSalesOrderPaymentAndSalesperson',
+    'CustomerTransactionSalesOrderQuotationDetails'
 ]

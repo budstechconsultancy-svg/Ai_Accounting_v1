@@ -280,9 +280,9 @@ class CustomerMasterCustomerBanking(models.Model):
     )
     
     # Bank Account Details
-    account_number = models.CharField(max_length=50, help_text='Bank Account Number')
-    bank_name = models.CharField(max_length=255, help_text='Bank Name')
-    ifsc_code = models.CharField(max_length=11, help_text='IFSC Code')
+    account_number = models.CharField(max_length=50, null=True, blank=True, help_text='Bank Account Number')
+    bank_name = models.CharField(max_length=255, null=True, blank=True, help_text='Bank Name')
+    ifsc_code = models.CharField(max_length=11, null=True, blank=True, help_text='IFSC Code')
     branch_name = models.CharField(max_length=255, null=True, blank=True, help_text='Branch Name')
     swift_code = models.CharField(max_length=11, null=True, blank=True, help_text='SWIFT Code for international transfers')
     
@@ -674,3 +674,303 @@ class CustomerMasterLongTermContractTermsCondition(models.Model):
     
     def __str__(self):
         return f"Terms for {self.contract_basic_detail.contract_number}"
+
+
+class CustomerTransactionSalesQuotationGeneral(models.Model):
+    """
+    Customer Transaction - Sales Quotation General Table
+    Stores general sales quotation details
+    """
+    id = models.AutoField(primary_key=True)
+    tenant_id = models.CharField(max_length=36, db_index=True)
+    
+    quote_number = models.CharField(max_length=50, unique=True)
+    customer_category = models.CharField(max_length=100, null=True, blank=True)
+    effective_from = models.DateField(null=True, blank=True)
+    effective_to = models.DateField(null=True, blank=True)
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.CharField(max_length=100, null=True, blank=True)
+    
+    class Meta:
+        db_table = 'customer_transaction_salesquotation_general'
+        indexes = [
+            models.Index(fields=['tenant_id', 'quote_number']),
+            models.Index(fields=['effective_from']),
+        ]
+
+    def __str__(self):
+        return self.quote_number
+
+
+class CustomerTransactionSalesQuotationGeneralItem(models.Model):
+    """
+    Customer Transaction - Sales Quotation General Item Table
+    """
+    id = models.AutoField(primary_key=True)
+    general_quote = models.ForeignKey(
+        CustomerTransactionSalesQuotationGeneral,
+        on_delete=models.CASCADE,
+        related_name='items',
+        db_column='general_quote_id'
+    )
+    
+    item_code = models.CharField(max_length=50, null=True, blank=True)
+    item_name = models.CharField(max_length=255, null=True, blank=True)
+    min_order_qty = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    base_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    max_discount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    best_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    
+    class Meta:
+        db_table = 'customer_transaction_salesquotation_general_item'
+    
+    def __str__(self):
+        return f"{self.item_code} - {self.general_quote.quote_number}"
+
+
+class CustomerTransactionSalesQuotationSpecific(models.Model):
+    """
+    Customer Transaction - Sales Quotation Specific Table
+    Stores specific sales quotation details
+    """
+    id = models.AutoField(primary_key=True)
+    tenant_id = models.CharField(max_length=36, db_index=True)
+    
+    quote_number = models.CharField(max_length=50, unique=True)
+    customer_name = models.CharField(max_length=255, null=True, blank=True)
+    branch = models.CharField(max_length=100, null=True, blank=True)
+    address = models.TextField(null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+    contact_no = models.CharField(max_length=20, null=True, blank=True)
+    
+    validity_from = models.DateField(null=True, blank=True)
+    validity_to = models.DateField(null=True, blank=True)
+    tentative_delivery_date = models.DateField(null=True, blank=True)
+    payment_terms = models.TextField(null=True, blank=True)
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.CharField(max_length=100, null=True, blank=True)
+    
+    class Meta:
+        db_table = 'customer_transaction_salesquotation_specific'
+        indexes = [
+            models.Index(fields=['tenant_id', 'quote_number']),
+            models.Index(fields=['validity_from']),
+        ]
+
+    def __str__(self):
+        return f"{self.quote_number} - {self.customer_name}"
+
+
+class CustomerTransactionSalesQuotationSpecificItem(models.Model):
+    """
+    Customer Transaction - Sales Quotation Specific Item Table
+    """
+    id = models.AutoField(primary_key=True)
+    specific_quote = models.ForeignKey(
+        CustomerTransactionSalesQuotationSpecific,
+        on_delete=models.CASCADE,
+        related_name='items',
+        db_column='specific_quote_id'
+    )
+    
+    item_code = models.CharField(max_length=50, null=True, blank=True)
+    item_name = models.CharField(max_length=255, null=True, blank=True)
+    customer_item_name = models.CharField(max_length=255, null=True, blank=True)
+    min_order_qty = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    base_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    discount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    negotiated_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    
+    class Meta:
+        db_table = 'customer_transaction_salesquotation_specific_item'
+    
+    def __str__(self):
+        return f"{self.item_code} - {self.specific_quote.quote_number}"
+
+
+class CustomerTransactionSalesOrderBasicDetails(models.Model):
+    """
+    Customer Transaction - Sales Order Basic Details
+    Stores basic sales order information
+    """
+    id = models.AutoField(primary_key=True)
+    tenant_id = models.CharField(max_length=36, db_index=True)
+    
+    # Basic Details
+    so_series_name = models.CharField(max_length=100, null=True, blank=True, help_text='SO Series Name')
+    so_number = models.CharField(max_length=50, help_text='Sales Order Number (auto-generated)')
+    date = models.DateField(help_text='Sales Order Date')
+    customer_po_number = models.CharField(max_length=100, null=True, blank=True, help_text='Customer PO Number')
+    customer_name = models.CharField(max_length=255, help_text='Customer Name')
+    branch = models.CharField(max_length=255, null=True, blank=True, help_text='Branch')
+    address = models.TextField(null=True, blank=True, help_text='Address')
+    email = models.EmailField(null=True, blank=True, help_text='Email Address')
+    contact_number = models.CharField(max_length=20, null=True, blank=True, help_text='Contact Number')
+    
+    # Quotation/Contract Linking - Moved to separate table
+    # quotation_type and quotation_number removed
+    
+    
+    # Status and Metadata
+    is_active = models.BooleanField(default=True)
+    is_deleted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.CharField(max_length=100, null=True, blank=True)
+    updated_by = models.CharField(max_length=100, null=True, blank=True)
+
+    class Meta:
+        db_table = 'customer_transaction_salesorder_basicdetails'
+        indexes = [
+            models.Index(fields=['tenant_id']),
+            models.Index(fields=['customer_name']),
+            models.Index(fields=['date']),
+        ]
+        unique_together = ['tenant_id', 'so_number']
+
+    def __str__(self):
+        return f"{self.so_number} - {self.customer_name}"
+
+
+class CustomerTransactionSalesOrderItemDetails(models.Model):
+    """
+    Customer Transaction - Sales Order Items
+    Stores item details for each sales order
+    """
+    id = models.AutoField(primary_key=True)
+    tenant_id = models.CharField(max_length=36, db_index=True)
+    so_basic_detail = models.ForeignKey(
+        CustomerTransactionSalesOrderBasicDetails, 
+        on_delete=models.CASCADE, 
+        related_name='items', 
+        db_column='so_basic_detail_id'
+    )
+    
+    # Item Details
+    item_code = models.CharField(max_length=50, null=True, blank=True, help_text='Item Code')
+    item_name = models.CharField(max_length=255, null=True, blank=True, help_text='Item Name')
+    quantity = models.DecimalField(max_digits=15, decimal_places=2, default=0, help_text='Quantity')
+    price = models.DecimalField(max_digits=15, decimal_places=2, default=0, help_text='Price per unit')
+    taxable_value = models.DecimalField(max_digits=15, decimal_places=2, default=0, help_text='Taxable Value (Qty * Price)')
+    gst = models.DecimalField(max_digits=15, decimal_places=2, default=0, help_text='GST Amount')
+    net_value = models.DecimalField(max_digits=15, decimal_places=2, default=0, help_text='Net Value (Taxable + GST)')
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'customer_transaction_salesorder_items'
+        indexes = [
+            models.Index(fields=['tenant_id']),
+            models.Index(fields=['so_basic_detail']),
+        ]
+
+    def __str__(self):
+        return f"{self.item_code} - {self.item_name}"
+
+
+class CustomerTransactionSalesOrderDeliveryTerms(models.Model):
+    """
+    Customer Transaction - Sales Order Delivery Terms
+    Stores delivery terms for each sales order
+    """
+    id = models.AutoField(primary_key=True)
+    tenant_id = models.CharField(max_length=36, db_index=True)
+    so_basic_detail = models.OneToOneField(
+        CustomerTransactionSalesOrderBasicDetails, 
+        on_delete=models.CASCADE, 
+        related_name='delivery_terms', 
+        db_column='so_basic_detail_id'
+    )
+    
+    # Delivery Details
+    deliver_at = models.CharField(max_length=500, null=True, blank=True, help_text='Delivery Address')
+    delivery_date = models.DateField(null=True, blank=True, help_text='Delivery Date')
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'customer_transaction_salesorder_deliveryterms'
+        indexes = [
+            models.Index(fields=['tenant_id']),
+        ]
+
+    def __str__(self):
+        return f"Delivery for {self.so_basic_detail.so_number}"
+
+
+class CustomerTransactionSalesOrderPaymentAndSalesperson(models.Model):
+    """
+    Customer Transaction - Sales Order Payment and Salesperson
+    Stores payment terms and salesperson details for each sales order
+    """
+    id = models.AutoField(primary_key=True)
+    tenant_id = models.CharField(max_length=36, db_index=True)
+    so_basic_detail = models.OneToOneField(
+        CustomerTransactionSalesOrderBasicDetails, 
+        on_delete=models.CASCADE, 
+        related_name='payment_and_salesperson', 
+        db_column='so_basic_detail_id'
+    )
+    
+    # Payment Details
+    credit_period = models.CharField(max_length=100, null=True, blank=True, help_text='Credit Period')
+    
+    # Salesperson Details
+    salesperson_in_charge = models.CharField(max_length=255, null=True, blank=True, help_text='Salesperson In Charge')
+    employee_id = models.CharField(max_length=50, null=True, blank=True, help_text='Employee ID / Agent ID')
+    employee_name = models.CharField(max_length=255, null=True, blank=True, help_text='Employee Name / Agent Name')
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'customer_transaction_salesorder_payment_salesperson'
+        indexes = [
+            models.Index(fields=['tenant_id']),
+        ]
+
+    def __str__(self):
+        return f"Payment & Salesperson for {self.so_basic_detail.so_number}"
+
+
+class CustomerTransactionSalesOrderQuotationDetails(models.Model):
+    """
+    Customer Transaction - Sales Order Quotation Details
+    Stores quotation linking details for each sales order
+    """
+    id = models.AutoField(primary_key=True)
+    tenant_id = models.CharField(max_length=36, db_index=True)
+    so_basic_detail = models.OneToOneField(
+        CustomerTransactionSalesOrderBasicDetails, 
+        on_delete=models.CASCADE, 
+        related_name='quotation_details', 
+        db_column='so_basic_detail_id'
+    )
+    
+    # Quotation Details
+    quotation_type = models.CharField(max_length=50, null=True, blank=True, help_text='Type: Sales Quotation or Contract')
+    quotation_number = models.CharField(max_length=100, null=True, blank=True, help_text='Sales Quotation # / Contract #')
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'customer_transaction_salesorder_quotation_details'
+        indexes = [
+            models.Index(fields=['tenant_id']),
+        ]
+
+    def __str__(self):
+        return f"Quotation Details for {self.so_basic_detail.so_number}"
