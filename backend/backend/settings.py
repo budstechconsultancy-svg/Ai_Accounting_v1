@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'inventory',
     'vendors',  # Vendor Portal
     'customerportal',  # Customer Portal
+    'payroll',  # Payroll Management
     'rest_framework_simplejwt',
     'reports',
 ]
