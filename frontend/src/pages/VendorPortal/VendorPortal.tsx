@@ -335,6 +335,25 @@ const VendorPortalPage: React.FC = () => {
     const [showCancelPOModal, setShowCancelPOModal] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
 
+    // Toast Notification State
+    const [toast, setToast] = useState<{
+        show: boolean;
+        message: string;
+        type: 'success' | 'error' | 'info' | 'warning';
+    }>({
+        show: false,
+        message: '',
+        type: 'info'
+    });
+
+    // Show toast notification
+    const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => {
+            setToast({ show: false, message: '', type: 'info' });
+        }, 4000); // Auto-hide after 4 seconds
+    };
+
 
 
     // Purchase Order Data State
@@ -625,6 +644,24 @@ const VendorPortalPage: React.FC = () => {
     const [selectedProcurementVendor, setSelectedProcurementVendor] = useState<ProcurementItem | null>(null);
     const [isMonthView, setIsMonthView] = useState(false);
 
+    // Ledger Filters State
+    const [ledgerFilters, setLedgerFilters] = useState({
+        date: '',
+        transferFrom: '',
+        invoiceNo: '',
+        ledger: '',
+        status: '',
+        debit: '',
+        credit: '',
+        runningBalance: ''
+    });
+
+    // Date formatting helper function
+    const formatDate = (dateString: string): string => {
+        const [year, month, day] = dateString.split('-');
+        return `${day}-${month}-${year}`;
+    };
+
     // Mock Ledger Data (filtered by vendor in real app)
     const mockLedgerEntries: LedgerEntry[] = [
         { id: 1, date: '2023-10-28', takenFrom: 'Purchase', invoiceNo: 'INV-2023-001', ledger: 'Purchase A/c', status: 'Unpaid', debit: 45000, credit: 0, runningBalance: 45000 },
@@ -637,6 +674,21 @@ const VendorPortalPage: React.FC = () => {
         takenFrom: item.takenFrom as LedgerEntry['takenFrom'],
         status: item.status as LedgerEntry['status']
     })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Filtered Ledger Entries
+    const filteredLedgerEntries = mockLedgerEntries.filter((entry) => {
+        const matchesDate = entry.date.toLowerCase().includes(ledgerFilters.date.toLowerCase());
+        const matchesTransferFrom = entry.takenFrom.toLowerCase().includes(ledgerFilters.transferFrom.toLowerCase());
+        const matchesInvoiceNo = (entry.invoiceNo || '').toLowerCase().includes(ledgerFilters.invoiceNo.toLowerCase());
+        const matchesLedger = entry.ledger.toLowerCase().includes(ledgerFilters.ledger.toLowerCase());
+        const matchesStatus = entry.status.toLowerCase().includes(ledgerFilters.status.toLowerCase());
+        const matchesDebit = entry.debit.toString().includes(ledgerFilters.debit);
+        const matchesCredit = entry.credit.toString().includes(ledgerFilters.credit);
+        const matchesRunningBalance = entry.runningBalance.toString().includes(ledgerFilters.runningBalance);
+
+        return matchesDate && matchesTransferFrom && matchesInvoiceNo && matchesLedger &&
+            matchesStatus && matchesDebit && matchesCredit && matchesRunningBalance;
+    });
 
     const mockMonthlySummary = [
         { month: 'January', debit: 10000, credit: 5000, closingBalance: 5000 },
@@ -739,6 +791,17 @@ const VendorPortalPage: React.FC = () => {
     const [paymentSortOrder, setPaymentSortOrder] = useState<'recent' | 'earliest'>('recent');
     const [showPostPaymentModal, setShowPostPaymentModal] = useState(false);
     const [selectedBillForPayment, setSelectedBillForPayment] = useState<PaymentBill | null>(null);
+
+    // Payment Bills Filters State
+    const [paymentBillFilters, setPaymentBillFilters] = useState({
+        date: '',
+        vendorReferenceName: '',
+        voucherNo: '',
+        supplierInvoiceNo: '',
+        amount: '',
+        status: ''
+    });
+
     const [postPaymentForm, setPostPaymentForm] = useState({
         dateOfPayment: '',
         bankAccount: '',
@@ -861,6 +924,27 @@ const VendorPortalPage: React.FC = () => {
     const [eouStatus, setEouStatus] = useState('');
     const [tdsSectionApplicable, setTdsSectionApplicable] = useState('');
     const [enableAutomaticTdsPosting, setEnableAutomaticTdsPosting] = useState(false);
+
+    // File Upload State for Statutory Documents
+    const [uploadedFiles, setUploadedFiles] = useState<{
+        msmeFile: File | null;
+        fssaiFile: File | null;
+        iecFile: File | null;
+        eouFile: File | null;
+    }>({
+        msmeFile: null,
+        fssaiFile: null,
+        iecFile: null,
+        eouFile: null
+    });
+
+    // Handle File Upload
+    const handleFileUpload = (fileType: 'msmeFile' | 'fssaiFile' | 'iecFile' | 'eouFile', file: File | null) => {
+        if (file) {
+            setUploadedFiles(prev => ({ ...prev, [fileType]: file }));
+            showToast(`${file.name} uploaded successfully!`, 'success');
+        }
+    };
 
     // Handle TDS Details Form Submit
     const handleTDSDetailsSubmit = async (e: React.FormEvent) => {
@@ -2007,63 +2091,206 @@ const VendorPortalPage: React.FC = () => {
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         MSME Udyam No
                                                     </label>
-                                                    <input
-                                                        type="text"
-                                                        value={msmeUdyamNo}
-                                                        onChange={(e) => setMsmeUdyamNo(e.target.value)}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                                        placeholder="MSME Udyam Registration Number"
-                                                    />
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={msmeUdyamNo}
+                                                            onChange={(e) => setMsmeUdyamNo(e.target.value)}
+                                                            className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                            placeholder="MSME Udyam Registration Number"
+                                                        />
+                                                        <input
+                                                            type="file"
+                                                            id="msme-file-upload"
+                                                            className="hidden"
+                                                            accept=".pdf,.jpg,.jpeg,.png"
+                                                            onChange={(e) => handleFileUpload('msmeFile', e.target.files?.[0] || null)}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => document.getElementById('msme-file-upload')?.click()}
+                                                            className="px-4 py-2 bg-teal-50 border border-teal-300 rounded-md hover:bg-teal-100 transition-colors flex items-center gap-2 text-teal-700"
+                                                            title="Upload MSME Registration Certificate"
+                                                        >
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                    {uploadedFiles.msmeFile && (
+                                                        <p className="mt-1 text-xs text-green-600">✓ {uploadedFiles.msmeFile.name}</p>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         FSSAI License No
                                                     </label>
-                                                    <input
-                                                        type="text"
-                                                        value={fssaiLicenseNo}
-                                                        onChange={(e) => setFssaiLicenseNo(e.target.value)}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                                        placeholder="FSSAI License Number"
-                                                    />
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={fssaiLicenseNo}
+                                                            onChange={(e) => setFssaiLicenseNo(e.target.value)}
+                                                            className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                            placeholder="FSSAI License Number"
+                                                        />
+                                                        <input
+                                                            type="file"
+                                                            id="fssai-file-upload"
+                                                            className="hidden"
+                                                            accept=".pdf,.jpg,.jpeg,.png"
+                                                            onChange={(e) => handleFileUpload('fssaiFile', e.target.files?.[0] || null)}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => document.getElementById('fssai-file-upload')?.click()}
+                                                            className="px-4 py-2 bg-teal-50 border border-teal-300 rounded-md hover:bg-teal-100 transition-colors flex items-center gap-2 text-teal-700"
+                                                            title="Upload FSSAI License"
+                                                        >
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                    {uploadedFiles.fssaiFile && (
+                                                        <p className="mt-1 text-xs text-green-600">✓ {uploadedFiles.fssaiFile.name}</p>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         Import Export Code (IEC)
                                                     </label>
-                                                    <input
-                                                        type="text"
-                                                        value={importExportCode}
-                                                        onChange={(e) => setImportExportCode(e.target.value)}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                                        placeholder="Import Export Code"
-                                                    />
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={importExportCode}
+                                                            onChange={(e) => setImportExportCode(e.target.value)}
+                                                            className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                            placeholder="Import Export Code"
+                                                        />
+                                                        <input
+                                                            type="file"
+                                                            id="iec-file-upload"
+                                                            className="hidden"
+                                                            accept=".pdf,.jpg,.jpeg,.png"
+                                                            onChange={(e) => handleFileUpload('iecFile', e.target.files?.[0] || null)}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => document.getElementById('iec-file-upload')?.click()}
+                                                            className="px-4 py-2 bg-teal-50 border border-teal-300 rounded-md hover:bg-teal-100 transition-colors flex items-center gap-2 text-teal-700"
+                                                            title="Upload IEC Certificate"
+                                                        >
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                    {uploadedFiles.iecFile && (
+                                                        <p className="mt-1 text-xs text-green-600">✓ {uploadedFiles.iecFile.name}</p>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         EOU Status
                                                     </label>
-                                                    <input
-                                                        type="text"
-                                                        value={eouStatus}
-                                                        onChange={(e) => setEouStatus(e.target.value)}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                                        placeholder="Export Oriented Unit Status"
-                                                    />
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={eouStatus}
+                                                            onChange={(e) => setEouStatus(e.target.value)}
+                                                            className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                            placeholder="Export Oriented Unit Status"
+                                                        />
+                                                        <input
+                                                            type="file"
+                                                            id="eou-file-upload"
+                                                            className="hidden"
+                                                            accept=".pdf,.jpg,.jpeg,.png"
+                                                            onChange={(e) => handleFileUpload('eouFile', e.target.files?.[0] || null)}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => document.getElementById('eou-file-upload')?.click()}
+                                                            className="px-4 py-2 bg-teal-50 border border-teal-300 rounded-md hover:bg-teal-100 transition-colors flex items-center gap-2 text-teal-700"
+                                                            title="Upload Letter of Permission / Green Card"
+                                                        >
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                    {uploadedFiles.eouFile && (
+                                                        <p className="mt-1 text-xs text-green-600">✓ {uploadedFiles.eouFile.name}</p>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                                         TDS Section Applicable
                                                     </label>
-                                                    <input
-                                                        type="text"
+                                                    <select
                                                         value={tdsSectionApplicable}
                                                         onChange={(e) => setTdsSectionApplicable(e.target.value)}
-                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                                        placeholder="TDS Section Applicable"
-                                                    />
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 bg-white"
+                                                    >
+                                                        <option value="">Select TDS Section</option>
+                                                        <option value="Section 194C">Section 194C - Contracts (Individual/HUF & Others)</option>
+                                                        <option value="Section 194H">Section 194H - Commission/Brokerage</option>
+                                                        <option value="Section 194-I">Section 194-I - Rent (Land, Building, Furniture & Fitting, Plant & Machinery, Equipment)</option>
+                                                        <option value="Section 194J">Section 194J - Professional Services, Technical Services, Director's Remuneration</option>
+                                                        <option value="Section 194Q">Section 194Q - Purchase of Goods</option>
+                                                        <option value="Section 194A">Section 194A - Interest other than interest on securities</option>
+                                                        <option value="Section 194R">Section 194R - Benefit or Perquisite</option>
+                                                        <option value="Section 194-IA">Section 194-IA - Immovable Property Transfer</option>
+                                                        <option value="Section 194-IB">Section 194-IB - Rent by Individual or HUF</option>
+                                                        <option value="Section 194-IC">Section 194-IC - Joint Development Agreements</option>
+                                                        <option value="Section 194M">Section 194M - Contractors & Professionals</option>
+                                                        <option value="Section 194-O">Section 194-O - E-Commerce</option>
+                                                        <option value="Section 195">Section 195 - Payment to Non-Residents</option>
+                                                    </select>
                                                 </div>
                                             </div>
+
+                                            {/* TDS Rate Information */}
+                                            {tdsSectionApplicable && (() => {
+                                                const getTDSRateInfo = (section: string) => {
+                                                    const rates: { [key: string]: { tdsRate: string; penaltyRate: string; description: string } } = {
+                                                        'Section 194C': { tdsRate: '1% / 2%', penaltyRate: '20%', description: 'Payment to Contractors who are Individuals or Hindu Undivided Family (HUF) / Payment to Contractors other than Individuals & HUF' },
+                                                        'Section 194H': { tdsRate: '2%', penaltyRate: '20%', description: 'Commission and Brokerage to agents' },
+                                                        'Section 194-I': { tdsRate: '2% / 10%', penaltyRate: '20%', description: 'Rent on Land, Building, or Furniture & fitting / Rent on Plant & Machinery, or Equipment' },
+                                                        'Section 194J': { tdsRate: '2% / 10%', penaltyRate: '20%', description: 'Fees for Technical Services, Call Center Operations, Royalty on sale & distribution of films / Professional Services, Royalty from other than films, Non-Compete Fees, etc. / Director\'s Remuneration' },
+                                                        'Section 194Q': { tdsRate: '0.10%', penaltyRate: '5%', description: 'Purchase of Goods of aggregate value exceeding Rs. 50 Lakhs' },
+                                                        'Section 194A': { tdsRate: '10%', penaltyRate: '20%', description: 'Interest payments made on loans, FDs, advances, etc., other than interest on securities' },
+                                                        'Section 194R': { tdsRate: '10%', penaltyRate: '20%', description: 'Benefit or Perquisite given by a business or professional exceeding Rs 20,000' },
+                                                        'Section 194-IA': { tdsRate: '1%', penaltyRate: '20%', description: 'Transfer of immovable property valuing Rs 50 lakhs or more' },
+                                                        'Section 194-IB': { tdsRate: '2%', penaltyRate: '20%', description: 'Rent exceeding Rs 50,000 per month paid by Individual & HUFs who are not subject to tax audit' },
+                                                        'Section 194-IC': { tdsRate: '10%', penaltyRate: '20%', description: 'Payment of monetary consideration under a specified Joint Development Agreements' },
+                                                        'Section 194M': { tdsRate: '5%', penaltyRate: '20%', description: 'Payment exceeding Rs 50 Lakhs to contractors or professionals by Individuals & HUFs who are not subject to tax audit' },
+                                                        'Section 194-O': { tdsRate: '1%', penaltyRate: '5%', description: 'Facilitating sales or services by an E-commerce operator for an E-commerce participant' },
+                                                        'Section 195': { tdsRate: 'Specify "Rate" & "Nature"', penaltyRate: '-', description: 'Any payment subject to tax made to a Non-Resident or Foreign Company' }
+                                                    };
+                                                    return rates[section] || null;
+                                                };
+
+                                                const rateInfo = getTDSRateInfo(tdsSectionApplicable);
+
+                                                return rateInfo ? (
+                                                    <div className="mt-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-md">
+                                                        <div className="flex items-start gap-3">
+                                                            <svg className="w-6 h-6 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                            </svg>
+                                                            <div className="flex-1">
+                                                                <h4 className="text-sm font-semibold text-blue-800 mb-2">TDS Rate Information</h4>
+                                                                <div className="space-y-1 text-sm text-blue-700">
+                                                                    <p><span className="font-medium">TDS Rate:</span> {rateInfo.tdsRate}</p>
+                                                                    <p><span className="font-medium">Penalty Rate:</span> {rateInfo.penaltyRate}</p>
+                                                                    <p className="mt-2 text-xs text-blue-600 italic">{rateInfo.description}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : null;
+                                            })()}
 
                                             {/* Enable automatic TDS Posting Checkbox */}
                                             <div className="flex items-center gap-2 pt-2">
@@ -2719,7 +2946,7 @@ const VendorPortalPage: React.FC = () => {
                                                                                 purchaseOrders.filter(po => po.status === 'Pending Approval').map((po) => (
                                                                                     <tr key={po.id} className="hover:bg-gray-50 transition-colors">
                                                                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{po.poNumber}</td>
-                                                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{po.poDate}</td>
+                                                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(po.poDate)}</td>
                                                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{po.vendorName}</td>
                                                                                         <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={po.address}>{po.address}</td>
                                                                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -2764,7 +2991,7 @@ const VendorPortalPage: React.FC = () => {
                                                                                 purchaseOrders.filter(po => po.status === 'Approved').map((po) => (
                                                                                     <tr key={po.id} className="hover:bg-gray-50 transition-colors">
                                                                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{po.poNumber}</td>
-                                                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{po.poDate}</td>
+                                                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(po.poDate)}</td>
                                                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{po.vendorName}</td>
                                                                                         <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={po.address}>{po.address}</td>
                                                                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -2812,7 +3039,7 @@ const VendorPortalPage: React.FC = () => {
                                                                     purchaseOrders.filter(po => po.status === 'Mailed').map((po) => (
                                                                         <tr key={po.id} className="hover:bg-gray-50 transition-colors">
                                                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{po.poNumber}</td>
-                                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{po.poDate}</td>
+                                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(po.poDate)}</td>
                                                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{po.vendorName}</td>
                                                                             <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={po.address}>{po.address}</td>
                                                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -2856,7 +3083,7 @@ const VendorPortalPage: React.FC = () => {
                                                                     purchaseOrders.filter(po => po.status === 'Closed').map((po) => (
                                                                         <tr key={po.id} className="hover:bg-gray-50 transition-colors">
                                                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{po.poNumber}</td>
-                                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{po.poDate}</td>
+                                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(po.poDate)}</td>
                                                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{po.vendorName}</td>
                                                                             <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={po.address}>{po.address}</td>
                                                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -2972,12 +3199,23 @@ const VendorPortalPage: React.FC = () => {
                                                                 <table className="min-w-full divide-y divide-gray-200">
                                                                     <thead className="bg-gray-50">
                                                                         <tr>
-                                                                            {['Date', 'Transfer from', 'Invoice No', 'Ledger', 'Status', 'Debit', 'Credit', 'Running balance'].map((header) => (
-                                                                                <th key={header} className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider align-top">
-                                                                                    <div className="mb-2">{header}</div>
+                                                                            {[
+                                                                                { label: 'Date', key: 'date' },
+                                                                                { label: 'Transfer from', key: 'transferFrom' },
+                                                                                { label: 'Invoice No', key: 'invoiceNo' },
+                                                                                { label: 'Ledger', key: 'ledger' },
+                                                                                { label: 'Status', key: 'status' },
+                                                                                { label: 'Debit', key: 'debit' },
+                                                                                { label: 'Credit', key: 'credit' },
+                                                                                { label: 'Running balance', key: 'runningBalance' }
+                                                                            ].map((header) => (
+                                                                                <th key={header.key} className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider align-top">
+                                                                                    <div className="mb-2">{header.label}</div>
                                                                                     <input
                                                                                         type="text"
-                                                                                        placeholder={`Filter ${header}`}
+                                                                                        placeholder={`Filter ${header.label}`}
+                                                                                        value={ledgerFilters[header.key as keyof typeof ledgerFilters]}
+                                                                                        onChange={(e) => setLedgerFilters({ ...ledgerFilters, [header.key]: e.target.value })}
                                                                                         className="block w-full text-xs border-gray-300 rounded-md shadow-sm focus:border-teal-500 focus:ring-teal-500 py-1 px-2"
                                                                                     />
                                                                                 </th>
@@ -2985,9 +3223,9 @@ const VendorPortalPage: React.FC = () => {
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody className="bg-white divide-y divide-gray-200">
-                                                                        {mockLedgerEntries.map((entry) => (
+                                                                        {filteredLedgerEntries.map((entry) => (
                                                                             <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
-                                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.date}</td>
+                                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(entry.date)}</td>
                                                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.takenFrom}</td>
                                                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">{entry.invoiceNo || '-'}</td>
                                                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.ledger}</td>
@@ -3008,10 +3246,10 @@ const VendorPortalPage: React.FC = () => {
                                                                         <tr className="bg-gray-50 font-bold border-t-2 border-gray-300">
                                                                             <td colSpan={5} className="px-6 py-4 text-right text-sm text-gray-900 uppercase">Total</td>
                                                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-t-2 border-gray-400">
-                                                                                {mockLedgerEntries.reduce((acc, curr) => acc + curr.debit, 0).toLocaleString('en-IN')}
+                                                                                {filteredLedgerEntries.reduce((acc, curr) => acc + curr.debit, 0).toLocaleString('en-IN')}
                                                                             </td>
                                                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-t-2 border-gray-400">
-                                                                                {mockLedgerEntries.reduce((acc, curr) => acc + curr.credit, 0).toLocaleString('en-IN')}
+                                                                                {filteredLedgerEntries.reduce((acc, curr) => acc + curr.credit, 0).toLocaleString('en-IN')}
                                                                             </td>
                                                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>
                                                                         </tr>
@@ -3193,21 +3431,56 @@ const VendorPortalPage: React.FC = () => {
                                                         <table className="min-w-full divide-y divide-gray-200">
                                                             <thead className="bg-gray-50">
                                                                 <tr>
-                                                                    {['Date', 'Vendor Reference Name', 'Voucher No', 'Supplier Invoice No.', 'Amount', 'Approve', 'Action', 'Status'].map((header) => (
-                                                                        <th key={header} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider align-top">
-                                                                            <div className="mb-2">{header}</div>
-                                                                            <input
-                                                                                type="text"
-                                                                                placeholder={`Filter ${header}`}
-                                                                                className="block w-full text-xs border-gray-300 rounded-md shadow-sm focus:border-teal-500 focus:ring-teal-500 py-1 px-2"
-                                                                            />
+                                                                    {[
+                                                                        { label: 'Date', key: 'date' },
+                                                                        { label: 'Vendor Reference Name', key: 'vendorReferenceName' },
+                                                                        { label: 'Voucher No', key: 'voucherNo' },
+                                                                        { label: 'Supplier Invoice No.', key: 'supplierInvoiceNo' },
+                                                                        { label: 'Amount', key: 'amount' },
+                                                                        { label: 'Approve', key: 'approve' },
+                                                                        { label: 'Action', key: 'action' },
+                                                                        { label: 'Status', key: 'status' }
+                                                                    ].map((header) => (
+                                                                        <th key={header.key} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider align-top">
+                                                                            <div className="mb-2">{header.label}</div>
+                                                                            {['approve', 'action'].includes(header.key) ? (
+                                                                                <input
+                                                                                    type="text"
+                                                                                    placeholder={`Filter ${header.label}`}
+                                                                                    disabled
+                                                                                    className="block w-full text-xs border-gray-300 rounded-md shadow-sm bg-gray-100 py-1 px-2"
+                                                                                />
+                                                                            ) : (
+                                                                                <input
+                                                                                    type="text"
+                                                                                    placeholder={`Filter ${header.label}`}
+                                                                                    value={paymentBillFilters[header.key as keyof typeof paymentBillFilters] || ''}
+                                                                                    onChange={(e) => setPaymentBillFilters({ ...paymentBillFilters, [header.key]: e.target.value })}
+                                                                                    className="block w-full text-xs border-gray-300 rounded-md shadow-sm focus:border-teal-500 focus:ring-teal-500 py-1 px-2"
+                                                                                />
+                                                                            )}
                                                                         </th>
                                                                     ))}
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="bg-white divide-y divide-gray-200">
                                                                 {[...paymentBills]
-                                                                    .filter(bill => bill.status !== 'Posted' && bill.category === activePaymentSubTab) // Filter by category and exclude Posted
+                                                                    .filter(bill => {
+                                                                        // Filter by category and exclude Posted
+                                                                        if (bill.status === 'Posted' || bill.category !== activePaymentSubTab) {
+                                                                            return false;
+                                                                        }
+
+                                                                        // Apply user filters
+                                                                        const matchesDate = bill.date.toLowerCase().includes(paymentBillFilters.date.toLowerCase());
+                                                                        const matchesVendor = bill.vendorReferenceName.toLowerCase().includes(paymentBillFilters.vendorReferenceName.toLowerCase());
+                                                                        const matchesVoucher = bill.voucherNo.toLowerCase().includes(paymentBillFilters.voucherNo.toLowerCase());
+                                                                        const matchesInvoice = bill.supplierInvoiceNo.toLowerCase().includes(paymentBillFilters.supplierInvoiceNo.toLowerCase());
+                                                                        const matchesAmount = bill.amount.toLowerCase().includes(paymentBillFilters.amount.toLowerCase());
+                                                                        const matchesStatus = bill.status.toLowerCase().includes(paymentBillFilters.status.toLowerCase());
+
+                                                                        return matchesDate && matchesVendor && matchesVoucher && matchesInvoice && matchesAmount && matchesStatus;
+                                                                    })
                                                                     .sort((a, b) => {
                                                                         const dateA = new Date(a.date).getTime();
                                                                         const dateB = new Date(b.date).getTime();
@@ -3215,7 +3488,7 @@ const VendorPortalPage: React.FC = () => {
                                                                     })
                                                                     .map((bill) => (
                                                                         <tr key={bill.id} className="hover:bg-gray-50 transition-colors">
-                                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{bill.date}</td>
+                                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(bill.date)}</td>
                                                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{bill.vendorReferenceName}</td>
                                                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{bill.voucherNo}</td>
                                                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{bill.supplierInvoiceNo}</td>
@@ -3297,7 +3570,7 @@ const VendorPortalPage: React.FC = () => {
                                                                                                 const logMessages = bill.actionLog?.map(log =>
                                                                                                     `${log.action} by ${log.user} on ${log.date}`
                                                                                                 ).join('\n');
-                                                                                                alert(`Action History:\n\n${logMessages}`);
+                                                                                                showToast(`Action History:\n\n${logMessages}`, 'info');
                                                                                             }}
                                                                                             className="text-gray-500 hover:text-teal-600 focus:outline-none transition-colors"
                                                                                             title="View Action History"
@@ -4057,6 +4330,58 @@ const VendorPortalPage: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {/* Toast Notification */}
+            {toast.show && (
+                <div className="fixed top-4 right-4 z-[9999] animate-slide-in-right">
+                    <div className={`flex items-start gap-3 px-6 py-4 rounded-lg shadow-2xl border-l-4 min-w-[320px] max-w-md backdrop-blur-sm ${toast.type === 'success' ? 'bg-green-50 border-green-500 text-green-800' :
+                        toast.type === 'error' ? 'bg-red-50 border-red-500 text-red-800' :
+                            toast.type === 'warning' ? 'bg-yellow-50 border-yellow-500 text-yellow-800' :
+                                'bg-blue-50 border-blue-500 text-blue-800'
+                        }`}>
+                        {/* Icon */}
+                        <div className="flex-shrink-0 mt-0.5">
+                            {toast.type === 'success' && (
+                                <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            )}
+                            {toast.type === 'error' && (
+                                <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            )}
+                            {toast.type === 'warning' && (
+                                <svg className="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            )}
+                            {toast.type === 'info' && (
+                                <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            )}
+                        </div>
+
+                        {/* Message */}
+                        <div className="flex-1">
+                            <p className="text-sm font-medium leading-relaxed whitespace-pre-line">
+                                {toast.message}
+                            </p>
+                        </div>
+
+                        {/* Close Button */}
+                        <button
+                            onClick={() => setToast({ ...toast, show: false })}
+                            className="flex-shrink-0 ml-2 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };
