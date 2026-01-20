@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { httpClient } from '../../services/httpClient';
 
 interface ItemRow {
     id: number;
@@ -105,10 +106,55 @@ const CreateSalesQuotation: React.FC<CreateSalesQuotationProps> = ({ onCancel })
         ));
     };
 
-    const handleSave = () => {
-        // Save logic here
-        console.log('Saving quotation...', { quoteNumber, customerCategory, effectiveFrom, effectiveTo, items });
-        alert('Quotation saved successfully!');
+    const handleSave = async () => {
+        try {
+            if (quotationType === 'General Customer Quote') {
+                const payload = {
+                    quote_number: quoteNumber,
+                    customer_category: customerCategory,
+                    effective_from: effectiveFrom || null,
+                    effective_to: effectiveTo || null,
+                    items: items.map(item => ({
+                        item_code: item.itemCode,
+                        item_name: item.itemName,
+                        min_order_qty: parseFloat(item.minOrderQty) || 0,
+                        base_price: parseFloat(item.basePrice) || 0,
+                        max_discount: parseFloat(item.maxDiscount) || 0,
+                        best_price: parseFloat(item.bestPrice) || 0
+                    }))
+                };
+                await httpClient.post('/api/customerportal/sales-quotations-general/', payload);
+            } else {
+                const payload = {
+                    quote_number: specificQuoteNumber,
+                    customer_name: customerName,
+                    branch: branch,
+                    address: address,
+                    email: email,
+                    contact_no: contactNo,
+                    validity_from: validityFrom || null,
+                    validity_to: validityTo || null,
+                    tentative_delivery_date: tentativeDeliveryDate || null,
+                    payment_terms: paymentTerms,
+                    items: specificItems.map(item => ({
+                        item_code: item.itemCode,
+                        item_name: item.itemName,
+                        customer_item_name: item.customerItemName,
+                        min_order_qty: parseFloat(item.minOrderQty) || 0,
+                        base_price: parseFloat(item.basePrice) || 0,
+                        discount: parseFloat(item.discount) || 0,
+                        negotiated_price: parseFloat(item.negotiatedPrice) || 0
+                    }))
+                };
+                await httpClient.post('/api/customerportal/sales-quotations-specific/', payload);
+            }
+            alert('Quotation saved successfully!');
+            onCancel();
+        } catch (error: any) {
+            console.error('Error saving quotation:', error);
+            const errorMessage = error.response?.data?.detail || error.message || 'Failed to save quotation';
+            alert(`Error: ${errorMessage}`);
+        }
     };
 
     return (

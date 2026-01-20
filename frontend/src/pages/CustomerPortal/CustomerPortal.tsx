@@ -8,7 +8,7 @@ import SalesQuotationList from './SalesQuotationList';
 import CreateSalesOrder from './CreateSalesOrder';
 import { Eye, Mail, Filter, ChevronLeft, X, Calendar } from 'lucide-react';
 
-type MainTab = 'Masters' | 'Transactions' | 'Reports';
+type MainTab = 'Masters' | 'Transactions';
 type MasterSubTab = 'Category' | 'Sales Quotation & Order' | 'Customer' | 'Long-term Contracts';
 
 type TransactionSubTab = 'Sales Quotation' | 'Sales Order' | 'Sales' | 'Receipt';
@@ -75,7 +75,7 @@ const CustomerPortalPage: React.FC = () => {
             {/* Main Tabs */}
             <div className="bg-white border-b border-gray-200 px-8">
                 <div className="flex gap-8">
-                    {['Masters', 'Transactions', 'Reports'].map((tab) => (
+                    {['Masters', 'Transactions'].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as MainTab)}
@@ -363,12 +363,7 @@ const CustomerPortalPage: React.FC = () => {
                     </div>
                 )}
 
-                {activeTab === 'Reports' && (
-                    <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-                        <h3 className="text-lg font-medium text-gray-900">Reports</h3>
-                        <p className="text-gray-500 mt-2">Reports dashboard interface coming soon.</p>
-                    </div>
-                )}
+
             </div>
         </div >
     );
@@ -479,11 +474,45 @@ const CustomerContent: React.FC = () => {
     const [showGstDropdown, setShowGstDropdown] = useState(false); // Dropdown visibility state
     const [addMultipleBranches, setAddMultipleBranches] = useState(false); // Toggle for multiple branches
     const [unregisteredBranches, setUnregisteredBranches] = useState([
-        { id: 1, referenceName: '', address: '', contactPerson: '', email: '', contactNumber: '' }
+        { id: 1, referenceName: '', address: '', contactPerson: '', email: '', contactNumber: '', gstin: null }
     ]);
+    const [registeredBranches, setRegisteredBranches] = useState<any[]>([]); // Track registered branch inputs
+
     const [productRows, setProductRows] = useState([
         { id: 1, itemCode: '', itemName: 'Auto-fetched', uom: '', custItemCode: '', custItemName: '', custUom: '' }
     ]);
+
+    // ... (rest of state)
+
+    // ... (existing handlers)
+
+    const handleRegisteredBranchChange = (gstin: string, field: string, value: string) => {
+        setRegisteredBranches(prev => {
+            const existing = prev.find(b => b.gstin === gstin);
+            if (existing) {
+                return prev.map(b => b.gstin === gstin ? { ...b, [field]: value } : b);
+            }
+            // Should not happen if initialized correctly, but safe fallback
+            return [...prev, { gstin, [field]: value }];
+        });
+    };
+
+    // Function to populate inputs when GSTIN is selected
+    const initializeRegisteredBranch = (gstin: string) => {
+        setRegisteredBranches(prev => {
+            if (prev.find(b => b.gstin === gstin)) return prev;
+            // Pre-fill from mock if available, or empty
+            const mock = mockBranches.find(b => b.gstin === gstin);
+            return [...prev, {
+                gstin,
+                defaultRef: mock ? mock.defaultRef : '',
+                address: mock ? mock.address : '',
+                contactPerson: '',
+                contactNumber: '',
+                email: ''
+            }];
+        });
+    };
     const [statutoryDetails, setStatutoryDetails] = useState({
         msmeNo: '',
         fssaiNo: '',
@@ -555,9 +584,23 @@ const CustomerContent: React.FC = () => {
                 contact_number: customerFormData.contact_number || null,
                 is_also_vendor: isVendor,
                 // GST Details
-                gst_details: isUnregistered ? null : {
-                    gstins: selectedGSTINs,
-                    branches: showBranchDetails ? mockBranches : []
+                gst_details: {
+                    gstins: isUnregistered ? [] : selectedGSTINs,
+                    branches: isUnregistered ? unregisteredBranches.map(b => ({
+                        defaultRef: b.referenceName,
+                        address: b.address,
+                        contactPerson: b.contactPerson,
+                        email: b.email,
+                        contactNumber: b.contactNumber,
+                        gstin: null
+                    })) : (showBranchDetails ? registeredBranches.map(b => ({
+                        defaultRef: b.defaultRef,
+                        address: b.address,
+                        contactPerson: b.contactPerson,
+                        email: b.email,
+                        contactNumber: b.contactNumber,
+                        gstin: b.gstin
+                    })) : [])
                 },
                 // Products/Services
                 products_services: {
@@ -584,14 +627,33 @@ const CustomerContent: React.FC = () => {
                 dispute_terms: termsDetails.disputeTerms || null
             };
 
+            // DEBUG LOGGING
+            console.log('='.repeat(80));
+            console.log('CUSTOMER SAVE - FRONTEND');
+            console.log('='.repeat(80));
+            console.log('Full Payload:', payload);
+            console.log('Terms & Conditions:', {
+                credit_period: payload.credit_period,
+                credit_terms: payload.credit_terms,
+                penalty_terms: payload.penalty_terms,
+                delivery_terms: payload.delivery_terms,
+                warranty_details: payload.warranty_details,
+                force_majeure: payload.force_majeure,
+                dispute_terms: payload.dispute_terms
+            });
+            console.log('='.repeat(80));
+
             let response;
             if (createdCustomerId) {
                 // Update existing customer
+                console.log('Updating existing customer:', createdCustomerId);
                 response = await httpClient.patch(`/api/customerportal/customer-master/${createdCustomerId}/`, payload);
                 if (options.exit) alert('Customer updated successfully!');
             } else {
                 // Create new customer
+                console.log('Creating new customer...');
                 response = await httpClient.post('/api/customerportal/customer-master/', payload);
+                console.log('Customer created! Response:', response);
                 setCreatedCustomerId(response.id);
                 if (options.exit) alert('Customer created successfully!');
             }
@@ -713,9 +775,11 @@ const CustomerContent: React.FC = () => {
     const handleGstSelect = (gstin: string) => {
         if (selectedGSTINs.includes(gstin)) {
             setSelectedGSTINs(prev => prev.filter(g => g !== gstin));
+            setRegisteredBranches(prev => prev.filter(b => b.gstin !== gstin)); // Cleanup
         } else {
             setSelectedGSTINs(prev => [...prev, gstin]);
             setGstInput(''); // Clear input on selection
+            initializeRegisteredBranch(gstin); // Initialize data
         }
     };
 
@@ -1224,7 +1288,7 @@ const CustomerContent: React.FC = () => {
                                 {showBranchDetails && (
                                     <div className="space-y-4">
                                         {selectedGSTINs.map((gstin, index) => {
-                                            const branch = mockBranches.find(b => b.gstin === gstin) || { address: 'Address not fetched', defaultRef: 'New Branch' };
+                                            const branch = registeredBranches.find(b => b.gstin === gstin) || { defaultRef: '', address: '', contactPerson: '', contactNumber: '', email: '' }; // Fallback
                                             const isExpanded = expandedBranches.includes(index + 1);
 
                                             return (
@@ -1238,7 +1302,7 @@ const CustomerContent: React.FC = () => {
                                                             <span className="w-6 h-6 flex items-center justify-center bg-white border border-gray-200 rounded text-xs font-semibold text-gray-600">
                                                                 {index + 1}
                                                             </span>
-                                                            <span className="font-semibold text-gray-800">{branch.defaultRef}</span>
+                                                            <span className="font-semibold text-gray-800">{branch.defaultRef || 'New Branch'}</span>
                                                         </div>
                                                         <span className="text-gray-400">
                                                             {isExpanded ? '▲' : '▼'}
@@ -1249,31 +1313,54 @@ const CustomerContent: React.FC = () => {
                                                     {isExpanded && (
                                                         <div className="p-6 grid grid-cols-1 gap-6">
                                                             <div>
-                                                                <label className="block text-xs font-medium text-gray-500 mb-1">Address (Fetched)</label>
-                                                                <div className="p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-600">
-                                                                    {branch.address}
-                                                                </div>
+                                                                <label className="block text-xs font-medium text-gray-500 mb-1">Address (Fetched / Editable)</label>
+                                                                <textarea
+                                                                    rows={3}
+                                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none"
+                                                                    value={branch.address}
+                                                                    onChange={(e) => handleRegisteredBranchChange(gstin, 'address', e.target.value)}
+                                                                />
                                                             </div>
 
                                                             <div>
                                                                 <label className="block text-xs font-medium text-gray-500 mb-1">Reference Name</label>
-                                                                <input type="text" defaultValue={branch.defaultRef} className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
+                                                                <input
+                                                                    type="text"
+                                                                    value={branch.defaultRef}
+                                                                    onChange={(e) => handleRegisteredBranchChange(gstin, 'defaultRef', e.target.value)}
+                                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                                />
                                                             </div>
 
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                                 <div>
                                                                     <label className="block text-xs font-medium text-gray-500 mb-1">Contact Person</label>
-                                                                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
+                                                                    <input
+                                                                        type="text"
+                                                                        value={branch.contactPerson || ''}
+                                                                        onChange={(e) => handleRegisteredBranchChange(gstin, 'contactPerson', e.target.value)}
+                                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                                    />
                                                                 </div>
                                                                 <div>
                                                                     <label className="block text-xs font-medium text-gray-500 mb-1">Contact Number</label>
-                                                                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
+                                                                    <input
+                                                                        type="text"
+                                                                        value={branch.contactNumber || ''}
+                                                                        onChange={(e) => handleRegisteredBranchChange(gstin, 'contactNumber', e.target.value)}
+                                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                                    />
                                                                 </div>
                                                             </div>
 
                                                             <div>
                                                                 <label className="block text-xs font-medium text-gray-500 mb-1">Email Address</label>
-                                                                <input type="email" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
+                                                                <input
+                                                                    type="email"
+                                                                    value={branch.email || ''}
+                                                                    onChange={(e) => handleRegisteredBranchChange(gstin, 'email', e.target.value)}
+                                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                                />
                                                             </div>
                                                         </div>
                                                     )}
@@ -4618,7 +4705,7 @@ const SalesContent: React.FC = () => {
                                         {customer.days0to45 > 0 ? formatCurrency(customer.days0to45) : '-'}
                                     </td>
                                     <td
-                                              className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100">
+                                        className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100">
                                         {customer.days45to90 > 0 ? formatCurrency(customer.days45to90) : '-'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100">
