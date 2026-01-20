@@ -4,8 +4,9 @@ import { httpClient } from '../../services/httpClient';
 import { InventoryCategoryWizard } from '../../components/InventoryCategoryWizard';
 import Icon from '../../components/Icon'; // Assuming Icon component exists
 import CreateSalesQuotation from './CreateSalesQuotation';
+import SalesQuotationList from './SalesQuotationList';
 import CreateSalesOrder from './CreateSalesOrder';
-import { Eye, Mail, Filter, ChevronLeft, X } from 'lucide-react';
+import { Eye, Mail, Filter, ChevronLeft, X, Calendar } from 'lucide-react';
 
 type MainTab = 'Masters' | 'Transactions' | 'Reports';
 type MasterSubTab = 'Category' | 'Sales Quotation & Order' | 'Customer' | 'Long-term Contracts';
@@ -147,51 +148,10 @@ const CustomerPortalPage: React.FC = () => {
                                 showCreateQuotation ? (
                                     <CreateSalesQuotation onCancel={() => setShowCreateQuotation(false)} />
                                 ) : (
-                                    <div className="text-left">
-                                        <div className="flex justify-between items-center mb-6">
-                                            <h3 className="text-lg font-medium text-gray-900">Sales Quotation</h3>
-                                            <button
-                                                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
-                                                onClick={() => setShowCreateQuotation(true)}
-                                            >
-                                                Create Sales Quotation
-                                            </button>
-                                        </div>
+                                    <SalesQuotationList
+                                        onCreateQuotation={() => setShowCreateQuotation(true)}
+                                    />
 
-                                        {/* Sub-tabs for Sales Quotation */}
-                                        <div className="mb-6 bg-gray-50 p-2 rounded-lg inline-block border border-gray-200">
-                                            <div className="flex space-x-2">
-                                                {['General Customer Quote', 'Specific Customer Quote'].map((subTab) => (
-                                                    <button
-                                                        key={subTab}
-                                                        onClick={() => setActiveSalesQuotationSubTab(subTab as SalesQuotationSubTab)}
-                                                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeSalesQuotationSubTab === subTab
-                                                            ? 'bg-white text-indigo-700 shadow-sm'
-                                                            : 'text-gray-600 hover:bg-white/50'
-                                                            }`}
-                                                    >
-                                                        {subTab}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Content for Sales Quotation Sub-tabs */}
-                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-8">
-                                            {activeSalesQuotationSubTab === 'General Customer Quote' && (
-                                                <div className="text-center">
-                                                    <h4 className="text-md font-medium text-gray-900 mb-2">General Customer Quote</h4>
-                                                    <p className="text-gray-500">General Customer Quote interface coming soon.</p>
-                                                </div>
-                                            )}
-                                            {activeSalesQuotationSubTab === 'Specific Customer Quote' && (
-                                                <div className="text-center">
-                                                    <h4 className="text-md font-medium text-gray-900 mb-2">Specific Customer Quote</h4>
-                                                    <p className="text-gray-500">Specific Customer Quote interface coming soon.</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
                                 )
                             )}
                             {activeTransactionSubTab === 'Sales Order' && (
@@ -410,7 +370,7 @@ const CustomerPortalPage: React.FC = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 
@@ -3286,6 +3246,887 @@ const ReceiptContent: React.FC = () => {
     );
 };
 
+// Net-off Modal Component
+interface PurchaseVoucher {
+    id: string;
+    date: string;
+    supplierInvNo: string;
+    amount: number;
+}
+
+interface SalesVoucher {
+    id: string;
+    date: string;
+    salesVchNo: string;
+    amount: number;
+}
+
+interface NetOffModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    customerName: string;
+}
+
+interface PaymentVoucher {
+    id: string;
+    date: string;
+    voucherNo: string;
+    amount: number;
+}
+
+interface ReceiptVoucher {
+    id: string;
+    date: string;
+    voucherNo: string;
+    amount: number;
+}
+
+interface EditNetOffPageProps {
+    onCancel: () => void;
+    onNext: (salesNetOff: Record<string, number>, paymentNetOff: Record<string, number>, purchaseNetOff: Record<string, number>, receiptNetOff: Record<string, number>) => void;
+    salesVouchers: SalesVoucher[];
+    paymentVouchers: PaymentVoucher[];
+    purchaseVouchers: PurchaseVoucher[];
+    receiptVouchers: ReceiptVoucher[];
+    initialSalesNetOff: Record<string, number>;
+    initialPaymentNetOff: Record<string, number>;
+    initialPurchaseNetOff: Record<string, number>;
+    initialReceiptNetOff: Record<string, number>;
+}
+
+const EditNetOffPage: React.FC<EditNetOffPageProps> = ({
+    onCancel,
+    onNext,
+    salesVouchers,
+    paymentVouchers,
+    purchaseVouchers,
+    receiptVouchers,
+    initialSalesNetOff,
+    initialPaymentNetOff,
+    initialPurchaseNetOff,
+    initialReceiptNetOff
+}) => {
+    // Local state for editing amounts
+    const [salesNetOff, setSalesNetOff] = useState<Record<string, number>>(initialSalesNetOff);
+    const [paymentNetOff, setPaymentNetOff] = useState<Record<string, number>>(initialPaymentNetOff);
+    const [purchaseNetOff, setPurchaseNetOff] = useState<Record<string, number>>(initialPurchaseNetOff);
+    const [receiptNetOff, setReceiptNetOff] = useState<Record<string, number>>(initialReceiptNetOff);
+
+    // Calculate totals
+    const totalDebits =
+        (Object.values(salesNetOff) as number[]).reduce((sum, amt) => sum + (amt || 0), 0) +
+        (Object.values(paymentNetOff) as number[]).reduce((sum, amt) => sum + (amt || 0), 0);
+
+    const totalCredits =
+        (Object.values(purchaseNetOff) as number[]).reduce((sum, amt) => sum + (amt || 0), 0) +
+        (Object.values(receiptNetOff) as number[]).reduce((sum, amt) => sum + (amt || 0), 0);
+
+    const isNextEnabled = totalDebits > 0 && Math.abs(totalDebits - totalCredits) < 0.01;
+
+    // Helper to handle input changes
+    const handleAmountChange = (
+        id: string,
+        value: string,
+        maxAmount: number,
+        setter: React.Dispatch<React.SetStateAction<Record<string, number>>>,
+        current: Record<string, number>
+    ) => {
+        const numVal = parseFloat(value);
+        if (isNaN(numVal)) {
+            // Allow clearing input (optional handling) but here strictly numeric as per requirement "Numeric only"
+            // For better UX, we might allow empty string to be 0 or keep as is.
+            // Let's assume input needs to be valid.
+            if (value === '') {
+                setter({ ...current, [id]: 0 });
+                return;
+            }
+        }
+
+        // Strict validation: Must be >= 0 and <= pending amount
+        if (numVal >= 0 && numVal <= maxAmount) {
+            setter({ ...current, [id]: numVal });
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 bg-gray-100 flex flex-col overflow-auto">
+            <div className="max-w-6xl mx-auto w-full p-8 space-y-8">
+                {/* Top Summary Bar */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-8 py-6 flex justify-between items-center">
+                    <div className="text-gray-600 font-medium">Add amounts for net-off</div>
+                    <div className="flex items-center gap-12">
+                        <div className="text-right">
+                            <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Debits</div>
+                            <div className="text-2xl font-bold text-gray-900">₹{totalDebits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Credits</div>
+                            <div className="text-2xl font-bold text-gray-900">₹{totalCredits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                        </div>
+                        <button
+                            onClick={() => onNext(salesNetOff, paymentNetOff, purchaseNetOff, receiptNetOff)}
+                            disabled={!isNextEnabled}
+                            className={`ml-6 px-6 py-2.5 text-sm font-semibold rounded-md shadow-sm transition-colors ${isNextEnabled
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                }`}
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+
+                {/* Section 1: Sales Vouchers (Debit) */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="bg-white px-6 py-4 border-b border-gray-200">
+                        <h3 className="text-center text-lg font-medium text-gray-900">Sales Vouchers (Debit)</h3>
+                    </div>
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-500 font-medium uppercase text-xs">
+                            <tr>
+                                <th className="px-6 py-3">Date</th>
+                                <th className="px-6 py-3">Sales Voucher No</th>
+                                <th className="px-6 py-3 text-right">Amount</th>
+                                <th className="px-6 py-3 text-right">Amount for Net-off</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                            {salesVouchers.map(v => (
+                                <tr key={v.id}>
+                                    <td className="px-6 py-4 text-gray-700">{v.date}</td>
+                                    <td className="px-6 py-4 font-medium text-gray-900">{v.salesVchNo}</td>
+                                    <td className="px-6 py-4 text-right text-gray-600">₹{v.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <input
+                                            type="number"
+                                            className="w-32 text-right px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                            value={salesNetOff[v.id] ?? v.amount}
+                                            onChange={(e) => handleAmountChange(v.id, e.target.value, v.amount, setSalesNetOff, salesNetOff)}
+                                        />
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Section 2: Payments (Debit) */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="bg-white px-6 py-4 border-b border-gray-200">
+                        <h3 className="text-center text-lg font-medium text-gray-900">Payments (Debit)</h3>
+                    </div>
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-500 font-medium uppercase text-xs">
+                            <tr>
+                                <th className="px-6 py-3">Date</th>
+                                <th className="px-6 py-3">Payment Voucher No</th>
+                                <th className="px-6 py-3 text-right">Amount</th>
+                                <th className="px-6 py-3 text-right">Amount for Net-off</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                            {paymentVouchers.map(v => (
+                                <tr key={v.id}>
+                                    <td className="px-6 py-4 text-gray-700">{v.date}</td>
+                                    <td className="px-6 py-4 font-medium text-gray-900">{v.voucherNo}</td>
+                                    <td className="px-6 py-4 text-right text-gray-600">₹{v.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <input
+                                            type="number"
+                                            className="w-32 text-right px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                            value={paymentNetOff[v.id] ?? v.amount}
+                                            onChange={(e) => handleAmountChange(v.id, e.target.value, v.amount, setPaymentNetOff, paymentNetOff)}
+                                        />
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Section 3: Purchase Vouchers (Credit) */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="bg-white px-6 py-4 border-b border-gray-200">
+                        <h3 className="text-center text-lg font-medium text-gray-900">Purchase Vouchers (Credit)</h3>
+                    </div>
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-500 font-medium uppercase text-xs">
+                            <tr>
+                                <th className="px-6 py-3">Date</th>
+                                <th className="px-6 py-3">Supplier Invoice No</th>
+                                <th className="px-6 py-3 text-right">Amount</th>
+                                <th className="px-6 py-3 text-right">Amount for Net-off</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                            {purchaseVouchers.map(v => (
+                                <tr key={v.id}>
+                                    <td className="px-6 py-4 text-gray-700">{v.date}</td>
+                                    <td className="px-6 py-4 font-medium text-gray-900">{v.supplierInvNo}</td>
+                                    <td className="px-6 py-4 text-right text-gray-600">₹{v.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <input
+                                            type="number"
+                                            className="w-32 text-right px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                            value={purchaseNetOff[v.id] ?? v.amount}
+                                            onChange={(e) => handleAmountChange(v.id, e.target.value, v.amount, setPurchaseNetOff, purchaseNetOff)}
+                                        />
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Section 4: Receipts (Credit) */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="bg-white px-6 py-4 border-b border-gray-200">
+                        <h3 className="text-center text-lg font-medium text-gray-900">Receipts (Credit)</h3>
+                    </div>
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-500 font-medium uppercase text-xs">
+                            <tr>
+                                <th className="px-6 py-3">Date</th>
+                                <th className="px-6 py-3">Receipt Voucher No</th>
+                                <th className="px-6 py-3 text-right">Amount</th>
+                                <th className="px-6 py-3 text-right">Amount for Net-off</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                            {receiptVouchers.map(v => (
+                                <tr key={v.id}>
+                                    <td className="px-6 py-4 text-gray-700">{v.date}</td>
+                                    <td className="px-6 py-4 font-medium text-gray-900">{v.voucherNo}</td>
+                                    <td className="px-6 py-4 text-right text-gray-600">₹{v.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <input
+                                            type="number"
+                                            className="w-32 text-right px-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                            value={receiptNetOff[v.id] ?? v.amount}
+                                            onChange={(e) => handleAmountChange(v.id, e.target.value, v.amount, setReceiptNetOff, receiptNetOff)}
+                                        />
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="flex justify-end pb-8">
+                    <button
+                        onClick={onCancel}
+                        className="px-6 py-2.5 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const NetOffModal: React.FC<NetOffModalProps> = ({ isOpen, onClose, customerName }) => {
+    const [activeTab, setActiveTab] = useState('Invoices under Dispute');
+    const [selectedPurchase, setSelectedPurchase] = useState<string[]>([]);
+    const [selectedSales, setSelectedSales] = useState<string[]>([]);
+    const [netOffDate, setNetOffDate] = useState('2026-01-20');
+
+    const [viewMode, setViewMode] = useState<'modal' | 'editPage'>('modal');
+    // State to hold net-off amounts
+    const [salesNetOffAmounts, setSalesNetOffAmounts] = useState<Record<string, number>>({});
+    const [paymentsNetOffAmounts, setPaymentsNetOffAmounts] = useState<Record<string, number>>({});
+    const [purchaseNetOffAmounts, setPurchaseNetOffAmounts] = useState<Record<string, number>>({});
+    const [receiptsNetOffAmounts, setReceiptsNetOffAmounts] = useState<Record<string, number>>({});
+
+
+    if (!isOpen) return null;
+
+    // Mock data matching the reference image
+    const purchaseVouchers: PurchaseVoucher[] = [
+        { id: '1', date: '2025-12-15', supplierInvNo: 'PINV-001', amount: 10000 },
+        { id: '2', date: '2026-01-02', supplierInvNo: 'PINV-005', amount: 5000 },
+        { id: '3', date: '2026-01-10', supplierInvNo: 'PINV-008', amount: 12000 },
+    ];
+
+    const salesVouchers: SalesVoucher[] = [
+        { id: '1', date: '2025-12-20', salesVchNo: 'INV-2025-050', amount: 15000 },
+        { id: '2', date: '2026-01-05', salesVchNo: 'INV-2026-001', amount: 6000 },
+        { id: '3', date: '2026-01-12', salesVchNo: 'INV-2026-002', amount: 20000 },
+    ];
+
+    const paymentVouchers: PaymentVoucher[] = [
+        { id: 'p1', date: '2026-01-08', voucherNo: 'PAY-101', amount: 2500 }
+    ];
+
+    const receiptVouchers: ReceiptVoucher[] = [
+        { id: 'r1', date: '2026-01-15', voucherNo: 'REC-201', amount: 1000 }
+    ];
+
+    const runningBalance = 35000;
+
+    // Conditionally render EditNetOffPage
+    if (viewMode === 'editPage') {
+        return (
+            <EditNetOffPage
+                onCancel={() => setViewMode('modal')}
+                onNext={(sales, payments, purchase, receipts) => {
+                    setSalesNetOffAmounts(sales);
+                    setPaymentsNetOffAmounts(payments);
+                    setPurchaseNetOffAmounts(purchase);
+                    setReceiptsNetOffAmounts(receipts);
+                    setViewMode('modal');
+                    // Ensure we are on Net-off tab
+                    setActiveTab('Net-off');
+                }}
+                salesVouchers={salesVouchers}
+                paymentVouchers={paymentVouchers}
+                purchaseVouchers={purchaseVouchers}
+                receiptVouchers={receiptVouchers}
+                initialSalesNetOff={salesNetOffAmounts}
+                initialPaymentNetOff={paymentsNetOffAmounts}
+                initialPurchaseNetOff={purchaseNetOffAmounts}
+                initialReceiptNetOff={receiptsNetOffAmounts}
+            />
+        );
+    }
+
+    const handleNext = () => {
+        // FIFO Logic - Only process SELECTED invoices, sorted by date (oldest first)
+        const selectedPurVouchers = purchaseVouchers
+            .filter(v => selectedPurchase.includes(v.id))
+            .sort((a, b) => a.date.localeCompare(b.date)); // Oldest first
+
+        const selectedSalVouchers = salesVouchers
+            .filter(v => selectedSales.includes(v.id))
+            .sort((a, b) => a.date.localeCompare(b.date)); // Oldest first
+
+        if (selectedPurVouchers.length === 0 && selectedSalVouchers.length === 0) {
+            alert('Please select at least one invoice to proceed with net-off.');
+            return;
+        }
+
+        // Calculate totals
+        const totalPurchase = selectedPurVouchers.reduce((sum, v) => sum + v.amount, 0);
+        const totalSales = selectedSalVouchers.reduce((sum, v) => sum + v.amount, 0);
+
+        // FIFO Net-off Calculation
+        let remainingPurchase = totalPurchase;
+        let remainingSales = totalSales;
+        let nettedAmount = 0;
+        const nettedDetails: string[] = [];
+
+        // Apply FIFO: Match oldest purchase with oldest sales
+        let purIndex = 0;
+        let salIndex = 0;
+
+        while (purIndex < selectedPurVouchers.length && salIndex < selectedSalVouchers.length) {
+            const purVoucher = selectedPurVouchers[purIndex];
+            const salVoucher = selectedSalVouchers[salIndex];
+
+            const matchAmount = Math.min(purVoucher.amount, salVoucher.amount);
+            nettedAmount += matchAmount;
+
+            nettedDetails.push(
+                `${purVoucher.supplierInvNo} (₹${matchAmount.toLocaleString('en-IN')}) ↔ ${salVoucher.salesVchNo} (₹${matchAmount.toLocaleString('en-IN')})`
+            );
+
+            // Adjust remaining amounts
+            purVoucher.amount -= matchAmount;
+            salVoucher.amount -= matchAmount;
+
+            if (purVoucher.amount === 0) purIndex++;
+            if (salVoucher.amount === 0) salIndex++;
+        }
+
+        // Determine result
+        const netDifference = totalPurchase - totalSales;
+        let resultType = '';
+        let resultAmount = 0;
+
+        if (netDifference > 0) {
+            resultType = 'DEBIT NOTE';
+            resultAmount = netDifference;
+        } else if (netDifference < 0) {
+            resultType = 'CREDIT NOTE';
+            resultAmount = Math.abs(netDifference);
+        } else {
+            resultType = 'FULLY SETTLED';
+            resultAmount = 0;
+        }
+
+        // Calculate closing balance
+        const closingBalance = runningBalance + netDifference;
+
+        // Display detailed summary
+        let message = `╔════════════════════════════════════════╗\n`;
+        message += `║   NET-OFF SUMMARY (FIFO Applied)      ║\n`;
+        message += `╚════════════════════════════════════════╝\n\n`;
+
+        message += `📊 SELECTED INVOICES:\n`;
+        message += `─────────────────────────────────────────\n`;
+        message += `Purchase Vouchers (Debit): ${selectedPurVouchers.length} invoice(s)\n`;
+        selectedPurVouchers.forEach(v => {
+            message += `  • ${v.supplierInvNo} (${v.date}): ₹${v.amount.toLocaleString('en-IN')}\n`;
+        });
+        message += `\nSales Vouchers (Credit): ${selectedSalVouchers.length} invoice(s)\n`;
+        selectedSalVouchers.forEach(v => {
+            message += `  • ${v.salesVchNo} (${v.date}): ₹${v.amount.toLocaleString('en-IN')}\n`;
+        });
+
+        message += `\n💰 AMOUNTS:\n`;
+        message += `─────────────────────────────────────────\n`;
+        message += `Total Purchase (Debit):  ₹${totalPurchase.toLocaleString('en-IN')}\n`;
+        message += `Total Sales (Credit):    ₹${totalSales.toLocaleString('en-IN')}\n`;
+        message += `Net-off Amount:          ₹${nettedAmount.toLocaleString('en-IN')}\n`;
+
+        message += `\n📋 NET-OFF RESULT:\n`;
+        message += `─────────────────────────────────────────\n`;
+        if (resultType === 'FULLY SETTLED') {
+            message += `✅ ${resultType}\n`;
+            message += `All selected invoices perfectly balanced!\n`;
+        } else {
+            message += `📝 Generate: ${resultType}\n`;
+            message += `Amount: ₹${resultAmount.toLocaleString('en-IN')}\n`;
+        }
+
+        message += `\n💼 BALANCES:\n`;
+        message += `─────────────────────────────────────────\n`;
+        message += `Running Balance (Before): ₹${runningBalance.toLocaleString('en-IN')}\n`;
+        message += `Closing Balance (After):  ₹${closingBalance.toLocaleString('en-IN')}\n`;
+
+        message += `\n✨ FIFO Logic Applied:\n`;
+        message += `Oldest invoices were matched first\n`;
+
+        alert(message);
+
+        // In a real application, you would:
+        // 1. Create net-off entry in the database
+        // 2. Update invoice statuses
+        // 3. Generate debit/credit note documents
+        // 4. Navigate to Net-off tab
+        setActiveTab('Net-off');
+    };
+
+    const isNextEnabled = selectedPurchase.length > 0 || selectedSales.length > 0;
+
+    return (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+            <div className="flex-1 flex flex-col h-full overflow-hidden">
+                {/* Header */}
+                <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+                    <h2 className="text-lg font-semibold text-gray-900">Invoices Under Dispute – Net-off</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Summary Panel */}
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                    <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-3">
+                            <div>
+                                <div className="text-xs text-gray-500 mb-1">Net-off No:</div>
+                                <div className="text-sm font-medium text-gray-900">NO-2026-001</div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-gray-500 mb-1">Customer / Vendor Name:</div>
+                                <div className="text-sm font-medium text-gray-900">{customerName}</div>
+                            </div>
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <div className="text-xs text-gray-500 mb-1">Net-off Date:</div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="date"
+                                        value={netOffDate}
+                                        onChange={(e) => setNetOffDate(e.target.value)}
+                                        className="text-sm px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                    <Calendar className="w-4 h-4 text-gray-400" />
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs text-gray-500 mb-1">Running Balance:</div>
+                                <div className="text-lg font-semibold text-blue-600">₹{runningBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="px-6 border-b border-gray-200">
+                    <div className="flex gap-6">
+                        <button
+                            className={`py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'Invoices under Dispute'
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
+                            onClick={() => setActiveTab('Invoices under Dispute')}
+                        >
+                            Invoices under Dispute
+                        </button>
+                        <button
+                            className={`py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'Net-off'
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
+                            onClick={() => setActiveTab('Net-off')}
+                        >
+                            Net-off
+                        </button>
+                    </div>
+                </div>
+
+                {/* Main Content - Conditional based on active tab */}
+                <div className="flex-1 overflow-auto p-6">
+                    {activeTab === 'Invoices under Dispute' ? (
+                        <div className="grid grid-cols-2 gap-6 h-full">
+                            {/* Purchase Vouchers Card */}
+                            <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col bg-white">
+                                <div className="bg-white px-4 py-3 border-b border-gray-200">
+                                    <h3 className="text-sm font-medium text-gray-700">Purchase Vouchers</h3>
+                                </div>
+                                <div className="flex-1 overflow-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-white sticky top-0">
+                                            <tr className="text-left text-xs text-gray-500 uppercase border-b border-gray-200">
+                                                <th className="px-4 py-3 font-medium">SELECT</th>
+                                                <th className="px-4 py-3 font-medium">DATE</th>
+                                                <th className="px-4 py-3 font-medium">SUPPLIER INV NO</th>
+                                                <th className="px-4 py-3 text-right font-medium">AMOUNT</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {purchaseVouchers.map((voucher) => (
+                                                <tr key={voucher.id} className="hover:bg-gray-50">
+                                                    <td className="px-4 py-3">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedPurchase.includes(voucher.id)}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedPurchase([...selectedPurchase, voucher.id]);
+                                                                } else {
+                                                                    setSelectedPurchase(selectedPurchase.filter(id => id !== voucher.id));
+                                                                }
+                                                            }}
+                                                            className="rounded border-gray-300"
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-3 text-gray-700">{voucher.date}</td>
+                                                    <td className="px-4 py-3 font-medium text-gray-900">{voucher.supplierInvNo}</td>
+                                                    <td className="px-4 py-3 text-right text-gray-900">₹{voucher.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Sales Vouchers Card */}
+                            <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col bg-white">
+                                <div className="bg-white px-4 py-3 border-b border-gray-200">
+                                    <h3 className="text-sm font-medium text-gray-700">Sales Vouchers</h3>
+                                </div>
+                                <div className="flex-1 overflow-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-white sticky top-0">
+                                            <tr className="text-left text-xs text-gray-500 uppercase border-b border-gray-200">
+                                                <th className="px-4 py-3 font-medium">SELECT</th>
+                                                <th className="px-4 py-3 font-medium">DATE</th>
+                                                <th className="px-4 py-3 font-medium">SALES VCH NO</th>
+                                                <th className="px-4 py-3 text-right font-medium">AMOUNT</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {salesVouchers.map((voucher) => (
+                                                <tr key={voucher.id} className="hover:bg-gray-50">
+                                                    <td className="px-4 py-3">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedSales.includes(voucher.id)}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedSales([...selectedSales, voucher.id]);
+                                                                } else {
+                                                                    setSelectedSales(selectedSales.filter(id => id !== voucher.id));
+                                                                }
+                                                            }}
+                                                            className="rounded border-gray-300"
+                                                        />
+                                                    </td>
+                                                    <td className="px-4 py-3 text-gray-700">{voucher.date}</td>
+                                                    <td className="px-4 py-3 font-medium text-gray-900">{voucher.salesVchNo}</td>
+                                                    <td className="px-4 py-3 text-right text-gray-900">₹{voucher.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        // Net-off Summary View
+                        <div className="max-w-5xl space-y-6">
+                            {/* Amount Netted Off - Top Right */}
+                            <div className="flex justify-end">
+                                <div className="border border-gray-300 rounded-lg px-6 py-4">
+                                    <div className="text-sm text-gray-600 mb-1">Amount Netted Off</div>
+                                    <div className="text-2xl font-bold text-blue-600">
+                                        ₹{(() => {
+                                            // Check if manual net-off amounts exist
+                                            const isManual = Object.keys(salesNetOffAmounts).length > 0;
+
+                                            if (isManual) {
+                                                // If manual, it's balanced, so just sum debits (or credits)
+                                                const totalDebits =
+                                                    (Object.values(salesNetOffAmounts) as number[]).reduce((sum: number, amt: number) => sum + amt, 0) +
+                                                    (Object.values(paymentsNetOffAmounts) as number[]).reduce((sum: number, amt: number) => sum + amt, 0);
+                                                return totalDebits.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                                            } else {
+                                                // Auto calculation based on selection
+                                                const totalPur = purchaseVouchers
+                                                    .filter(v => selectedPurchase.includes(v.id))
+                                                    .reduce((sum, v) => sum + v.amount, 0);
+                                                const totalSal = salesVouchers
+                                                    .filter(v => selectedSales.includes(v.id))
+                                                    .reduce((sum, v) => sum + v.amount, 0);
+                                                return Math.min(totalPur, totalSal).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                                            }
+                                        })()}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* List of Pending Invoices Section */}
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <h2 className="text-lg font-semibold text-gray-900 mb-4">List of Pending Invoices</h2>
+
+                                {/* Imbalance Warning Banner */}
+                                {/* Imbalance Warning - Only show if NOT manual (manual is always balanced) */}
+                                {(() => {
+                                    const isManual = Object.keys(salesNetOffAmounts).length > 0;
+                                    if (isManual) return null;
+
+                                    const totalPur = purchaseVouchers
+                                        .filter(v => selectedPurchase.includes(v.id))
+                                        .reduce((sum, v) => sum + v.amount, 0);
+                                    const totalSal = salesVouchers
+                                        .filter(v => selectedSales.includes(v.id))
+                                        .reduce((sum, v) => sum + v.amount, 0);
+                                    const diff = Math.abs(totalPur - totalSal);
+
+                                    if (diff > 0.01) {
+                                        return (
+                                            <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-md p-4 flex items-start gap-3">
+                                                <div className="text-yellow-600 mt-0.5">⚠️</div>
+                                                <div className="text-sm text-yellow-800">
+                                                    <span className="font-semibold">Note:</span> There is an imbalance of <span className="font-bold">₹{diff.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span> between selected debit and credit amounts. The lower amount (<span className="font-bold">₹{Math.min(totalPur, totalSal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>) will be netted off.
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+
+                                {/* Pending Invoices Table */}
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-gray-50">
+                                            <tr className="text-left text-xs text-gray-500 uppercase border-b border-gray-200">
+                                                <th className="px-4 py-3 font-medium">VOUCHER TYPE</th>
+                                                <th className="px-4 py-3 font-medium">DATE</th>
+                                                <th className="px-4 py-3 font-medium">SUPPLIER INVOICE NO / SALES VOUCHER NO</th>
+                                                <th className="px-4 py-3 text-right font-medium">DEBIT</th>
+                                                <th className="px-4 py-3 text-right font-medium">CREDIT</th>
+                                                <th className="px-4 py-3 text-center font-medium">STATUS</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200">
+                                            {/* Purchase Vouchers - DEBIT */}
+                                            {purchaseVouchers
+                                                .filter(v => Object.keys(purchaseNetOffAmounts).length > 0 ? (purchaseNetOffAmounts[v.id] || 0) > 0 : selectedPurchase.includes(v.id))
+                                                .map((voucher) => (
+                                                    <tr key={`p-${voucher.id}`} className="hover:bg-gray-50">
+                                                        <td className="px-4 py-3">
+                                                            <span className="text-blue-600 font-medium">Purchase</span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-700">{voucher.date}</td>
+                                                        <td className="px-4 py-3 font-medium text-gray-900">{voucher.supplierInvNo}</td>
+                                                        <td className="px-4 py-3 text-right text-gray-900">
+                                                            ₹{(Object.keys(purchaseNetOffAmounts).length > 0 ? purchaseNetOffAmounts[voucher.id] : voucher.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right text-gray-400">-</td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <span className="inline-block px-3 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                                                                Partially Paid
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+
+                                            {/* Receipts (Credit) - CREDIT (Index 4) */}
+                                            {receiptVouchers
+                                                .filter(v => (receiptsNetOffAmounts[v.id] || 0) > 0)
+                                                .map((voucher) => (
+                                                    <tr key={`r-${voucher.id}`} className="hover:bg-gray-50">
+                                                        <td className="px-4 py-3">
+                                                            <span className="text-blue-600 font-medium">Receipt</span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-700">{voucher.date}</td>
+                                                        <td className="px-4 py-3 font-medium text-gray-900">{voucher.voucherNo}</td>
+                                                        <td className="px-4 py-3 text-right text-gray-400">-</td>
+                                                        <td className="px-4 py-3 text-right text-gray-900">
+                                                            ₹{receiptsNetOffAmounts[voucher.id].toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <span className="inline-block px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                                                Received
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+
+                                            {/* Sales Vouchers - CREDIT */}
+                                            {salesVouchers
+                                                .filter(v => Object.keys(salesNetOffAmounts).length > 0 ? (salesNetOffAmounts[v.id] || 0) > 0 : selectedSales.includes(v.id))
+                                                .map((voucher) => (
+                                                    <tr key={`s-${voucher.id}`} className="hover:bg-gray-50">
+                                                        <td className="px-4 py-3">
+                                                            <span className="text-green-600 font-medium">Sales</span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-700">{voucher.date}</td>
+                                                        <td className="px-4 py-3 font-medium text-gray-900">{voucher.salesVchNo}</td>
+                                                        <td className="px-4 py-3 text-right text-gray-400">-</td>
+                                                        <td className="px-4 py-3 text-right text-gray-900">
+                                                            ₹{(Object.keys(salesNetOffAmounts).length > 0 ? salesNetOffAmounts[voucher.id] : voucher.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <span className="inline-block px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                                                                Not Due
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+
+                                            {/* Payments (Debit) - DEBIT (Index 3) */}
+                                            {paymentVouchers
+                                                .filter(v => (paymentsNetOffAmounts[v.id] || 0) > 0)
+                                                .map((voucher) => (
+                                                    <tr key={`py-${voucher.id}`} className="hover:bg-gray-50">
+                                                        <td className="px-4 py-3">
+                                                            <span className="text-green-600 font-medium">Payment</span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-700">{voucher.date}</td>
+                                                        <td className="px-4 py-3 font-medium text-gray-900">{voucher.voucherNo}</td>
+                                                        <td className="px-4 py-3 text-right text-gray-900">
+                                                            ₹{paymentsNetOffAmounts[voucher.id].toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right text-gray-400">-</td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <span className="inline-block px-3 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                                                                Paid
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+
+                                            {/* Totals Row */}
+                                            <tr className="bg-gray-50 font-semibold">
+                                                <td colSpan={3} className="px-4 py-3 text-right text-gray-700">Totals:</td>
+                                                <td className="px-4 py-3 text-right text-gray-900">
+                                                    ₹{(() => {
+                                                        const isManual = Object.keys(salesNetOffAmounts).length > 0;
+                                                        if (isManual) {
+                                                            const totalPur = purchaseVouchers.reduce((s, v) => s + (purchaseNetOffAmounts[v.id] || 0), 0);
+                                                            const totalPay = paymentVouchers.reduce((s, v) => s + (paymentsNetOffAmounts[v.id] || 0), 0);
+                                                            return (totalPur + totalPay).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                                                        }
+
+                                                        // Fallback for auto selection
+                                                        return purchaseVouchers
+                                                            .filter(v => selectedPurchase.includes(v.id))
+                                                            .reduce((sum, v) => sum + v.amount, 0)
+                                                            .toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                                                    })()}
+                                                </td>
+                                                <td className="px-4 py-3 text-right text-gray-900">
+                                                    ₹{(() => {
+                                                        const isManual = Object.keys(salesNetOffAmounts).length > 0;
+                                                        if (isManual) {
+                                                            const totalSal = salesVouchers.reduce((s, v) => s + (salesNetOffAmounts[v.id] || 0), 0);
+                                                            const totalRec = receiptVouchers.reduce((s, v) => s + (receiptsNetOffAmounts[v.id] || 0), 0);
+                                                            return (totalSal + totalRec).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                                                        }
+
+                                                        return salesVouchers
+                                                            .filter(v => selectedSales.includes(v.id))
+                                                            .reduce((sum, v) => sum + v.amount, 0)
+                                                            .toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                                                    })()}
+                                                </td>
+                                                <td></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="mt-6 flex justify-end gap-3">
+                                    <button
+                                        onClick={() => setViewMode('editPage')}
+                                        className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                                    >
+                                        Edit Net-off
+                                    </button>
+                                    <button
+                                        onClick={onClose}
+                                        className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            alert('Net-off saved successfully!');
+                                            onClose();
+                                        }}
+                                        className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+                                    >
+                                        Save & Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer Actions - Only show on Invoices under Dispute tab */}
+                {activeTab === 'Invoices under Dispute' && (
+                    <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                        <button
+                            onClick={onClose}
+                            className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleNext}
+                            disabled={!isNextEnabled}
+                            className={`px-5 py-2 text-sm font-medium rounded transition-colors ${isNextEnabled
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                }`}
+                        >
+                            Next
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 // Customer Ledger View Component
 interface CustomerLedgerViewProps {
     customer: { id: string; name: string };
@@ -3301,6 +4142,10 @@ const CustomerLedgerView: React.FC<CustomerLedgerViewProps> = ({ customer, onBac
     const [debitFilter, setDebitFilter] = useState('');
     const [creditFilter, setCreditFilter] = useState('');
 
+    // View state
+    const [viewMode, setViewMode] = useState<'invoice-wise' | 'month-wise'>('invoice-wise');
+    const [showNetOffModal, setShowNetOffModal] = useState(false);
+
     // Mock ledger data
     const mockLedgerData: LedgerEntry[] = [
         { id: '1', date: '2026-01-05', postFrom: 'Sales', ledger: 'INV-2026-001', status: 'Not Due', debit: 50000, credit: 0, runningBalance: 50000 },
@@ -3309,6 +4154,67 @@ const CustomerLedgerView: React.FC<CustomerLedgerViewProps> = ({ customer, onBac
         { id: '4', date: '2026-01-15', postFrom: 'Receipt', ledger: 'RCP-2026-002', status: 'Received', debit: 0, credit: 20000, runningBalance: 40000 },
         { id: '5', date: '2026-01-18', postFrom: 'Credit Note', ledger: 'CN-2026-001', status: 'Received', debit: 0, credit: 5000, runningBalance: 35000 },
     ];
+
+    // Mock Month Ledger Data
+    interface MonthLedgerEntry {
+        month: string;
+        debit: number;
+        credit: number;
+        closingBalance: number;
+    }
+
+    const mockMonthLedgerData: MonthLedgerEntry[] = [
+        { month: 'April 2025', debit: 150000, credit: 120000, closingBalance: 30000 },
+        { month: 'May 2025', debit: 200000, credit: 180000, closingBalance: 50000 },
+        { month: 'June 2025', debit: 180000, credit: 100000, closingBalance: 130000 },
+        { month: 'July 2025', debit: 220000, credit: 200000, closingBalance: 150000 },
+        { month: 'August 2025', debit: 160000, credit: 140000, closingBalance: 170000 },
+        { month: 'September 2025', debit: 190000, credit: 160000, closingBalance: 200000 },
+        { month: 'October 2025', debit: 210000, credit: 190000, closingBalance: 220000 },
+        { month: 'November 2025', debit: 250000, credit: 220000, closingBalance: 250000 },
+        { month: 'December 2025', debit: 180000, credit: 150000, closingBalance: 280000 },
+        { month: 'January 2026', debit: 85000, credit: 50000, closingBalance: 315000 },
+    ];
+
+    const MonthLedgerView: React.FC = () => {
+        const totalDebit = mockMonthLedgerData.reduce((sum, item) => sum + item.debit, 0);
+        const totalCredit = mockMonthLedgerData.reduce((sum, item) => sum + item.credit, 0);
+
+        return (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-[#F8F9FA]">
+                            <tr>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider w-1/4">MONTH</th>
+                                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider w-1/4">DEBIT</th>
+                                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider w-1/4">CREDIT</th>
+                                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider w-1/4">CLOSING BALANCE</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                            {mockMonthLedgerData.map((entry, index) => (
+                                <tr key={index} className="hover:bg-gray-50 transition-colors group">
+                                    <td className="px-6 py-5 whitespace-nowrap text-sm font-bold text-gray-700">{entry.month}</td>
+                                    <td className="px-6 py-5 whitespace-nowrap text-sm text-right text-gray-600 font-medium">₹{entry.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td className="px-6 py-5 whitespace-nowrap text-sm text-right text-gray-600 font-medium">₹{entry.credit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td className="px-6 py-5 whitespace-nowrap text-sm text-right font-bold text-gray-900">₹{entry.closingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                        <tfoot className="bg-[#F8F9FA]">
+                            <tr>
+                                <td className="px-6 py-5 text-sm font-bold text-gray-500 text-center tracking-wide">TOTAL</td>
+                                <td className="px-6 py-5 whitespace-nowrap text-sm text-right font-bold text-gray-900">₹{totalDebit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td className="px-6 py-5 whitespace-nowrap text-sm text-right font-bold text-gray-900">₹{totalCredit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td className="px-6 py-5 whitespace-nowrap text-sm text-right"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        );
+    };
 
     // Store original data for running balance calculation
     const [originalData] = useState(mockLedgerData);
@@ -3360,129 +4266,161 @@ const CustomerLedgerView: React.FC<CustomerLedgerViewProps> = ({ customer, onBac
                     <span className="text-lg font-medium">{customer.name}</span>
                 </button>
                 <div className="flex gap-3">
-                    <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50">Net Off</button>
-                    <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50">Month View</button>
+                    <button
+                        onClick={() => setShowNetOffModal(true)}
+                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        Net Off
+                    </button>
+                    <button
+                        onClick={() => setViewMode(viewMode === 'invoice-wise' ? 'month-wise' : 'invoice-wise')}
+                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 min-w-[140px]"
+                    >
+                        {viewMode === 'invoice-wise' ? 'Month View' : 'Invoice-wise view'}
+                    </button>
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50 sticky top-0">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                    <div className="flex items-center justify-between">
-                                        <span>Date</span>
-                                        <div className="ml-2 relative group">
-                                            <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
-                                            <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-3 w-48">
-                                                <input type="date" value={dateFilter.start} onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })} className="w-full px-2 py-1 text-xs border rounded mb-2" placeholder="Start" />
-                                                <input type="date" value={dateFilter.end} onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })} className="w-full px-2 py-1 text-xs border rounded" placeholder="End" />
+            {/* Content based on view mode */}
+            {viewMode === 'month-wise' ? (
+                <MonthLedgerView />
+            ) : (
+                /* Invoice-wise Table */
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                        <div className="flex items-center justify-between">
+                                            <span>Date</span>
+                                            <div className="ml-2 relative group">
+                                                <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
+                                                <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-3 w-48">
+                                                    <input type="date" value={dateFilter.start} onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })} className="w-full px-2 py-1 text-xs border rounded mb-2" placeholder="Start" />
+                                                    <input type="date" value={dateFilter.end} onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })} className="w-full px-2 py-1 text-xs border rounded" placeholder="End" />
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                    <div className="flex items-center justify-between">
-                                        <span>Post From</span>
-                                        <div className="ml-2 relative group">
-                                            <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
-                                            <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-40">
-                                                <select value={postFromFilter} onChange={(e) => setPostFromFilter(e.target.value as TransactionType | '')} className="w-full px-2 py-1 text-xs border rounded">
-                                                    <option value="">All</option>
-                                                    {postFromOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                                </select>
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                        <div className="flex items-center justify-between">
+                                            <span>Post From</span>
+                                            <div className="ml-2 relative group">
+                                                <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
+                                                <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-40">
+                                                    <select value={postFromFilter} onChange={(e) => setPostFromFilter(e.target.value as TransactionType | '')} className="w-full px-2 py-1 text-xs border rounded">
+                                                        <option value="">All</option>
+                                                        {postFromOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                                    </select>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                    <div className="flex items-center justify-between">
-                                        <span>Ledger</span>
-                                        <div className="ml-2 relative group">
-                                            <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
-                                            <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-40">
-                                                <input type="text" value={ledgerFilter} onChange={(e) => setLedgerFilter(e.target.value)} placeholder="Search..." className="w-full px-2 py-1 text-xs border rounded" />
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                        <div className="flex items-center justify-between">
+                                            <span>Ledger</span>
+                                            <div className="ml-2 relative group">
+                                                <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
+                                                <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-40">
+                                                    <input type="text" value={ledgerFilter} onChange={(e) => setLedgerFilter(e.target.value)} placeholder="Search..." className="w-full px-2 py-1 text-xs border rounded" />
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                    <div className="flex items-center justify-between">
-                                        <span>Status</span>
-                                        <div className="ml-2 relative group">
-                                            <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
-                                            <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-40 max-h-60 overflow-y-auto">
-                                                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as PurchaseStatus | SalesStatus | '')} className="w-full px-2 py-1 text-xs border rounded">
-                                                    <option value="">All</option>
-                                                    {statusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                                </select>
+                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                        <div className="flex items-center justify-between">
+                                            <span>Status</span>
+                                            <div className="ml-2 relative group">
+                                                <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
+                                                <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-40 max-h-60 overflow-y-auto">
+                                                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as PurchaseStatus | SalesStatus | '')} className="w-full px-2 py-1 text-xs border rounded">
+                                                        <option value="">All</option>
+                                                        {statusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                                    </select>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                    <div className="flex items-center justify-end">
-                                        <span>Debit</span>
-                                        <div className="ml-2 relative group">
-                                            <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
-                                            <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-32">
-                                                <label className="flex items-center text-xs"><input type="checkbox" checked={!!debitFilter} onChange={(e) => setDebitFilter(e.target.checked ? 'show' : '')} className="mr-1" />Show only</label>
+                                    </th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                        <div className="flex items-center justify-end">
+                                            <span>Debit</span>
+                                            <div className="ml-2 relative group">
+                                                <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
+                                                <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-32">
+                                                    <label className="flex items-center text-xs"><input type="checkbox" checked={!!debitFilter} onChange={(e) => setDebitFilter(e.target.checked ? 'show' : '')} className="mr-1" />Show only</label>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                    <div className="flex items-center justify-end">
-                                        <span>Credit</span>
-                                        <div className="ml-2 relative group">
-                                            <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
-                                            <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-32">
-                                                <label className="flex items-center text-xs"><input type="checkbox" checked={!!creditFilter} onChange={(e) => setCreditFilter(e.target.checked ? 'show' : '')} className="mr-1" />Show only</label>
+                                    </th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                        <div className="flex items-center justify-end">
+                                            <span>Credit</span>
+                                            <div className="ml-2 relative group">
+                                                <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
+                                                <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-32">
+                                                    <label className="flex items-center text-xs"><input type="checkbox" checked={!!creditFilter} onChange={(e) => setCreditFilter(e.target.checked ? 'show' : '')} className="mr-1" />Show only</label>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Running Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredData.map((entry) => (
-                                <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">{entry.date}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">{entry.postFrom}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-100">{entry.ledger}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm border-r border-gray-100">
-                                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(entry.status)}`}>{entry.status}</span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100 font-medium">{formatCurrency(entry.debit)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100 font-medium">{formatCurrency(entry.credit)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-semibold">{formatCurrency(entry.runningBalance)}</td>
+                                    </th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Running Balance</th>
                                 </tr>
-                            ))}
-                            {filteredData.length === 0 && (
-                                <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-500">No ledger entries found.</td></tr>
-                            )}
-                        </tbody>
-                        <tfoot className="bg-gray-100 font-semibold">
-                            <tr>
-                                <td colSpan={4} className="px-6 py-4 text-sm text-right text-gray-700">Totals:</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-bold border-l border-gray-200">{formatCurrency(totalDebit)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-bold border-l border-gray-200">{formatCurrency(totalCredit)}</td>
-                                <td className="px-6 py-4 text-sm text-right text-gray-400 italic">(unchanged)</td>
-                            </tr>
-                        </tfoot>
-                    </table>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {filteredData.map((entry) => (
+                                    <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">{entry.date}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">{entry.postFrom}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-100">{entry.ledger}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm border-r border-gray-100">
+                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(entry.status)}`}>{entry.status}</span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100 font-medium">{formatCurrency(entry.debit)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100 font-medium">{formatCurrency(entry.credit)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-semibold">{formatCurrency(entry.runningBalance)}</td>
+                                    </tr>
+                                ))}
+                                {filteredData.length === 0 && (
+                                    <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-500">No ledger entries found.</td></tr>
+                                )}
+                            </tbody>
+                            <tfoot className="bg-gray-100 font-semibold">
+                                <tr>
+                                    <td colSpan={4} className="px-6 py-4 text-sm text-right text-gray-700">Totals:</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-bold border-l border-gray-200">{formatCurrency(totalDebit)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-bold border-l border-gray-200">{formatCurrency(totalCredit)}</td>
+                                    <td className="px-6 py-4 text-sm text-right text-gray-400 italic">(unchanged)</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Info */}
+            {/* Info */}
             <div className="mt-4 text-xs text-gray-500 space-y-1">
-                <p>• Running Balance values remain unchanged when filters are applied - they reflect the true sequential ledger balance.</p>
-                <p>• Totals (Debit and Credit) update based on filtered visible rows.</p>
-                <p>• All columns are filterable except Running Balance.</p>
+                {viewMode === 'invoice-wise' ? (
+                    <>
+                        <p>• Running Balance values remain unchanged when filters are applied - they reflect the true sequential ledger balance.</p>
+                        <p>• Totals (Debit and Credit) update based on filtered visible rows.</p>
+                        <p>• All columns are filterable except Running Balance.</p>
+                    </>
+                ) : (
+                    <>
+                        <p>• Month View aggregates all transactions by month.</p>
+                        <p>• Closing Balance represents the balance at the end of each month.</p>
+                    </>
+                )}
             </div>
+
+            {/* Net Off Modal */}
+            <NetOffModal
+                isOpen={showNetOffModal}
+                onClose={() => setShowNetOffModal(false)}
+                customerName={customer.name}
+            />
         </div>
     );
 };
