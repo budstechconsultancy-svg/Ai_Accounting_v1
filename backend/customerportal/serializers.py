@@ -13,7 +13,17 @@ from .database import (
     CustomerSalesOrder,
     CustomerMasterLongTermContractBasicDetail,
     CustomerMasterLongTermContractProductService,
-    CustomerMasterLongTermContractTermsCondition
+    CustomerMasterLongTermContractTermsCondition,
+    CustomerTransactionSalesQuotationGeneral,
+    CustomerTransactionSalesQuotationGeneralItem,
+    CustomerTransactionSalesQuotationSpecific,
+    CustomerTransactionSalesQuotationSpecific,
+    CustomerTransactionSalesQuotationSpecificItem,
+    CustomerTransactionSalesOrderBasicDetails,
+    CustomerTransactionSalesOrderItemDetails,
+    CustomerTransactionSalesOrderDeliveryTerms,
+    CustomerTransactionSalesOrderPaymentAndSalesperson,
+    CustomerTransactionSalesOrderQuotationDetails
 )
 
 
@@ -128,6 +138,7 @@ class CustomerMasterCustomerSerializer(serializers.ModelSerializer):
             'updated_by': instance.updated_by,
         }
 
+
     def create(self, validated_data):
         """
         Create customer and save data to all 6 separate tables
@@ -141,11 +152,22 @@ class CustomerMasterCustomerSerializer(serializers.ModelSerializer):
             CustomerMasterCustomerTermsCondition
         )
         from django.db import transaction
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info("=" * 80)
+        logger.info("SERIALIZER CREATE METHOD CALLED")
+        logger.info("=" * 80)
+        logger.info(f"Validated Data Keys: {list(validated_data.keys())}")
         
         # Extract data for separate tables
         gst_details_data = validated_data.pop('gst_details', None)
         products_services_data = validated_data.pop('products_services', None)
         banking_info_data = validated_data.pop('banking_info', None)
+        
+        logger.info(f"GST Details Data: {gst_details_data}")
+        logger.info(f"Products/Services Data: {products_services_data}")
+        logger.info(f"Banking Info Data: {banking_info_data}")
         
         # Extract TDS fields
         tds_data = {
@@ -159,6 +181,8 @@ class CustomerMasterCustomerSerializer(serializers.ModelSerializer):
             'tds_enabled': validated_data.pop('tds_enabled', False),
         }
         
+        logger.info(f"TDS Data: {tds_data}")
+        
         # Extract Terms & Conditions fields
         terms_data = {
             'credit_period': validated_data.pop('credit_period', None),
@@ -170,57 +194,111 @@ class CustomerMasterCustomerSerializer(serializers.ModelSerializer):
             'dispute_terms': validated_data.pop('dispute_terms', None),
         }
         
+        logger.info(f"Terms & Conditions Data: {terms_data}")
+        logger.info(f"Any terms data? {any(terms_data.values())}")
+        
         # Use transaction to ensure all-or-nothing save
-        with transaction.atomic():
-            # 1. Create Basic Details (parent table)
-            basic_details = super().create(validated_data)
-            
-            # 2. Create GST Details (if provided)
-            if gst_details_data:
-                gstins = gst_details_data.get('gstins', [])
-                branches = gst_details_data.get('branches', [])
+        try:
+            with transaction.atomic():
+                # 1. Create Basic Details (parent table)
+                logger.info("Creating Basic Details...")
+                basic_details = super().create(validated_data)
+                logger.info(f"✅ Basic Details created: ID={basic_details.id}, Code={basic_details.customer_code}")
                 
-                # Create GST detail for each GSTIN/branch
-                for gstin in gstins:
-                    CustomerMasterCustomerGSTDetails.objects.create(
+                # 2. Create GST Details (ALWAYS create at least one record, even if empty)
+                logger.info("Creating GST Details...")
+                gstins = []
+                branches = []
+                
+                if gst_details_data:
+                    gstins = gst_details_data.get('gstins', [])
+                    branches = gst_details_data.get('branches', [])
+                    logger.info(f"  GSTINs to create: {gstins}")
+                    logger.info(f"  Branches to create: {branches}")
+                
+                # If no GSTINs provided, create one empty/unregistered record
+                if not gstins and not branches:
+                    logger.info("  No GSTINs provided, creating empty GST record...")
+                    gst_record = CustomerMasterCustomerGSTDetails.objects.create(
                         customer_basic_detail=basic_details,
                         tenant_id=basic_details.tenant_id,
-                        gstin=gstin,
-                        is_unregistered=False,
+                        gstin=None,
+                        is_unregistered=True,
                         created_by=basic_details.created_by
                     )
-                
-                # Create branch details
-                for branch in branches:
-                    CustomerMasterCustomerGSTDetails.objects.create(
-                        customer_basic_detail=basic_details,
-                        tenant_id=basic_details.tenant_id,
-                        gstin=branch.get('gstin'),
-                        branch_reference_name=branch.get('defaultRef'),
-                        branch_address=branch.get('address'),
-                        created_by=basic_details.created_by
-                    )
-            
-            # 3. Create Product/Service mappings (if provided)
-            if products_services_data and 'items' in products_services_data:
-                items = products_services_data['items']
-                for item in items:
-                    if item.get('itemCode'):  # Only create if item code exists
-                        CustomerMasterCustomerProductService.objects.create(
+                    logger.info(f"  ✅ Empty GST Detail created: ID={gst_record.id}")
+                else:
+                    # Create GST detail for each GSTIN
+                    for gstin in gstins:
+                        if gstin:
+                            gst_record = CustomerMasterCustomerGSTDetails.objects.create(
+                                customer_basic_detail=basic_details,
+                                tenant_id=basic_details.tenant_id,
+                                gstin=gstin,
+                                is_unregistered=False,
+                                created_by=basic_details.created_by
+                            )
+                            logger.info(f"  ✅ GST Detail created: ID={gst_record.id}, GSTIN={gstin}")
+                    
+                    # Create branch details
+                    for branch in branches:
+                        # Allow branch creation even if GSTIN is missing (for unregistered customers)
+                        branch_record = CustomerMasterCustomerGSTDetails.objects.create(
                             customer_basic_detail=basic_details,
                             tenant_id=basic_details.tenant_id,
-                            item_code=item.get('itemCode'),
-                            item_name=item.get('itemName'),
-                            customer_item_code=item.get('custItemCode'),
-                            customer_item_name=item.get('custItemName'),
-                            uom=item.get('uom'),
-                            customer_uom=item.get('custUom'),
+                            gstin=branch.get('gstin'),
+                            branch_reference_name=branch.get('defaultRef'),
+                            branch_address=branch.get('address'),
+                            branch_contact_person=branch.get('contactPerson'),
+                            branch_email=branch.get('email'),
+                            branch_contact_number=branch.get('contactNumber'),
                             created_by=basic_details.created_by
                         )
-            
-            # 4. Create TDS Details (if any TDS data provided)
-            if any(tds_data.values()):
-                CustomerMasterCustomerTDS.objects.update_or_create(
+                        logger.info(f"  ✅ Branch Detail created: ID={branch_record.id}")
+                
+                # 3. Create Product/Service mappings (ALWAYS create at least one record, even if empty)
+                logger.info("Creating Product/Service mappings...")
+                items = []
+                
+                if products_services_data and 'items' in products_services_data:
+                    items = products_services_data['items']
+                    logger.info(f"  Items to process: {len(items)}")
+                
+                created_count = 0
+                
+                # Process provided items
+                for item in items:
+                    item_code = item.get('itemCode')
+                    # Save all provided rows, even if item_code is missing (e.g. only customer details provided)
+                    prod_record = CustomerMasterCustomerProductService.objects.create(
+                        customer_basic_detail=basic_details,
+                        tenant_id=basic_details.tenant_id,
+                        item_code=item_code,
+                        item_name=item.get('itemName'),
+                        customer_item_code=item.get('custItemCode'),
+                        customer_item_name=item.get('custItemName'),
+                        uom=item.get('uom'),
+                        customer_uom=item.get('custUom'),
+                        created_by=basic_details.created_by
+                    )
+                    logger.info(f"  ✅ Product/Service created: ID={prod_record.id}, Code={item_code}")
+                    created_count += 1
+                
+                # If no products created, create one empty record
+                if created_count == 0:
+                    logger.info("  No products provided, creating empty product record...")
+                    prod_record = CustomerMasterCustomerProductService.objects.create(
+                        customer_basic_detail=basic_details,
+                        tenant_id=basic_details.tenant_id,
+                        item_code=None,
+                        item_name=None,
+                        created_by=basic_details.created_by
+                    )
+                    logger.info(f"  ✅ Empty Product/Service created: ID={prod_record.id}")
+                
+                # 4. Create TDS Details (ALWAYS create, even if all fields are empty)
+                logger.info("Creating TDS Details...")
+                tds_record, created = CustomerMasterCustomerTDS.objects.update_or_create(
                     customer_basic_detail=basic_details,
                     defaults={
                         'tenant_id': basic_details.tenant_id,
@@ -228,13 +306,21 @@ class CustomerMasterCustomerSerializer(serializers.ModelSerializer):
                         **tds_data
                     }
                 )
-            
-            # 5. Create Banking Information (if provided)
-            if banking_info_data and 'accounts' in banking_info_data:
-                accounts = banking_info_data['accounts']
+                logger.info(f"  ✅ TDS Details {'created' if created else 'updated'}: ID={tds_record.id}")
+                
+                # 5. Create Banking Information (ALWAYS create at least one record, even if empty)
+                logger.info("Creating Banking Information...")
+                accounts = []
+                
+                if banking_info_data and 'accounts' in banking_info_data:
+                    accounts = banking_info_data['accounts']
+                
+                created_count = 0
+                
+                # Process provided accounts
                 for account in accounts:
-                    if account.get('accountNumber'):  # Only create if account number exists
-                        CustomerMasterCustomerBanking.objects.create(
+                    if account.get('accountNumber'):
+                        bank_record = CustomerMasterCustomerBanking.objects.create(
                             customer_basic_detail=basic_details,
                             tenant_id=basic_details.tenant_id,
                             account_number=account.get('accountNumber'),
@@ -245,10 +331,26 @@ class CustomerMasterCustomerSerializer(serializers.ModelSerializer):
                             associated_branches=account.get('associatedBranches'),
                             created_by=basic_details.created_by
                         )
-            
-            # 6. Create Terms & Conditions (if any terms data provided)
-            if any(terms_data.values()):
-                CustomerMasterCustomerTermsCondition.objects.update_or_create(
+                        logger.info(f"  ✅ Banking Info created: ID={bank_record.id}, Account={account.get('accountNumber')}")
+                        created_count += 1
+                
+                # If no bank accounts created, create one empty record
+                if created_count == 0:
+                    logger.info("  No bank accounts provided, creating empty banking record...")
+                    bank_record = CustomerMasterCustomerBanking.objects.create(
+                        customer_basic_detail=basic_details,
+                        tenant_id=basic_details.tenant_id,
+                        account_number=None,
+                        bank_name=None,
+                        ifsc_code=None,
+                        created_by=basic_details.created_by
+                    )
+                    logger.info(f"  ✅ Empty Banking Info created: ID={bank_record.id}")
+                
+                # 6. Create Terms & Conditions (ALWAYS create, even if all fields are empty)
+                logger.info("Creating Terms & Conditions...")
+                logger.info(f"  Terms data to save: {terms_data}")
+                terms_record, created = CustomerMasterCustomerTermsCondition.objects.update_or_create(
                     customer_basic_detail=basic_details,
                     defaults={
                         'tenant_id': basic_details.tenant_id,
@@ -256,6 +358,20 @@ class CustomerMasterCustomerSerializer(serializers.ModelSerializer):
                         **terms_data
                     }
                 )
+                logger.info(f"  ✅ Terms & Conditions {'created' if created else 'updated'}: ID={terms_record.id}")
+            
+            logger.info("=" * 80)
+            logger.info("✅ CUSTOMER CREATION COMPLETED SUCCESSFULLY")
+            logger.info("=" * 80)
+            
+        except Exception as e:
+            logger.error("=" * 80)
+            logger.error("❌ ERROR DURING CUSTOMER CREATION")
+            logger.error("=" * 80)
+            logger.error(f"Error: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise
         
         return basic_details
 
@@ -508,3 +624,163 @@ class CustomerMasterLongTermContractBasicDetailSerializer(serializers.ModelSeria
             'products_services', 'terms_conditions'
         ]
         read_only_fields = ['id', 'tenant_id', 'created_by', 'created_at', 'updated_at']
+
+
+class CustomerTransactionSalesQuotationGeneralItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerTransactionSalesQuotationGeneralItem
+        fields = ['id', 'item_code', 'item_name', 'min_order_qty', 'base_price', 'max_discount', 'best_price']
+
+
+class CustomerTransactionSalesQuotationGeneralSerializer(serializers.ModelSerializer):
+    items = CustomerTransactionSalesQuotationGeneralItemSerializer(many=True)
+    
+    class Meta:
+        model = CustomerTransactionSalesQuotationGeneral
+        fields = '__all__'
+        read_only_fields = ['id', 'tenant_id', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        items_data = validated_data.pop('items')
+        general_quote = CustomerTransactionSalesQuotationGeneral.objects.create(**validated_data)
+        for item_data in items_data:
+            CustomerTransactionSalesQuotationGeneralItem.objects.create(general_quote=general_quote, **item_data)
+        return general_quote
+
+
+class CustomerTransactionSalesQuotationSpecificItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerTransactionSalesQuotationSpecificItem
+        fields = ['id', 'item_code', 'item_name', 'customer_item_name', 'min_order_qty', 'base_price', 'discount', 'negotiated_price']
+
+
+class CustomerTransactionSalesQuotationSpecificSerializer(serializers.ModelSerializer):
+    items = CustomerTransactionSalesQuotationSpecificItemSerializer(many=True)
+
+    class Meta:
+        model = CustomerTransactionSalesQuotationSpecific
+        fields = '__all__'
+        read_only_fields = ['id', 'tenant_id', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        items_data = validated_data.pop('items')
+        specific_quote = CustomerTransactionSalesQuotationSpecific.objects.create(**validated_data)
+        for item_data in items_data:
+            CustomerTransactionSalesQuotationSpecificItem.objects.create(specific_quote=specific_quote, **item_data)
+        return specific_quote
+
+
+class CustomerTransactionSalesOrderItemDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerTransactionSalesOrderItemDetails
+        fields = ['id', 'item_code', 'item_name', 'quantity', 'price', 'taxable_value', 'gst', 'net_value']
+
+
+class CustomerTransactionSalesOrderDeliveryTermsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerTransactionSalesOrderDeliveryTerms
+        fields = ['id', 'deliver_at', 'delivery_date']
+
+
+class CustomerTransactionSalesOrderPaymentAndSalespersonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerTransactionSalesOrderPaymentAndSalesperson
+        fields = ['id', 'credit_period', 'salesperson_in_charge', 'employee_id', 'employee_name']
+
+
+class CustomerTransactionSalesOrderQuotationDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerTransactionSalesOrderQuotationDetails
+        fields = ['id', 'quotation_type', 'quotation_number']
+
+
+class CustomerTransactionSalesOrderSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Sales Order
+    Handles saving data to all 5 separate tables when 'Save' is clicked
+    """
+    items = CustomerTransactionSalesOrderItemDetailsSerializer(many=True, required=False)
+    delivery_terms = CustomerTransactionSalesOrderDeliveryTermsSerializer(required=False)
+    payment_and_salesperson = CustomerTransactionSalesOrderPaymentAndSalespersonSerializer(required=False)
+    quotation_details = CustomerTransactionSalesOrderQuotationDetailsSerializer(required=False)
+
+    class Meta:
+        model = CustomerTransactionSalesOrderBasicDetails
+        fields = [
+            'id', 'tenant_id', 'so_series_name', 'so_number', 'date', 
+            'customer_po_number', 'customer_name', 'branch', 'address', 
+            'email', 'contact_number',
+            'is_active', 'is_deleted', 'created_at', 'updated_at', 
+            'created_by', 'updated_by', 'items', 'delivery_terms', 
+            'payment_and_salesperson', 'quotation_details'
+        ]
+        read_only_fields = ['id', 'tenant_id', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        """
+        Create sales order and save data to all 5 separate tables
+        """
+        from django.db import transaction
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info("=== Creating Sales Order ===")
+        
+        # Extract nested data
+        # Extract nested data
+        items_data = validated_data.pop('items', [])
+        delivery_terms_data = validated_data.pop('delivery_terms', None)
+        payment_and_salesperson_data = validated_data.pop('payment_and_salesperson', None)
+        quotation_details_data = validated_data.pop('quotation_details', None)
+        
+        try:
+            with transaction.atomic():
+                # 1. Create Basic Details
+                sales_order = CustomerTransactionSalesOrderBasicDetails.objects.create(**validated_data)
+                logger.info(f"✅ Basic Details created: ID={sales_order.id}, SO Number={sales_order.so_number}")
+                
+                # 2. Create Items
+                for item_data in items_data:
+                    item_data['tenant_id'] = sales_order.tenant_id
+                    CustomerTransactionSalesOrderItemDetails.objects.create(
+                        so_basic_detail=sales_order, 
+                        **item_data
+                    )
+                logger.info(f"✅ Created {len(items_data)} items")
+                
+                # 3. Create Delivery Terms (if provided)
+                if delivery_terms_data:
+                    delivery_terms_data['tenant_id'] = sales_order.tenant_id
+                    CustomerTransactionSalesOrderDeliveryTerms.objects.create(
+                        so_basic_detail=sales_order, 
+                        **delivery_terms_data
+                    )
+                    logger.info("✅ Delivery Terms created")
+                
+                # 4. Create Payment and Salesperson (if provided)
+                if payment_and_salesperson_data:
+                    payment_and_salesperson_data['tenant_id'] = sales_order.tenant_id
+                    CustomerTransactionSalesOrderPaymentAndSalesperson.objects.create(
+                        so_basic_detail=sales_order, 
+                        **payment_and_salesperson_data
+                    )
+                    logger.info("✅ Payment and Salesperson created")
+                
+                # 5. Create Quotation Details (if provided)
+                if quotation_details_data:
+                    quotation_details_data['tenant_id'] = sales_order.tenant_id
+                    CustomerTransactionSalesOrderQuotationDetails.objects.create(
+                        so_basic_detail=sales_order, 
+                        **quotation_details_data
+                    )
+                    logger.info("✅ Quotation Details created")
+                
+                logger.info("=== Sales Order Creation Completed ===")
+                return sales_order
+                
+        except Exception as e:
+            logger.error(f"❌ Error creating sales order: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise
+
