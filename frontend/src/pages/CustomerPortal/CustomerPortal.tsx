@@ -4,7 +4,7 @@ import CategoryHierarchicalDropdown from '../../components/CategoryHierarchicalD
 import Icon from '../../components/Icon'; // Assuming Icon component exists
 import CreateSalesQuotation from './CreateSalesQuotation';
 import CreateSalesOrder from './CreateSalesOrder';
-import { Eye, Mail, Filter, ChevronLeft, X } from 'lucide-react';
+import { Eye, Mail, Filter, ChevronLeft, X, AlertTriangle } from 'lucide-react';
 
 type MainTab = 'Masters' | 'Transactions' | 'Reports';
 type MasterSubTab = 'Category' | 'Sales Quotation & Order' | 'Customer' | 'Long-term Contracts';
@@ -39,6 +39,33 @@ interface LedgerEntry {
     runningBalance: number;
 }
 
+interface GeneralQuote {
+    id: string;
+    quoteNo: string;
+    customerCategory: string;
+    validityFrom: string;
+    validityTo: string;
+}
+
+interface SpecificQuote {
+    id: string;
+    quoteNo: string;
+    customerName: string;
+    deliveryDate: string;
+    validity: string;
+    amount: number;
+}
+
+interface Voucher {
+    id: string;
+    date: string;
+    voucherNo: string;
+    amount: number;
+    selected: boolean;
+    status: string;
+    netOffAmount?: number;
+}
+
 interface Category {
     id: number;
     category: string;
@@ -59,33 +86,31 @@ const CustomerPortalPage: React.FC = () => {
     const [showCreateOrder, setShowCreateOrder] = useState(false);
 
     return (
-        <div className="flex-1 bg-gray-50 min-h-screen">
+        <div className="flex-1 bg-gradient-to-br from-indigo-50 to-blue-50 min-h-screen">
             {/* Header */}
-            <div className="bg-white border-b border-gray-200 px-8 py-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Customer Module</h1>
-                        <p className="text-sm text-gray-600 mt-1">Manage customers, categories, and sales transactions</p>
-                    </div>
+            <div className="px-8 py-6 flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800">Customer Portal</h2>
+                    <p className="text-sm text-gray-600 mt-1">Manage customers, categories, and sales transactions</p>
                 </div>
             </div>
 
             {/* Main Tabs */}
-            <div className="bg-white border-b border-gray-200 px-8">
-                <div className="flex gap-8">
+            <div className="px-8 mb-6">
+                <nav className="flex space-x-8 border-b border-gray-200" aria-label="Customer Portal Tabs">
                     {['Masters', 'Transactions', 'Reports'].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as MainTab)}
-                            className={`py-4 px-1 text-sm font-medium border-b-2 transition-colors ${activeTab === tab
+                            className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab
                                 ? 'border-indigo-600 text-indigo-700'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                 }`}
                         >
                             {tab}
                         </button>
                     ))}
-                </div>
+                </nav>
             </div>
 
             {/* Content Area */}
@@ -93,25 +118,25 @@ const CustomerPortalPage: React.FC = () => {
                 {activeTab === 'Masters' && (
                     <div>
                         {/* Sub-tabs for Masters */}
-                        <div className="mb-6 bg-white p-2 rounded-lg inline-block shadow-sm">
-                            <div className="flex space-x-2">
+                        <div className="mb-6">
+                            <nav className="flex space-x-8 border-b border-gray-200">
                                 {['Category', 'Sales Quotation & Order', 'Customer', 'Long-term Contracts'].map((subTab) => (
                                     <button
                                         key={subTab}
                                         onClick={() => setActiveMasterSubTab(subTab as MasterSubTab)}
-                                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeMasterSubTab === subTab
-                                            ? 'bg-indigo-50 text-indigo-700'
-                                            : 'text-gray-600 hover:bg-gray-50'
+                                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeMasterSubTab === subTab
+                                            ? 'border-indigo-600 text-indigo-700'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                             }`}
                                     >
                                         {subTab}
                                     </button>
                                 ))}
-                            </div>
+                            </nav>
                         </div>
 
                         {/* Masters Content */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[500px]">
+                        <div className="bg-white rounded-lg shadow p-0 overflow-hidden min-h-[500px]">
                             {activeMasterSubTab === 'Category' && <CategoryContent />}
                             {activeMasterSubTab === 'Customer' && <CustomerContent />}
                             {activeMasterSubTab === 'Sales Quotation & Order' && <SalesOrderContent />}
@@ -123,21 +148,21 @@ const CustomerPortalPage: React.FC = () => {
                 {activeTab === 'Transactions' && (
                     <div>
                         {/* Sub-tabs for Transactions */}
-                        <div className="mb-6 bg-white p-2 rounded-lg inline-block shadow-sm">
-                            <div className="flex space-x-2">
+                        <div className="mb-6">
+                            <nav className="flex space-x-8 border-b border-gray-200">
                                 {['Sales Quotation', 'Sales Order', 'Sales', 'Receipt'].map((subTab) => (
                                     <button
                                         key={subTab}
                                         onClick={() => setActiveTransactionSubTab(subTab as TransactionSubTab)}
-                                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTransactionSubTab === subTab
-                                            ? 'bg-indigo-50 text-indigo-700'
-                                            : 'text-gray-600 hover:bg-gray-50'
+                                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTransactionSubTab === subTab
+                                            ? 'border-indigo-600 text-indigo-700'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                             }`}
                                     >
                                         {subTab}
                                     </button>
                                 ))}
-                            </div>
+                            </nav>
                         </div>
 
                         {/* Transactions Content */}
@@ -176,17 +201,96 @@ const CustomerPortalPage: React.FC = () => {
                                         </div>
 
                                         {/* Content for Sales Quotation Sub-tabs */}
-                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-8">
+                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-0">
                                             {activeSalesQuotationSubTab === 'General Customer Quote' && (
-                                                <div className="text-center">
-                                                    <h4 className="text-md font-medium text-gray-900 mb-2">General Customer Quote</h4>
-                                                    <p className="text-gray-500">General Customer Quote interface coming soon.</p>
+                                                <div className="bg-white rounded-lg overflow-hidden">
+                                                    <table className="min-w-full divide-y divide-gray-200">
+                                                        <thead className="bg-gray-50">
+                                                            <tr>
+                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quote #</th>
+                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Category</th>
+                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Validity Period</th>
+                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="bg-white divide-y divide-gray-200">
+                                                            {[
+                                                                { id: '1', quoteNo: 'Q-GEN-001', customerCategory: 'Wholesale', validityFrom: '2023-10-01', validityTo: '2023-12-31' },
+                                                                { id: '2', quoteNo: 'Q-GEN-002', customerCategory: 'Retail', validityFrom: '2024-01-01', validityTo: '2024-03-31' },
+                                                            ].map((quote) => (
+                                                                <tr key={quote.id}>
+                                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">{quote.quoteNo}</td>
+                                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{quote.customerCategory}</td>
+                                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{quote.validityFrom} to {quote.validityTo}</td>
+                                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                                        <div className="flex gap-3">
+                                                                            <button className="text-gray-400 hover:text-indigo-600"><Eye size={18} /></button>
+                                                                            <button className="text-gray-400 hover:text-blue-600">
+                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                                </svg>
+                                                                            </button>
+                                                                            <button
+                                                                                className="text-gray-400 hover:text-green-600"
+                                                                                onClick={() => {
+                                                                                    const email = prompt('Enter email address to send quotation:', '');
+                                                                                    if (email) alert(`Quotation ${quote.quoteNo} sent to ${email}`);
+                                                                                }}
+                                                                            >
+                                                                                <Mail size={18} />
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
                                                 </div>
                                             )}
                                             {activeSalesQuotationSubTab === 'Specific Customer Quote' && (
-                                                <div className="text-center">
-                                                    <h4 className="text-md font-medium text-gray-900 mb-2">Specific Customer Quote</h4>
-                                                    <p className="text-gray-500">Specific Customer Quote interface coming soon.</p>
+                                                <div className="bg-white rounded-lg overflow-hidden">
+                                                    <table className="min-w-full divide-y divide-gray-200">
+                                                        <thead className="bg-gray-50">
+                                                            <tr>
+                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quote #</th>
+                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Reference Name</th>
+                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tentative Delivery Date</th>
+                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Validity</th>
+                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="bg-white divide-y divide-gray-200">
+                                                            {[
+                                                                { id: '1', quoteNo: 'Q-SPC-001', customerName: 'Tech Solutions Inc.', deliveryDate: '2023-11-15', validity: '30 Days', amount: 15000 },
+                                                                { id: '2', quoteNo: 'Q-SPC-002', customerName: 'Global Corp', deliveryDate: '2023-12-01', validity: '15 Days', amount: 28500 },
+                                                            ].map((quote) => (
+                                                                <tr key={quote.id}>
+                                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">{quote.quoteNo}</td>
+                                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{quote.customerName}</td>
+                                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{quote.deliveryDate}</td>
+                                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{quote.validity}</td>
+                                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">₹{quote.amount.toLocaleString()}</td>
+                                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                                        <div className="flex gap-3">
+                                                                            <button className="text-gray-400 hover:text-indigo-600"><Eye size={18} /></button>
+                                                                            <button className="text-gray-400 hover:text-blue-600">
+                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                                </svg>
+                                                                            </button>
+                                                                            <button
+                                                                                className="text-gray-400 hover:text-green-600"
+                                                                                onClick={() => alert(`Draft email opened for ${quote.customerName} (customer@example.com)`)}
+                                                                            >
+                                                                                <Mail size={18} />
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
                                                 </div>
                                             )}
                                         </div>
@@ -591,7 +695,7 @@ const CustomerContent: React.FC = () => {
         { id: 1, referenceName: '', address: '', contactPerson: '', email: '', contactNumber: '' }
     ]);
     const [productRows, setProductRows] = useState([
-        { id: 1, itemCode: '', itemName: 'Auto-fetched', custItemCode: '', custItemName: '' }
+        { id: 1, itemCode: '', itemName: 'Auto-fetched', uom: '', customerUom: '', custItemCode: '', custItemName: '' }
     ]);
     const [statutoryDetails, setStatutoryDetails] = useState({
         msmeNo: '',
@@ -613,6 +717,8 @@ const CustomerContent: React.FC = () => {
         associatedBranches: string[];
     }[]>([]);
     const [isAddingBank, setIsAddingBank] = useState(false);
+    const [showTdsInfo, setShowTdsInfo] = useState(false);
+    const [showTcsInfo, setShowTcsInfo] = useState(false);
 
     // T&C Details State
     const [termsDetails, setTermsDetails] = useState({
@@ -655,16 +761,47 @@ const CustomerContent: React.FC = () => {
 
     // Mock Data for Items
     const mockItems = [
-        { code: 'ITEM-001', name: 'Dell Latitude 3520 Laptop' },
-        { code: 'ITEM-002', name: 'Logitech Wireless Mouse' },
-        { code: 'ITEM-003', name: 'HP LaserJet Pro Printer' },
-        { code: 'SERV-001', name: 'Annual Maintenance Contract' },
+        { code: 'ITEM-001', name: 'Dell Latitude 3520 Laptop', uom: 'Pcs' },
+        { code: 'ITEM-002', name: 'Logitech Wireless Mouse', uom: 'Pcs' },
+        { code: 'ITEM-003', name: 'HP LaserJet Pro Printer', uom: 'Pcs' },
+        { code: 'SERV-001', name: 'Annual Maintenance Contract', uom: 'Yearly' },
+    ];
+
+    const tdsOptions = [
+        { code: '194C', name: 'Contracts - Individual/HUF', desc: 'Payment to Contractors who are Individuals or Hindu Undivided Family (HUF)', value: '194C-Ind' },
+        { code: '194C', name: 'Contracts - Others', desc: 'Payment to Contractors other than Individuals & HUF', value: '194C-Oth' },
+        { code: '194H', name: 'Commission/Brokerage', desc: 'Commission and Brokerage to agents', value: '194H' },
+        { code: '194-I', name: 'Rent- Land, Building, Furniture & fitting', desc: 'Rent on Land, Building, or Furniture & fitting', value: '194I-Land' },
+        { code: '194-I', name: 'Rent- Plant & Machinery, Equipment', desc: 'Rent on Plant & Machinery, or Equipment', value: '194I-Plant' },
+        { code: '194J', name: 'Technical Services', desc: 'Fees for Technical Services, Call Center Operations, Royalty on sale & distribution of films', value: '194J-Tech' },
+        { code: '194J', name: 'Professional Services', desc: 'Professional Services, Royalty from other than films, Non-Compete Fees, etc.', value: '194J-Prof' },
+        { code: '194J', name: "Director's Remuneration", desc: "Director's Remuneration", value: '194J-Dir' },
+        { code: '194Q', name: 'Purchase of Goods', desc: 'Purchase of Goods of aggregate value exceeding Rs. 50 Lakhs', value: '194Q' },
+        { code: '194A', name: 'Interest other than interest on securities', desc: 'Interest payments made on loans, FDs, advances, etc., other than interest on securities', value: '194A' },
+        { code: '194R', name: 'Benefit or Perquisite', desc: 'Benefit or Perquisite given by a business or professional exceeding Rs 20,000', value: '194R' },
+        { code: '194-IA', name: 'Immovable Property Transfer', desc: 'Transfer of immovable property valuing Rs 50 lakhs or more', value: '194-IA' },
+        { code: '194-IB', name: 'Rent by Individual or HUF', desc: 'Rent exceeding Rs.50,000 per month paid by Individual & HUFs who are not subject to tax audit', value: '194-IB' },
+        { code: '194-IC', name: 'Joint Development Agreements', desc: 'Payment of monetary consideration under a specified Joint Development Agreements', value: '194-IC' },
+        { code: '194M', name: 'Contractors & Professionals', desc: 'Payment exceeding Rs.50 Lakhs to contractors or professionals by Individuals & HUFs who are not subject to tax audit', value: '194M' },
+        { code: '194-O', name: 'E-Commerce', desc: 'Facilitating sales or services by an E-commerce operator for an E-commerce participant', value: '194-O' },
+        { code: '195', name: 'Payment to Non-Residents', desc: 'Any payment subject to tax made to a Non-Resident or Foreign Company', value: '195' },
+    ];
+
+    const tcsOptions = [
+        { code: '206C(1H)', name: 'Sale of Goods', desc: 'Sale of Goods of value exceeding Rs. 50 Lakhs', value: '206C(1H)' },
+        { code: '206C(1)', name: 'Sale of Scrap, Alcoholic Liquor, Minerals', desc: 'Sale of Scrap, Alcoholic Liquor for human consumption, and Minerals being coal or lignite or iron ore', value: '206C(1)-Scrap' },
+        { code: '206C(1)', name: 'Sale of Tendu Leaves', desc: 'Sale of Tendu Leaves', value: '206C(1)-Tendu' },
+        { code: '206C(1)', name: 'Sale of Forest Produce', desc: 'Sale of Timber and Forest produce under a forest lease', value: '206C(1)-Forest' },
+        { code: '206C(1)', name: 'Sale of Timber', desc: 'Sale of Timber from modes other than forest lease', value: '206C(1)-Timber' },
+        { code: '206C(IF)', name: 'Sale of Motor Vehicles', desc: 'Sale of Motor Vehicle for value of more than Rs.10 Lakhs', value: '206C(IF)-Vehicles' },
+        { code: '206C(IF)', name: 'Sale of Specified Luxury Goods', desc: 'Sale of Luxury Goods like yachts, helicopters, aircraft, jewellery, home theatre systems, etc., for value of more than Rs...', value: '206C(IF)-Luxury' },
+        { code: 'Others', name: 'Others', desc: 'Other TCS Sections', value: 'Others' },
     ];
 
     const handleAddProductRow = () => {
         setProductRows(prev => [
             ...prev,
-            { id: prev.length + 1, itemCode: '', itemName: 'Auto-fetched', custItemCode: '', custItemName: '' }
+            { id: prev.length + 1, itemCode: '', itemName: 'Auto-fetched', uom: '', customerUom: '', custItemCode: '', custItemName: '' }
         ]);
     };
 
@@ -681,6 +818,7 @@ const CustomerContent: React.FC = () => {
                 if (field === 'itemCode') {
                     const item = mockItems.find(i => i.code === value);
                     updatedRow.itemName = item ? item.name : 'Auto-fetched';
+                    updatedRow.uom = item ? item.uom : '';
                 }
                 return updatedRow;
             }
@@ -1266,10 +1404,12 @@ const CustomerContent: React.FC = () => {
                             {/* Table Header */}
                             <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                 <div className="col-span-1">No</div>
-                                <div className="col-span-3">Item Code <span className="text-red-500">*</span></div>
-                                <div className="col-span-3">Item Name</div>
-                                <div className="col-span-2">Customer Item Code</div>
-                                <div className="col-span-2">Customer Item Name</div>
+                                <div className="col-span-2">Item Code <span className="text-red-500">*</span></div>
+                                <div className="col-span-2">Item Name</div>
+                                <div className="col-span-1">UOM</div>
+                                <div className="col-span-1">Cust UOM</div>
+                                <div className="col-span-2">Cust Item Code</div>
+                                <div className="col-span-2">Cust Item Name</div>
                                 <div className="col-span-1 text-center">Action</div>
                             </div>
 
@@ -1278,7 +1418,7 @@ const CustomerContent: React.FC = () => {
                                 {productRows.map((row, index) => (
                                     <div key={row.id} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-gray-50/50 transition-colors">
                                         <div className="col-span-1 text-sm text-gray-500 font-medium">{index + 1}</div>
-                                        <div className="col-span-3">
+                                        <div className="col-span-2">
                                             <select
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
                                                 value={row.itemCode}
@@ -1290,13 +1430,31 @@ const CustomerContent: React.FC = () => {
                                                 ))}
                                             </select>
                                         </div>
-                                        <div className="col-span-3">
+                                        <div className="col-span-2">
                                             <input
                                                 type="text"
                                                 readOnly
                                                 className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 text-sm cursor-not-allowed"
-                                                placeholder="Auto-fetched"
+                                                placeholder="fetched"
                                                 value={row.itemName}
+                                            />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-100 text-gray-500 text-sm cursor-not-allowed text-center"
+                                                placeholder="UOM"
+                                                value={(row as any).uom || ''}
+                                            />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <input
+                                                type="text"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm text-center"
+                                                placeholder="UOM"
+                                                value={(row as any).customerUom || ''}
+                                                onChange={(e) => handleProductRowChange(row.id, 'customerUom', e.target.value)}
                                             />
                                         </div>
                                         <div className="col-span-2">
@@ -1466,15 +1624,43 @@ const CustomerContent: React.FC = () => {
                                     <div className="space-y-4">
                                         <div>
                                             <label className="block text-xs font-medium text-gray-500 mb-1">Applicable Section</label>
-                                            <select
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
-                                                value={statutoryDetails.tcsSection}
-                                                onChange={(e) => setStatutoryDetails({ ...statutoryDetails, tcsSection: e.target.value })}
-                                            >
-                                                <option value="">Select TCS Section</option>
-                                                <option value="206C(1H)">206C(1H) - Sale of Goods</option>
-                                                <option value="Others">Others</option>
-                                            </select>
+                                            <div className="flex gap-2">
+                                                <select
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+                                                    value={statutoryDetails.tcsSection}
+                                                    onChange={(e) => {
+                                                        setStatutoryDetails({ ...statutoryDetails, tcsSection: e.target.value });
+                                                        setShowTcsInfo(false);
+                                                    }}
+                                                >
+                                                    <option value="">Select TCS Section</option>
+                                                    {tcsOptions.map(option => (
+                                                        <option key={option.value} value={option.value}>
+                                                            {option.code === 'Others' ? 'Others' : `Section ${option.code} - ${option.name}`}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <button
+                                                    onClick={() => setShowTcsInfo(!showTcsInfo)}
+                                                    className={`p-2 rounded-md transition-colors ${showTcsInfo ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                                                    title="Show Section Description"
+                                                    disabled={!statutoryDetails.tcsSection}
+                                                >
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <circle cx="12" cy="12" r="10"></circle>
+                                                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                                                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            {showTcsInfo && statutoryDetails.tcsSection && (
+                                                <div className="mt-2 p-3 bg-indigo-50 border border-indigo-100 rounded-md text-sm text-indigo-800 animate-fadeIn">
+                                                    <span className="font-semibold block mb-1">
+                                                        {tcsOptions.find(o => o.value === statutoryDetails.tcsSection)?.name}:
+                                                    </span>
+                                                    {tcsOptions.find(o => o.value === statutoryDetails.tcsSection)?.desc}
+                                                </div>
+                                            )}
                                         </div>
                                         <label className="flex items-center gap-2 cursor-pointer">
                                             <input
@@ -1499,15 +1685,43 @@ const CustomerContent: React.FC = () => {
                                     <div className="space-y-4">
                                         <div>
                                             <label className="block text-xs font-medium text-gray-500 mb-1">Receivable Section</label>
-                                            <select
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
-                                                value={statutoryDetails.tdsSection}
-                                                onChange={(e) => setStatutoryDetails({ ...statutoryDetails, tdsSection: e.target.value })}
-                                            >
-                                                <option value="">Select TDS Section</option>
-                                                <option value="194Q">194Q - Purchase of Goods</option>
-                                                <option value="194C">194C - Payments to Contractors</option>
-                                            </select>
+                                            <div className="flex gap-2">
+                                                <select
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+                                                    value={statutoryDetails.tdsSection}
+                                                    onChange={(e) => {
+                                                        setStatutoryDetails({ ...statutoryDetails, tdsSection: e.target.value });
+                                                        setShowTdsInfo(false); // Hide info when changing selection
+                                                    }}
+                                                >
+                                                    <option value="">Select TDS Section</option>
+                                                    {tdsOptions.map(option => (
+                                                        <option key={option.value} value={option.value}>
+                                                            Section {option.code} {option.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <button
+                                                    onClick={() => setShowTdsInfo(!showTdsInfo)}
+                                                    className={`p-2 rounded-md transition-colors ${showTdsInfo ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                                                    title="Show Section Description"
+                                                    disabled={!statutoryDetails.tdsSection}
+                                                >
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <circle cx="12" cy="12" r="10"></circle>
+                                                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                                                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            {showTdsInfo && statutoryDetails.tdsSection && (
+                                                <div className="mt-2 p-3 bg-indigo-50 border border-indigo-100 rounded-md text-sm text-indigo-800 animate-fadeIn">
+                                                    <span className="font-semibold block mb-1">
+                                                        {tdsOptions.find(o => o.value === statutoryDetails.tdsSection)?.name}:
+                                                    </span>
+                                                    {tdsOptions.find(o => o.value === statutoryDetails.tdsSection)?.desc}
+                                                </div>
+                                            )}
                                         </div>
                                         <label className="flex items-center gap-2 cursor-pointer">
                                             <input
@@ -2867,6 +3081,569 @@ const ReceiptContent: React.FC = () => {
 };
 
 // Customer Ledger View Component
+
+
+
+// Customer Ledger View Component
+
+
+interface NetOffVoucher {
+    id: string;
+    date: string;
+    voucherNo: string;
+    amount: number;
+    selected: boolean;
+    status: string;
+}
+
+const NetOffView: React.FC<{ customer: { id: string; name: string }, balance: number, onCancel: () => void, onSuccess: () => void }> = ({ customer, balance, onCancel, onSuccess }) => {
+    // Mock Data for Net-off
+    const [purchaseVouchers, setPurchaseVouchers] = useState<Voucher[]>([
+        { id: 'pv1', date: '2025-12-15', voucherNo: 'PINV-001', amount: 10000, selected: false, status: 'Unpaid' },
+        { id: 'pv2', date: '2026-01-02', voucherNo: 'PINV-005', amount: 5000, selected: false, status: 'Partially Paid' },
+        { id: 'pv3', date: '2026-01-10', voucherNo: 'PINV-008', amount: 12000, selected: false, status: 'Unpaid' },
+    ]);
+
+    const [salesVouchers, setSalesVouchers] = useState<Voucher[]>([
+        { id: 'sv1', date: '2025-12-20', voucherNo: 'INV-2025-050', amount: 15000, selected: false, status: 'Due' },
+        { id: 'sv2', date: '2026-01-05', voucherNo: 'INV-2026-001', amount: 8000, selected: false, status: 'Not Due' },
+        { id: 'sv3', date: '2026-01-12', voucherNo: 'INV-2026-002', amount: 20000, selected: false, status: 'Partially Received' },
+    ]);
+
+    const [payments, setPayments] = useState<Voucher[]>([
+        { id: 'pay1', date: '2026-01-08', voucherNo: 'PAY-101', amount: 2500, selected: false, status: 'Unpaid' }
+    ]);
+
+    const [receipts, setReceipts] = useState<Voucher[]>([
+        { id: 'rec1', date: '2026-01-15', voucherNo: 'REC-201', amount: 1000, selected: false, status: 'Received' }
+    ]);
+
+    const [netOffDate, setNetOffDate] = useState(new Date().toISOString().split('T')[0]);
+    const [activeTab, setActiveTab] = useState<'dispute' | 'netoff'>('dispute');
+    const [netOffMode, setNetOffMode] = useState<'summary' | 'edit'>('summary');
+    const [editableAmounts, setEditableAmounts] = useState<Record<string, number>>({});
+
+    // Initialize editable amounts when entering edit mode
+    useEffect(() => {
+        if (netOffMode === 'edit') {
+            const initialAmounts: Record<string, number> = {};
+            [...purchaseVouchers, ...salesVouchers, ...payments, ...receipts].forEach(v => {
+                if (v.selected) {
+                    initialAmounts[v.id] = v.amount;
+                }
+            });
+            setEditableAmounts(initialAmounts);
+        }
+    }, [netOffMode, purchaseVouchers, salesVouchers, payments, receipts]);
+
+    const handleAmountChange = (id: string, value: string) => {
+        const numValue = parseFloat(value) || 0;
+        setEditableAmounts(prev => ({ ...prev, [id]: numValue }));
+    };
+
+    // Calculate dynamic totals for Edit View
+    const editTotalDebit = [...purchaseVouchers, ...payments].filter(v => v.selected).reduce((sum, v) => sum + (editableAmounts[v.id] || 0), 0);
+    const editTotalCredit = [...salesVouchers, ...receipts].filter(v => v.selected).reduce((sum, v) => sum + (editableAmounts[v.id] || 0), 0);
+
+    // Calculate Summary totals (non-edit mode)
+    // NOTE: For summary totals, we should likely check if netOffAmount exists, otherwise use v.amount if selected?
+    // But currently summary view uses 'totalDebit' for the main table.
+    // For now, let's keep the existing logic that sums raw amounts, OR sums the 'netOffAmount' if it's set.
+    // Actually, in summary view we display what is selected.
+    const totalDebit = [...purchaseVouchers, ...payments].filter(v => v.selected).reduce((sum, v) => sum + (v.netOffAmount ?? v.amount), 0);
+    const totalCredit = [...salesVouchers, ...receipts].filter(v => v.selected).reduce((sum, v) => sum + (v.netOffAmount ?? v.amount), 0);
+
+    const netOffAmount = totalDebit; // Since we enforce equality, totalDebit should equal totalCredit
+
+    // Handle Selection
+    const togglePurchase = (id: string) => {
+        setPurchaseVouchers(prev => prev.map(v => v.id === id ? { ...v, selected: !v.selected } : v));
+    };
+
+    const toggleSales = (id: string) => {
+        setSalesVouchers(prev => prev.map(v => v.id === id ? { ...v, selected: !v.selected } : v));
+    };
+
+    const togglePayment = (id: string) => {
+        setPayments(prev => prev.map(v => v.id === id ? { ...v, selected: !v.selected } : v));
+    };
+
+    const toggleReceipt = (id: string) => {
+        setReceipts(prev => prev.map(v => v.id === id ? { ...v, selected: !v.selected } : v));
+    };
+
+    const handleNextFromEdit = () => {
+        // Update vouchers with edited amounts
+        const updateVoucher = (v: Voucher) => ({
+            ...v,
+            netOffAmount: editableAmounts[v.id] !== undefined ? editableAmounts[v.id] : v.amount
+        });
+
+        setPurchaseVouchers(prev => prev.map(updateVoucher));
+        setSalesVouchers(prev => prev.map(updateVoucher));
+        setPayments(prev => prev.map(updateVoucher));
+        setReceipts(prev => prev.map(updateVoucher));
+        setNetOffMode('summary');
+    };
+
+
+    // Format Currency
+    const formatCurrency = (amount: number) => `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+
+    return (
+        <div className="h-full w-full bg-white flex flex-col">
+            <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Header Section */}
+                <div className="px-8 py-6 border-b border-gray-200">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-bold text-gray-800">Invoices Under Dispute – Net-off</h2>
+                        <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
+
+                    {/* Summary Card */}
+                    <div className="grid grid-cols-2 gap-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+                        {/* Left Column */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-gray-500">Net-off No:</span>
+                                <span className="text-sm font-bold text-gray-900 bg-white px-3 py-1.5 rounded border border-gray-200">NO-2026-001</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-gray-500">Customer / Vendor Name:</span>
+                                <span className="text-sm font-bold text-gray-900">{customer.name}</span>
+                            </div>
+                        </div>
+                        {/* Right Column */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-gray-500">Net-off Date:</span>
+                                <input
+                                    type="date"
+                                    value={netOffDate}
+                                    onChange={(e) => setNetOffDate(e.target.value)}
+                                    className="text-sm border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                />
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-gray-500">Running Balance:</span>
+                                <span className="text-sm font-bold text-indigo-600">{formatCurrency(balance)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="flex space-x-6 mt-8 border-b border-gray-200">
+                        <button
+                            onClick={() => setActiveTab('dispute')}
+                            className={`pb-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'dispute'
+                                ? 'border-indigo-600 text-indigo-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            Invoices under Dispute
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('netoff')}
+                            className={`pb-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'netoff'
+                                ? 'border-indigo-600 text-indigo-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            Net-off
+                        </button>
+                    </div>
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-1 overflow-hidden p-6 bg-gray-50">
+                    {activeTab === 'netoff' ? (
+                        netOffMode === 'summary' ? (
+                            <div className="flex flex-col h-full bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                                {/* Summary Header */}
+                                <div className="px-6 py-6 bg-white border-b border-gray-200">
+                                    {/* Top Summary Section */}
+                                    <div className="mb-8 flex flex-col items-end">
+                                        <label className="text-sm font-medium text-gray-700 mb-2">Amount Netted Off</label>
+                                        <div className="px-5 py-2 bg-gray-50 border border-gray-300 rounded-md min-w-[140px] text-center shadow-sm">
+                                            <span className="text-xl font-bold text-indigo-600">{formatCurrency(netOffAmount)}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Table Header */}
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="text-lg font-semibold text-gray-800">List of Pending Invoices</h3>
+                                    </div>
+                                </div>
+                                {/* Imbalance Warning */}
+                                {totalDebit !== totalCredit && (
+                                    <div className="bg-yellow-50 px-6 py-3 border-b border-yellow-100 flex items-center gap-2 text-yellow-800 text-sm">
+                                        <AlertTriangle className="w-4 h-4" />
+                                        <span>
+                                            Note: There is an imbalance of <strong>{formatCurrency(Math.abs(totalDebit - totalCredit))}</strong> between selected debit and credit amounts.
+                                            The lower amount ({formatCurrency(netOffAmount)}) will be netted off.
+                                        </span>
+                                    </div>
+                                )}
+
+                                {/* Summary Table */}
+                                <div className="flex-1 overflow-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50 sticky top-0">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Voucher Type</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier Invoice No /<br /> Sales Voucher No</th>
+                                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Debit</th>
+                                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
+                                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {/* Purchase Vouchers Group */}
+                                            {[...purchaseVouchers]
+                                                .filter(v => v.selected)
+                                                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                                                .map((voucher) => (
+                                                    <tr key={voucher.id} className="hover:bg-gray-50 transition-colors">
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">Purchase</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{voucher.date}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{voucher.voucherNo}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{formatCurrency(voucher.amount)}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-400">-</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${voucher.status === 'Unpaid' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                {voucher.status}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            {/* Sales Vouchers Group */}
+                                            {[...salesVouchers]
+                                                .filter(v => v.selected)
+                                                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                                                .map((voucher) => (
+                                                    <tr key={voucher.id} className="hover:bg-gray-50 transition-colors">
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">Sales</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{voucher.date}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{voucher.voucherNo}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-400">-</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{formatCurrency(voucher.amount)}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${voucher.status === 'Received' ? 'bg-green-100 text-green-800' : voucher.status === 'Due' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'}`}>
+                                                                {voucher.status}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                        </tbody>
+                                        <tfoot className="bg-gray-50 font-semibold border-t border-gray-200">
+                                            <tr>
+                                                <td colSpan={3} className="px-6 py-4 text-right text-gray-700">Totals:</td>
+                                                <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(totalDebit)}</td>
+                                                <td className="px-6 py-4 text-right text-gray-900">{formatCurrency(totalCredit)}</td>
+                                                <td></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        ) : (
+                            // Edit Net-off View
+                            <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
+                                <div className="flex-1 overflow-y-auto p-6">
+
+                                    {/* Totals Row */}
+                                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center mb-8">
+                                        <div className="text-sm text-gray-500 w-1/3">Add amounts for net-off</div>
+                                        <div className="flex gap-12 w-2/3 justify-end">
+                                            <div className="text-right">
+                                                <span className="text-sm text-gray-500 block">Total Debits</span>
+                                                <span className="text-xl font-bold text-gray-900">{formatCurrency(editTotalDebit)}</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-sm text-gray-500 block">Total Credits</span>
+                                                <span className="text-xl font-bold text-gray-900">{formatCurrency(editTotalCredit)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Detailed Voucher Sections Example (Sales) */}
+                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 overflow-hidden">
+                                        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 font-semibold text-gray-700">
+                                            Sales Vouchers (Debit)
+                                        </div>
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sales Voucher No</th>
+                                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount for Net-off</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {salesVouchers.map(v => (
+                                                    <tr key={v.id}>
+                                                        <td className="px-6 py-4 text-sm text-gray-500">{v.date}</td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{v.voucherNo}</td>
+                                                        <td className="px-6 py-4 text-sm text-right text-gray-500">{formatCurrency(v.amount)}</td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <input
+                                                                type="text"
+                                                                className="w-32 px-2 py-1 text-right text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                                                                value={editableAmounts[v.id] ?? v.amount}
+                                                                onChange={(e) => handleAmountChange(v.id, e.target.value)}
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Payments Table (Debit) */}
+                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 overflow-hidden">
+                                        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 font-semibold text-gray-700">
+                                            Payments (Debit)
+                                        </div>
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment Voucher No</th>
+                                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount for Net-off</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {payments.map(v => (
+                                                    <tr key={v.id}>
+                                                        <td className="px-6 py-4 text-sm text-gray-500">{v.date}</td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{v.voucherNo}</td>
+                                                        <td className="px-6 py-4 text-sm text-right text-gray-500">{formatCurrency(v.amount)}</td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <input
+                                                                type="text"
+                                                                className="w-32 px-2 py-1 text-right text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                                                                value={editableAmounts[v.id] ?? v.amount}
+                                                                onChange={(e) => handleAmountChange(v.id, e.target.value)}
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Detailed Voucher Sections Example (Purchase) */}
+                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 overflow-hidden">
+                                        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 font-semibold text-gray-700">
+                                            Purchase Vouchers (Credit)
+                                        </div>
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier Inv No</th>
+                                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount for Net-off</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {purchaseVouchers.map(v => (
+                                                    <tr key={v.id}>
+                                                        <td className="px-6 py-4 text-sm text-gray-500">{v.date}</td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{v.voucherNo}</td>
+                                                        <td className="px-6 py-4 text-sm text-right text-gray-500">{formatCurrency(v.amount)}</td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <input
+                                                                type="text"
+                                                                className="w-32 px-2 py-1 text-right text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                                                                value={editableAmounts[v.id] ?? v.amount}
+                                                                onChange={(e) => handleAmountChange(v.id, e.target.value)}
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Receipts Table (Credit) */}
+                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 overflow-hidden">
+                                        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 font-semibold text-gray-700">
+                                            Receipts (Credit)
+                                        </div>
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Receipt Voucher No</th>
+                                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount for Net-off</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {receipts.map(v => (
+                                                    <tr key={v.id}>
+                                                        <td className="px-6 py-4 text-sm text-gray-500">{v.date}</td>
+                                                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{v.voucherNo}</td>
+                                                        <td className="px-6 py-4 text-sm text-right text-gray-500">{formatCurrency(v.amount)}</td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <input
+                                                                type="text"
+                                                                className="w-32 px-2 py-1 text-right text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                                                                value={editableAmounts[v.id] ?? v.amount}
+                                                                onChange={(e) => handleAmountChange(v.id, e.target.value)}
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    ) : (
+                        <div className="flex gap-6 h-full">
+                            {/* Left Panel - Purchase (Debit) */}
+                            <div className="flex-1 flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                                <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                                    <h3 className="font-semibold text-gray-800">Purchase Vouchers</h3>
+                                </div>
+                                <div className="flex-1 overflow-y-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50 sticky top-0">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">Select</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier Inv No</th>
+                                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {[...purchaseVouchers]
+                                                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                                                .map((voucher) => (
+                                                    <tr key={voucher.id} className={`hover:bg-gray-50 cursor-pointer ${voucher.selected ? 'bg-blue-50' : ''}`} onClick={() => togglePurchase(voucher.id)}>
+                                                        <td className="px-4 py-3">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={voucher.selected}
+                                                                onChange={() => togglePurchase(voucher.id)}
+                                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                            />
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-gray-500">{voucher.date}</td>
+                                                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{voucher.voucherNo}</td>
+                                                        <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">{formatCurrency(voucher.amount)}</td>
+                                                    </tr>
+                                                ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Right Panel - Sales (Credit) */}
+                            <div className="flex-1 flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                                <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                                    <h3 className="font-semibold text-gray-800">Sales Vouchers</h3>
+                                </div>
+                                <div className="flex-1 overflow-y-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50 sticky top-0">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">Select</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales Vch No</th>
+                                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {[...salesVouchers]
+                                                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                                                .map((voucher) => (
+                                                    <tr key={voucher.id} className={`hover:bg-gray-50 cursor-pointer ${voucher.selected ? 'bg-blue-50' : ''}`} onClick={() => toggleSales(voucher.id)}>
+                                                        <td className="px-4 py-3">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={voucher.selected}
+                                                                onChange={() => toggleSales(voucher.id)}
+                                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                            />
+                                                        </td>
+                                                        <td className="px-4 py-3 text-sm text-gray-500">{voucher.date}</td>
+                                                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{voucher.voucherNo}</td>
+                                                        <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">{formatCurrency(voucher.amount)}</td>
+                                                    </tr>
+                                                ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 py-4 bg-white border-t border-gray-200 flex justify-end items-center shadow-lg z-10 gap-4">
+                {activeTab === 'netoff' ? (
+                    netOffMode === 'summary' ? (
+                        <>
+                            <button onClick={() => setNetOffMode('edit')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                Edit Net-off
+                            </button>
+                            <button onClick={onCancel} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors text-red-600 hover:bg-red-50 hover:border-red-200">
+                                Cancel
+                            </button>
+                            <button onClick={onSuccess} className="px-8 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm">
+                                Save & Close
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button onClick={() => setNetOffMode('summary')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleNextFromEdit}
+                                disabled={editTotalDebit !== editTotalCredit || editTotalDebit === 0}
+                                className={`px-8 py-2 rounded-md text-sm font-medium text-white transition-colors shadow-sm ${editTotalDebit === editTotalCredit && editTotalDebit > 0
+                                    ? 'bg-indigo-600 hover:bg-indigo-700'
+                                    : 'bg-gray-300 cursor-not-allowed'
+                                    }`}
+                            >
+                                Next
+                            </button>
+                        </>
+                    )
+                ) : (
+                    <>
+                        <button onClick={onCancel} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('netoff')}
+                            disabled={totalDebit === 0 || totalCredit === 0}
+                            className={`px-8 py-2 rounded-md text-sm font-medium text-white transition-colors shadow-sm ${totalDebit > 0 || totalCredit > 0
+                                ? 'bg-indigo-600 hover:bg-indigo-700'
+                                : 'bg-gray-300 cursor-not-allowed'
+                                }`}
+                        >
+                            Next
+                        </button>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+};
+// Customer Ledger View Component
 interface CustomerLedgerViewProps {
     customer: { id: string; name: string };
     onBack: () => void;
@@ -2881,6 +3658,10 @@ const CustomerLedgerView: React.FC<CustomerLedgerViewProps> = ({ customer, onBac
     const [debitFilter, setDebitFilter] = useState('');
     const [creditFilter, setCreditFilter] = useState('');
 
+    // View View State
+    const [viewMode, setViewMode] = useState<'ledger' | 'month'>('ledger');
+    const [showNetOff, setShowNetOff] = useState(false);
+
     // Mock ledger data
     const mockLedgerData: LedgerEntry[] = [
         { id: '1', date: '2026-01-05', postFrom: 'Sales', ledger: 'INV-2026-001', status: 'Not Due', debit: 50000, credit: 0, runningBalance: 50000 },
@@ -2889,6 +3670,23 @@ const CustomerLedgerView: React.FC<CustomerLedgerViewProps> = ({ customer, onBac
         { id: '4', date: '2026-01-15', postFrom: 'Receipt', ledger: 'RCP-2026-002', status: 'Received', debit: 0, credit: 20000, runningBalance: 40000 },
         { id: '5', date: '2026-01-18', postFrom: 'Credit Note', ledger: 'CN-2026-001', status: 'Received', debit: 0, credit: 5000, runningBalance: 35000 },
     ];
+
+    // Mock Month Data
+    const mockMonthData = [
+        { month: 'April 2025', debit: 150000, credit: 120000, closing: 30000 },
+        { month: 'May 2025', debit: 200000, credit: 180000, closing: 50000 },
+        { month: 'June 2025', debit: 180000, credit: 100000, closing: 130000 },
+        { month: 'July 2025', debit: 220000, credit: 200000, closing: 150000 },
+        { month: 'August 2025', debit: 160000, credit: 140000, closing: 170000 },
+        { month: 'September 2025', debit: 190000, credit: 160000, closing: 200000 },
+        { month: 'October 2025', debit: 210000, credit: 190000, closing: 220000 },
+        { month: 'November 2025', debit: 250000, credit: 220000, closing: 250000 },
+        { month: 'December 2025', debit: 180000, credit: 150000, closing: 280000 },
+        { month: 'January 2026', debit: 85000, credit: 50000, closing: 315000 },
+    ];
+
+    const totalMonthDebit = mockMonthData.reduce((sum, item) => sum + item.debit, 0);
+    const totalMonthCredit = mockMonthData.reduce((sum, item) => sum + item.credit, 0);
 
     // Store original data for running balance calculation
     const [originalData] = useState(mockLedgerData);
@@ -2911,6 +3709,9 @@ const CustomerLedgerView: React.FC<CustomerLedgerViewProps> = ({ customer, onBac
     const totalDebit = filteredData.reduce((sum, entry) => sum + entry.debit, 0);
     const totalCredit = filteredData.reduce((sum, entry) => sum + entry.credit, 0);
 
+    // Calculate running balance safely
+    const runningBalance = filteredData.length > 0 ? filteredData[filteredData.length - 1].runningBalance : 0;
+
     const formatCurrency = (amount: number): string => {
         if (amount === 0) return '-';
         return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -2931,6 +3732,20 @@ const CustomerLedgerView: React.FC<CustomerLedgerViewProps> = ({ customer, onBac
     const postFromOptions: TransactionType[] = ['Sales', 'Receipt', 'Purchase', 'Payment', 'Debit Note', 'Credit Note'];
     const statusOptions = ['Paid', 'Unpaid', 'Partially Paid', 'Approved', 'Not Due', 'Due', 'Partially Received', 'Received'];
 
+    if (showNetOff) {
+        return (
+            <NetOffView
+                customer={customer}
+                balance={runningBalance}
+                onCancel={() => setShowNetOff(false)}
+                onSuccess={() => {
+                    setShowNetOff(false);
+                    alert("Net-off processed successfully! Balance updated.");
+                }}
+            />
+        );
+    }
+
     return (
         <div className="text-left">
             {/* Header */}
@@ -2940,129 +3755,184 @@ const CustomerLedgerView: React.FC<CustomerLedgerViewProps> = ({ customer, onBac
                     <span className="text-lg font-medium">{customer.name}</span>
                 </button>
                 <div className="flex gap-3">
-                    <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50">Net Off</button>
-                    <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50">Month View</button>
+                    <button onClick={() => setShowNetOff(true)} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50">Net-off</button>
+                    {viewMode === 'ledger' ? (
+                        <button
+                            onClick={() => setViewMode('month')}
+                            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
+                        >
+                            Month-wise Ledger View
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => setViewMode('ledger')}
+                            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
+                        >
+                            Invoice-wise view
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50 sticky top-0">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                    <div className="flex items-center justify-between">
-                                        <span>Date</span>
-                                        <div className="ml-2 relative group">
-                                            <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
-                                            <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-3 w-48">
-                                                <input type="date" value={dateFilter.start} onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })} className="w-full px-2 py-1 text-xs border rounded mb-2" placeholder="Start" />
-                                                <input type="date" value={dateFilter.end} onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })} className="w-full px-2 py-1 text-xs border rounded" placeholder="End" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                    <div className="flex items-center justify-between">
-                                        <span>Post From</span>
-                                        <div className="ml-2 relative group">
-                                            <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
-                                            <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-40">
-                                                <select value={postFromFilter} onChange={(e) => setPostFromFilter(e.target.value as TransactionType | '')} className="w-full px-2 py-1 text-xs border rounded">
-                                                    <option value="">All</option>
-                                                    {postFromOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                    <div className="flex items-center justify-between">
-                                        <span>Ledger</span>
-                                        <div className="ml-2 relative group">
-                                            <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
-                                            <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-40">
-                                                <input type="text" value={ledgerFilter} onChange={(e) => setLedgerFilter(e.target.value)} placeholder="Search..." className="w-full px-2 py-1 text-xs border rounded" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                    <div className="flex items-center justify-between">
-                                        <span>Status</span>
-                                        <div className="ml-2 relative group">
-                                            <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
-                                            <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-40 max-h-60 overflow-y-auto">
-                                                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as PurchaseStatus | SalesStatus | '')} className="w-full px-2 py-1 text-xs border rounded">
-                                                    <option value="">All</option>
-                                                    {statusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                    <div className="flex items-center justify-end">
-                                        <span>Debit</span>
-                                        <div className="ml-2 relative group">
-                                            <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
-                                            <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-32">
-                                                <label className="flex items-center text-xs"><input type="checkbox" checked={!!debitFilter} onChange={(e) => setDebitFilter(e.target.checked ? 'show' : '')} className="mr-1" />Show only</label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                                    <div className="flex items-center justify-end">
-                                        <span>Credit</span>
-                                        <div className="ml-2 relative group">
-                                            <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
-                                            <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-32">
-                                                <label className="flex items-center text-xs"><input type="checkbox" checked={!!creditFilter} onChange={(e) => setCreditFilter(e.target.checked ? 'show' : '')} className="mr-1" />Show only</label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Running Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredData.map((entry) => (
-                                <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">{entry.date}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">{entry.postFrom}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-100">{entry.ledger}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm border-r border-gray-100">
-                                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(entry.status)}`}>{entry.status}</span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100 font-medium">{formatCurrency(entry.debit)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100 font-medium">{formatCurrency(entry.credit)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-semibold">{formatCurrency(entry.runningBalance)}</td>
+            {/* Content Switcher */}
+            {viewMode === 'month' ? (
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Month</th>
+                                    <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Debit</th>
+                                    <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">Credit</th>
+                                    <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Closing Balance</th>
                                 </tr>
-                            ))}
-                            {filteredData.length === 0 && (
-                                <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-500">No ledger entries found.</td></tr>
-                            )}
-                        </tbody>
-                        <tfoot className="bg-gray-100 font-semibold">
-                            <tr>
-                                <td colSpan={4} className="px-6 py-4 text-sm text-right text-gray-700">Totals:</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-bold border-l border-gray-200">{formatCurrency(totalDebit)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-bold border-l border-gray-200">{formatCurrency(totalCredit)}</td>
-                                <td className="px-6 py-4 text-sm text-right text-gray-400 italic">(unchanged)</td>
-                            </tr>
-                        </tfoot>
-                    </table>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {mockMonthData.map((row, index) => (
+                                    <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-100">{row.month}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100">{formatCurrency(row.debit)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100">{formatCurrency(row.credit)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-bold">{formatCurrency(row.closing)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-gray-100 font-semibold border-t border-gray-200">
+                                <tr>
+                                    <td className="px-6 py-4 text-sm text-right text-gray-700 uppercase tracking-wider">Total</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-bold border-l border-gray-200">{formatCurrency(totalMonthDebit)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-bold border-l border-gray-200">{formatCurrency(totalMonthCredit)}</td>
+                                    <td className="px-6 py-4 border-l border-gray-200"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <>
+                    /* Table */
+                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                            <div className="flex items-center justify-between">
+                                                <span>Date</span>
+                                                <div className="ml-2 relative group">
+                                                    <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
+                                                    <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-3 w-48">
+                                                        <input type="date" value={dateFilter.start} onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })} className="w-full px-2 py-1 text-xs border rounded mb-2" placeholder="Start" />
+                                                        <input type="date" value={dateFilter.end} onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })} className="w-full px-2 py-1 text-xs border rounded" placeholder="End" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                            <div className="flex items-center justify-between">
+                                                <span>Post From</span>
+                                                <div className="ml-2 relative group">
+                                                    <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
+                                                    <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-40">
+                                                        <select value={postFromFilter} onChange={(e) => setPostFromFilter(e.target.value as TransactionType | '')} className="w-full px-2 py-1 text-xs border rounded">
+                                                            <option value="">All</option>
+                                                            {postFromOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                            <div className="flex items-center justify-between">
+                                                <span>Ledger</span>
+                                                <div className="ml-2 relative group">
+                                                    <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
+                                                    <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-40">
+                                                        <input type="text" value={ledgerFilter} onChange={(e) => setLedgerFilter(e.target.value)} placeholder="Search..." className="w-full px-2 py-1 text-xs border rounded" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                            <div className="flex items-center justify-between">
+                                                <span>Status</span>
+                                                <div className="ml-2 relative group">
+                                                    <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
+                                                    <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-40 max-h-60 overflow-y-auto">
+                                                        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as PurchaseStatus | SalesStatus | '')} className="w-full px-2 py-1 text-xs border rounded">
+                                                            <option value="">All</option>
+                                                            {statusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                            <div className="flex items-center justify-end">
+                                                <span>Debit</span>
+                                                <div className="ml-2 relative group">
+                                                    <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
+                                                    <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-32">
+                                                        <label className="flex items-center text-xs"><input type="checkbox" checked={!!debitFilter} onChange={(e) => setDebitFilter(e.target.checked ? 'show' : '')} className="mr-1" />Show only</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
+                                            <div className="flex items-center justify-end">
+                                                <span>Credit</span>
+                                                <div className="ml-2 relative group">
+                                                    <Filter className="w-4 h-4 cursor-pointer text-gray-400 hover:text-gray-600" />
+                                                    <div className="hidden group-hover:block absolute z-10 top-6 right-0 bg-white shadow-lg rounded-md p-2 w-32">
+                                                        <label className="flex items-center text-xs"><input type="checkbox" checked={!!creditFilter} onChange={(e) => setCreditFilter(e.target.checked ? 'show' : '')} className="mr-1" />Show only</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Running Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {filteredData.map((entry) => (
+                                        <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">{entry.date}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">{entry.postFrom}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-100">{entry.ledger}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm border-r border-gray-100">
+                                                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(entry.status)}`}>{entry.status}</span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100 font-medium">{formatCurrency(entry.debit)}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100 font-medium">{formatCurrency(entry.credit)}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-semibold">{formatCurrency(entry.runningBalance)}</td>
+                                        </tr>
+                                    ))}
+                                    {filteredData.length === 0 && (
+                                        <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-500">No ledger entries found.</td></tr>
+                                    )}
+                                </tbody>
+                                <tfoot className="bg-gray-100 font-semibold">
+                                    <tr>
+                                        <td colSpan={4} className="px-6 py-4 text-sm text-right text-gray-700">Totals:</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-bold border-l border-gray-200">{formatCurrency(totalDebit)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 font-bold border-l border-gray-200">{formatCurrency(totalCredit)}</td>
+                                        <td className="px-6 py-4 text-sm text-right text-gray-400 italic">(unchanged)</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
 
-            {/* Info */}
-            <div className="mt-4 text-xs text-gray-500 space-y-1">
-                <p>• Running Balance values remain unchanged when filters are applied - they reflect the true sequential ledger balance.</p>
-                <p>• Totals (Debit and Credit) update based on filtered visible rows.</p>
-                <p>• All columns are filterable except Running Balance.</p>
-            </div>
+                    {/* Info */}
+                    <div className="mt-4 text-xs text-gray-500 space-y-1">
+                        <p>• Running Balance values remain unchanged when filters are applied - they reflect the true sequential ledger balance.</p>
+                        <p>• Totals (Debit and Credit) update based on filtered visible rows.</p>
+                        <p>• All columns are filterable except Running Balance.</p>
+                    </div>
+                </>
+            )}
+
+            {/* Net-off View */}
+
         </div>
     );
 };
