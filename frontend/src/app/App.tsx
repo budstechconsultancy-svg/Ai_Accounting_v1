@@ -767,8 +767,7 @@ const App: React.FC = () => {
 
           if (targetPageKey) {
             setCurrentPage(pageMap[targetPageKey] as Page);
-            setCurrentPage(parameters.page as Page);
-            return `✅ Navigated to ${parameters.page}`;
+            return `✅ Navigated to ${pageMap[targetPageKey]}`;
           }
         } // Close navigate case
 
