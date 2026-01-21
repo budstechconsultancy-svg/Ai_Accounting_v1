@@ -834,7 +834,7 @@ const App: React.FC = () => {
         ledgerGroups={ledgerGroups}
       /></ErrorBoundary>; // Available for all plans
       case 'Settings': return <SettingsPage companyDetails={companyDetails} onSave={handleSaveSettings} />; // Available for all plans
-      case 'Vendor Portal': return <VendorPortalPage />;
+      case 'Vendor Portal': return <VendorPortalPage onLogout={handleLogout} />;
       case 'Customer Portal': return <CustomerPortalPage />;
       case 'Payroll': return <PayrollPage />;
       case 'MassUploadResult': return <MassUploadResultPage
@@ -889,15 +889,18 @@ const App: React.FC = () => {
         </div>
       </Modal>
 
-      <div className="fixed bottom-8 right-8 z-40">
-        <button
-          onClick={() => setIsAgentOpen(true)}
-          className="bg-white text-white rounded-full p-0 overflow-hidden w-20 h-20 flex items-center justify-center shadow-lg hover:bg-gray-100 transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-          aria-label="Open Kiki"
-        >
-          <img src="/src/assets/fox-logo-v3.png" alt="Kiki AI" className="w-full h-full object-cover transform scale-125" />
-        </button>
-      </div>
+      {/* Floating Chatbot Button */}
+      {/* Floating Chatbot Button */}
+      <button
+        onClick={() => setIsAgentOpen(true)}
+        className="fixed bottom-6 right-6 p-4 bg-blue-600 rounded-full text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 z-50 flex items-center justify-center group"
+        title="Chat with AI Assistant"
+      >
+        <div className="absolute inset-0 bg-white rounded-full opacity-0 group-hover:opacity-20 transition-opacity" />
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+        </svg>
+      </button>
 
       <AIAgent
         isOpen={isAgentOpen}

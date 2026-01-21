@@ -65,11 +65,11 @@ class VendorMasterTDSViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(data=data)
             serializer.is_valid(raise_exception=True)
             
-            # Create using database function
+            # Create using serializer
             with transaction.atomic():
-                result = create_vendor_tds(data)
+                instance = serializer.save()
             
-            return Response(result, status=status.HTTP_201_CREATED)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
             
         except Exception as e:
             logger.error(f"Error creating vendor TDS: {str(e)}")
@@ -94,11 +94,11 @@ class VendorMasterTDSViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(instance, data=data, partial=True)
             serializer.is_valid(raise_exception=True)
             
-            # Update using database function
+            # Update using serializer
             with transaction.atomic():
-                result = update_vendor_tds(tds_id, data)
+                instance = serializer.save()
             
-            return Response(result, status=status.HTTP_200_OK)
+            return Response(serializer.data, status=status.HTTP_200_OK)
             
         except Exception as e:
             logger.error(f"Error updating vendor TDS: {str(e)}")

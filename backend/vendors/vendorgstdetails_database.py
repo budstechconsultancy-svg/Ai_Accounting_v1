@@ -38,6 +38,11 @@ class VendorGSTDetailsDatabase:
                 trade_name=gst_data.get('trade_name'),
                 gst_state_code=gst_data.get('gst_state_code'),
                 pan_linked_with_gstin=gst_data.get('pan_linked_with_gstin'),
+                reference_name=gst_data.get('reference_name'),
+                branch_address=gst_data.get('branch_address'),
+                branch_contact_person=gst_data.get('branch_contact_person'),
+                branch_email=gst_data.get('branch_email'),
+                branch_contact_no=gst_data.get('branch_contact_no'),
                 created_by=created_by
             )
             

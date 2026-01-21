@@ -85,7 +85,7 @@ const InvoiceScannerModal: React.FC<InvoiceScannerModalProps> = ({ onClose }) =>
 
                 try {
                     // Use credentials: 'include' to send HttpOnly access_token cookie
-                    const response = await fetch(`${API_URL}/api/extract-invoice/`, {
+                    const response = await fetch(`${API_URL}/api/ai/extract-invoice/`, {
                         method: 'POST',
                         body: formData,
                         credentials: 'include',
@@ -98,98 +98,44 @@ const InvoiceScannerModal: React.FC<InvoiceScannerModalProps> = ({ onClose }) =>
                     }
 
                     const result = await response.json();
-                    if (result.success) {
-                        allResults.push(result.data);
 
-                        // Handle automatic download from base64
-                        const byteCharacters = atob(result.excel_file);
-                        const byteNumbers = new Array(byteCharacters.length);
-                        for (let j = 0; j < byteCharacters.length; j++) {
-                            byteNumbers[j] = byteCharacters.charCodeAt(j);
+                    if (result.error) {
+                        throw new Error(result.error);
+                    }
+
+                    if (result.reply) {
+                        // Backend returns a JSON string in 'reply'
+                        let parsedData;
+                        try {
+                            // Clean markdown code blocks if present (though prompt asks not to)
+                            const cleanJson = result.reply.replace(/```json\n?|\n?```/g, '').trim();
+                            parsedData = JSON.parse(cleanJson);
+                        } catch (e) {
+                            console.error("JSON Parse Error:", e, result.reply);
+                            throw new Error("Failed to parse extracted data");
                         }
-                        const byteArray = new Uint8Array(byteNumbers);
-                        const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = result.file_name;
-                        document.body.appendChild(a);
-                        a.click();
-                        window.URL.revokeObjectURL(url);
-                        document.body.removeChild(a);
+                        if (Array.isArray(parsedData)) {
+                            allResults.push(...parsedData);
+                        } else if (parsedData) {
+                            allResults.push(parsedData);
+                        }
+                    } else if (result.success && result.data) {
+                        // Support legacy or alternative format if any
+                        allResults.push(result.data);
+                    } else {
+                        throw new Error("No data received from backend");
                     }
                 } catch (err) {
-                    console.warn(`API Failed for ${file.name}, using Mock Data. Error:`, err);
-
-                    // Fallback Mock Data Templates for varied testing
-                    const mockTemplates = [
-                        {
-                            'Voucher Date': new Date().toLocaleDateString('en-GB'),
-                            'Invoice Number': `MOCK-SVC-${Math.floor(Math.random() * 10000)}`,
-                            'Supplier Name': 'Alpha Tech Services (Fallback)',
-                            'Supplier Address - Bill from': 'Block A, Tech Park, Bangalore',
-                            'GSTIN': '29ABCDE1234F1Z5',
-                            'PAN': 'ABCDE1234F',
-                            'Description of Ledger': 'Software Development Charges',
-                            'Taxable Value': '50000.00',
-                            'CGST Amount': '4500.00',
-                            'SGST/UTGST Amount': '4500.00',
-                            'Invoice Value': '59000.00',
-                            'Bank - Bank Name': 'HDFC Bank',
-                            'Bank - A/c No.': '50200012345678'
-                        },
-                        {
-                            'Voucher Date': new Date().toLocaleDateString('en-GB'),
-                            'Invoice Number': `MOCK-PRD-${Math.floor(Math.random() * 10000)}`,
-                            'Supplier Name': 'Beta General Supplies',
-                            'Supplier Address - Bill from': 'Industrial Estate, Mumbai',
-                            'GSTIN': '27FGHIJ5678K1Z2',
-                            'PAN': 'FGHIJ5678K',
-                            'Item/Description': 'Office Stationery & Desks',
-                            'Quantity': '25',
-                            'HSN/SAC Details': '9403',
-                            'Taxable Value': '75000.00',
-                            'IGST Amount': '13500.00',
-                            'Invoice Value': '88500.00',
-                            'Terms of Delivery': 'FOB Mumbai',
-                            'Bank - Bank Name': 'ICICI Bank',
-                            'Bank - A/c No.': '123456789012'
-                        },
-                        {
-                            'Voucher Date': new Date().toLocaleDateString('en-GB'),
-                            'Invoice Number': `MOCK-LOG-${Math.floor(Math.random() * 10000)}`,
-                            'Supplier Name': 'Gamma Logistics Ltd',
-                            'Supplier Address - Bill from': 'Transport Nagar, Delhi',
-                            'GSTIN': '07KLMNO9012P1Z3',
-                            'e-Way Bill No.': '181029384756',
-                            'Motor Vehicle No.': 'DL-04-XY-9988',
-                            'LR RR No.': 'LR-99283',
-                            'Freight Charges': '12000.00',
-                            'Taxable Value': '12000.00',
-                            'CGST Amount': '600.00',
-                            'SGST/UTGST Amount': '600.00',
-                            'Invoice Value': '13200.00',
-                            'Mode of Transport': 'Road',
-                            'Bank - Bank Name': 'SBI',
-                            'Bank - A/c No.': '30001234567'
-                        }
-                    ];
-
-                    // Cycle through templates based on file index
-                    const mockData = mockTemplates[i % mockTemplates.length];
-                    allResults.push(mockData);
-
-                    // Only alert once for the first error to avoid spamming
-                    if (i === 0) {
-                        alert(`⚠️ Backend skipped/failed. Loaded VARIED MOCK data for testing multiple files.`);
-                    }
+                    console.error(`API Failed for ${file.name}:`, err);
+                    throw err; // Propagate error to main handler
                 }
             }
             setExtractedData(allResults);
         } catch (error) {
             console.error('OCR Global Error:', error);
-            alert('❌ OCR Failed: ' + (error as Error).message);
+            // alert('❌ OCR Failed: ' + (error as Error).message); // Use a more user-friendly message or keep detailed if needed for debug
+            alert(`❌ Extraction Failed: ${(error as Error).message}. Please try again.`);
         } finally {
             setIsExtracting(false);
             if (fileInputRef.current) fileInputRef.current.value = '';

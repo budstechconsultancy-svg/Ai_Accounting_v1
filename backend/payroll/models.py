@@ -112,7 +112,7 @@ class EmployeeStatutory(models.Model):
 
 class EmployeeBankDetails(models.Model):
     """Employee Bank Details"""
-    employee_basic = models.OneToOneField(EmployeeBasicDetails, on_delete=models.CASCADE, related_name='bank_details')
+    employee_basic = models.ForeignKey(EmployeeBasicDetails, on_delete=models.CASCADE, related_name='bank_details')
     tenant_id = models.CharField(max_length=36, db_index=True, blank=True, null=True)
     account_number = models.CharField(max_length=20, blank=True, null=True)
     ifsc_code = models.CharField(max_length=11, blank=True, null=True)
@@ -469,3 +469,6 @@ class LeaveApplication(models.Model):
     
     def __str__(self):
         return f"{self.employee.employee_name} - {self.leave_type} ({self.start_date} to {self.end_date})"
+
+# trigger reload
+
