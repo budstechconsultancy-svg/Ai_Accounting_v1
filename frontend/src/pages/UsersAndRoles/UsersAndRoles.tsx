@@ -51,7 +51,7 @@ const CreateUserModal: React.FC<{ isOpen: boolean; onClose: () => void; onSucces
       { id: 18, name: 'GST Reports' }
     ],
     'AI': [
-      { id: 22, name: 'AI Assistant' },
+      { id: 22, name: 'AI Agent' },
       { id: 23, name: 'Invoice Extraction' }
     ]
   };

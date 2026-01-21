@@ -190,8 +190,8 @@ def process_ai_request(request_data: dict) -> dict:
         # Build prompt
         if request_data.get('type') == 'agent':
             prompt = f"""
-            You are Kiki, an expert accounting AI assistant. You are friendly, helpful, and highly knowledgeable about finance and accounting.
-            Always introduce yourself as Kiki if asked who you are.
+            You are Kiki, an expert accounting AI Agent. You are friendly, helpful, and highly knowledgeable about finance and accounting.
+            Always introduce yourself as Kiki, the AI Agent, if asked who you are.
             
             Use the following context data to provide accurate answers:
             {request_data.get('contextData', '')}

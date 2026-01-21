@@ -107,12 +107,23 @@ const InvoiceScannerModal: React.FC<InvoiceScannerModalProps> = ({ onClose }) =>
                         // Backend returns a JSON string in 'reply'
                         let parsedData;
                         try {
-                            // Clean markdown code blocks if present (though prompt asks not to)
+                            // First try simple clean
                             const cleanJson = result.reply.replace(/```json\n?|\n?```/g, '').trim();
                             parsedData = JSON.parse(cleanJson);
                         } catch (e) {
-                            console.error("JSON Parse Error:", e, result.reply);
-                            throw new Error("Failed to parse extracted data");
+                            console.warn("Direct JSON parse failed, trying partial extraction...", e);
+                            // If simple parse fails, try to find the first '[' and last ']'
+                            try {
+                                const jsonMatch = result.reply.match(/\[[\s\S]*\]/);
+                                if (jsonMatch) {
+                                    parsedData = JSON.parse(jsonMatch[0]);
+                                } else {
+                                    throw new Error("No JSON array found in response");
+                                }
+                            } catch (e2) {
+                                console.error("JSON Extraction Error:", e2, result.reply);
+                                throw new Error("Failed to parse extracted data. Response was not valid JSON.");
+                            }
                         }
 
                         if (Array.isArray(parsedData)) {
