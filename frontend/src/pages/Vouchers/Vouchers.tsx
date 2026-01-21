@@ -671,7 +671,7 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
       // Keep current voucher type - don't change tabs, just populate form data
 
       if (voucherType === 'Purchase' || voucherType === 'Sales') {
-        const partyLedger = ledgers.find(l => l.name.toLowerCase() === prefilledData.sellerName.toLowerCase());
+        const partyLedger = ledgers.find(l => l.name.toLowerCase() === (prefilledData.sellerName || '').toLowerCase());
         const newIsInterState = (partyLedger && partyLedger.state && companyDetails.state)
           ? partyLedger.state.toLowerCase() !== companyDetails.state.toLowerCase()
           : false;
@@ -683,7 +683,7 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
 
         if (prefilledData.lineItems && prefilledData.lineItems.length > 0) {
           const newItems = prefilledData.lineItems.map(item => {
-            const stockItem = stockItems.find(si => si.name.toLowerCase() === item.itemDescription.toLowerCase());
+            const stockItem = stockItems.find(si => si.name.toLowerCase() === (item.itemDescription || '').toLowerCase());
             const gstRate = stockItem?.gstRate || 18;
             const taxableAmount = item.quantity * item.rate;
             const tax = taxableAmount * (gstRate / 100);
@@ -3019,6 +3019,31 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
             </table>
           </div>
         </div>
+      )}
+      {/* Mass Upload Modal */}
+      {isMassUploadOpen && (
+        <MassUploadModal
+          onClose={() => setIsMassUploadOpen(false)}
+          onComplete={(newVouchers) => {
+            if (onMassUploadComplete) {
+              onMassUploadComplete(newVouchers);
+            } else {
+              onAddVouchers(newVouchers);
+            }
+            setIsMassUploadOpen(false);
+          }}
+          ledgers={ledgers}
+          stockItems={stockItems}
+          companyDetails={companyDetails}
+          voucherType={voucherType}
+        />
+      )}
+
+      {/* Invoice Scanner Modal */}
+      {isInvoiceScannerOpen && (
+        <InvoiceScannerModal
+          onClose={() => setIsInvoiceScannerOpen(false)}
+        />
       )}
     </div>
   );

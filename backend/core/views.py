@@ -310,6 +310,7 @@ class AdminPaymentsView(views.APIView):
         return Response(payments)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class AIProxyView(views.APIView):
     """Unified AI proxy endpoint for all AI operations"""
 

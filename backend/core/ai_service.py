@@ -85,8 +85,10 @@ def create_invoice_processing_request(image_file: UploadedFile, mime_type='image
         image_b64 = base64.b64encode(image_content).decode('utf-8')
 
         prompt = """
-        Extract invoice data from this image and return as a JSON ARRAY of objects. Each object should represent a line item from the invoice. If there are multiple line items, create multiple objects where header details (Invoice Number, Date, Supplier, etc.) are repeated, but item details vary to match the line item.
-
+        Extract invoice data from this image and return as a JSON ARRAY containing a SINGLE object representing the entire invoice.
+        
+        DO NOT create multiple objects for line items - consolidate all line items into arrays within a single invoice object.
+        
         Use exactly these keys (if available):
         "Voucher Date" (Format YYYY-MM-DD)
         "Invoice Number"
@@ -94,21 +96,24 @@ def create_invoice_processing_request(image_file: UploadedFile, mime_type='image
         "Supplier Address - Bill from"
         "GSTIN"
         "PAN"
-        "Item/Description"
-        "Quantity" (number)
-        "Item Rate" (number)
-        "Item Amount" (number)
-        "HSN/SAC Details"
-        "Taxable Value" (number)
-        "IGST Amount" (number)
-        "CGST Amount" (number)
-        "SGST/UTGST Amount" (number)
-        "Invoice Value" (number, Total Invoice Amount)
+        "Item/Description" (comma-separated list of all items, or just the main item if single)
+        "Quantity" (total quantity or main item quantity)
+        "Item Rate" (average rate or main item rate)
+        "Item Amount" (total amount for all items)
+        "HSN/SAC Details" (comma-separated if multiple, or single value)
+        "Taxable Value" (total taxable value)
+        "IGST Amount" (total IGST)
+        "CGST Amount" (total CGST)
+        "SGST/UTGST Amount" (total SGST/UTGST)
+        "Invoice Value" (total invoice amount)
         "Bank - Bank Name"
         "Bank - A/c No."
         "Bank - IFS Code"
         "Bank - Branch"
 
+        IMPORTANT: Return a JSON array with exactly ONE object per invoice. Do not duplicate the invoice data.
+        Example format: [{"Invoice Number": "INV001", "Supplier Name": "ABC Corp", ...}]
+        
         Return ONLY the JSON array. Do not include markdown formatting.
         """
 

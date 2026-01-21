@@ -7,7 +7,7 @@
  * 
  * KEY FEATURES:
  * 1. Invoice Data Extraction - Extract structured data from invoice images/PDFs
- * 2. AI Chatbot (Kiki) - Answer accounting questions using company data
+ * 2. AI Agent (Kiki) - Answer accounting questions using company data
  * 3. Web-Grounded Search - Answer questions using real-time web search
  * 
  * ARCHITECTURE:
@@ -25,8 +25,8 @@
  * 
  * FOR NEW DEVELOPERS:
  * - Invoice extraction: extractInvoiceDataWithRetry()
- * - Chatbot (internal data): getAgentResponse()
- * - Chatbot (web search): getGroundedAgentResponse()
+ * - AI Agent (internal data): getAgentResponse()
+ * - AI Agent (web search): getGroundedAgentResponse()
  * - All functions return Promises with typed responses
  */
 
@@ -142,11 +142,11 @@ export const extractInvoiceDataWithRetry = async (
 };
 
 // ============================================================================
-// AI CHATBOT (KIKI) - INTERNAL DATA
+// AI AGENT (KIKI) - INTERNAL DATA
 // ============================================================================
 
 /**
- * Get AI chatbot response based on company's internal data
+ * Get AI agent response based on company's internal data
  * The AI (Kiki) answers questions using vouchers, ledgers, and stock data
  * 
  * HOW IT WORKS:
@@ -181,7 +181,7 @@ export const getAgentResponse = async (
     const baseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
     const token = localStorage.getItem('token');
 
-    // Make API request to chatbot endpoint
+    // Make API request to AI agent endpoint
     const response = await fetch(`${baseUrl}/api/agent/message/`, {
       method: 'POST',
       headers: {
@@ -206,7 +206,7 @@ export const getAgentResponse = async (
 
         // Authentication error
         if (response.status === 401) {
-          return { reply: data.error || "Please log in to use the AI assistant.", code: 'AUTH_ERROR' };
+          return { reply: data.error || "Please log in to use the AI Agent.", code: 'AUTH_ERROR' };
         }
         // Rate limiting or queue
         else if (response.status === 429) {
@@ -252,11 +252,11 @@ export const getAgentResponse = async (
 };
 
 // ============================================================================
-// AI CHATBOT (KIKI) - WEB SEARCH
+// AI AGENT (KIKI) - WEB SEARCH
 // ============================================================================
 
 /**
- * Get AI chatbot response using real-time web search
+ * Get AI agent response using real-time web search
  * The AI searches the internet for up-to-date information
  * 
  * HOW IT WORKS:
@@ -306,7 +306,7 @@ export const getGroundedAgentResponse = async (
 
       if (response.status === 401) {
         return {
-          text: "Please log in to use the AI assistant.",
+          text: "Please log in to use the AI Agent.",
           sources: []
         };
       } else if (response.status === 429) {

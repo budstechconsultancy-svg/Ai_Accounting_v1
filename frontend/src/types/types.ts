@@ -17,7 +17,7 @@
  * 3. Chart of Accounts (Ledgers, Groups)
  * 4. Inventory (Stock Items, Units, Groups)
  * 5. Vouchers (Transactions)
- * 6. AI Features (Invoice extraction, Chatbot)
+ * 6. AI Features (Invoice extraction, AI Agent)
  * 7. User Management (Users, Roles, Permissions)
  * 
  * FOR NEW DEVELOPERS:

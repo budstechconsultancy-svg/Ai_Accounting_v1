@@ -7,7 +7,7 @@
  * - Application routing (which page to show)
  * - Global state (ledgers, vouchers, stock items, etc.)
  * - Data synchronization with backend API
- * - AI features (invoice extraction, chatbot)
+ * - AI features (invoice extraction, AI agent)
  * 
  * ARCHITECTURE:
  * - Uses React hooks for state management (useState, useEffect, useCallback)
@@ -51,14 +51,14 @@ import LoginPage from '../pages/Login';                   // User login page
 import SignupPage from '../pages/Register';               // New user registration
 // Additional UI Components
 import Modal from '../components/Modal';                  // Reusable modal dialog
-import AIAgent from '../components/AIAgent';              // AI chatbot (Kiki)
+import AIAgent from '../components/AIAgent';              // AI Agent (Kiki)
 import Icon from '../components/Icon';                    // Icon component
 import ErrorBoundary from '../components/ErrorBoundary';  // Error handling wrapper
 import MassUploadResultPage from '../pages/MassUploadResult'; // Bulk upload results page
 // ============================================================================
 // SERVICE IMPORTS
 // ============================================================================
-// AI Services - Google Gemini integration for invoice extraction and chatbot
+// AI Services - Google Gemini integration for invoice extraction and AI agent
 import { extractInvoiceDataWithRetry, getAgentResponse, getGroundedAgentResponse } from '../services/geminiService';
 
 // API Service - Handles all HTTP requests to Django backend
@@ -194,15 +194,15 @@ const App: React.FC = () => {
   // Prefilled voucher data from AI invoice extraction
   const [prefilledVoucherData, setPrefilledVoucherData] = useState<ExtractedInvoiceData | null>(null);
 
-  // AI chatbot (Kiki) - open/closed state
+  // AI Agent (Kiki) - open/closed state
   const [isAgentOpen, setIsAgentOpen] = useState(false);
 
-  // AI chatbot conversation history
+  // AI Agent conversation history
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([
     { role: 'model', text: 'Hello! I am Kiki. How can I help you with your accounting data today? Use the toggle below to search the web for up-to-date information.' }
   ]);
 
-  // AI chatbot loading state (when waiting for response)
+  // AI Agent loading state (when waiting for response)
   const [isAgentLoading, setIsAgentLoading] = useState(false);
 
   // ============================================================================
@@ -889,12 +889,12 @@ const App: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Floating Chatbot Button */}
-      {/* Floating Chatbot Button */}
+
+      {/* Floating AI Agent Button */}
       <button
         onClick={() => setIsAgentOpen(true)}
         className="fixed bottom-6 right-6 p-4 bg-blue-600 rounded-full text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 z-50 flex items-center justify-center group"
-        title="Chat with AI Assistant"
+        title="Chat with AI Agent"
       >
         <div className="absolute inset-0 bg-white rounded-full opacity-0 group-hover:opacity-20 transition-opacity" />
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

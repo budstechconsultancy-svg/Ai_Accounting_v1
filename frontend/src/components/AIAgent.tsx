@@ -2,7 +2,7 @@
  * ============================================================================
  * AI AGENT COMPONENT (AIAgent.tsx)
  * ============================================================================
- * AI-powered chatbot interface (Kiki) for answering accounting questions.
+ * AI Agent interface (Kiki) for answering accounting questions.
  * 
  * FEATURES:
  * - Chat interface with message history
@@ -28,8 +28,8 @@
  * USAGE:
  * ```tsx
  * <AIAgent
- *   isOpen={showChatbot}
- *   onClose={() => setShowChatbot(false)}
+ *   isOpen={showAIAgent}
+ *   onClose={() => setShowAIAgent(false)}
  *   messages={chatMessages}
  *   onSendMessage={handleSendMessage}
  *   isLoading={isAILoading}
@@ -58,8 +58,8 @@ import Icon from './Icon';
  * Props for AIAgent component
  */
 interface AIAgentProps {
-  isOpen: boolean;              // Whether chatbot is visible
-  onClose: () => void;          // Callback to close chatbot
+  isOpen: boolean;              // Whether AI agent is visible
+  onClose: () => void;          // Callback to close AI agent
   messages: AgentMessage[];     // Chat message history
   onSendMessage: (message: string, useGrounding: boolean) => void;  // Callback to send message
   isLoading: boolean;           // Whether AI is processing
@@ -71,7 +71,7 @@ interface AIAgentProps {
 }
 
 /**
- * AIAgent Component - AI chatbot interface (Kiki)
+ * AIAgent Component - AI Agent interface (Kiki)
  */
 const AIAgent: React.FC<AIAgentProps> = ({ isOpen, onClose, messages, onSendMessage, isLoading, queueStatus }) => {
   // ============================================================================
@@ -152,7 +152,7 @@ const AIAgent: React.FC<AIAgentProps> = ({ isOpen, onClose, messages, onSendMess
     setInput(e.target.value);
   };
 
-  // Don't render if chatbot is closed
+  // Don't render if AI agent is closed
   if (!isOpen) return null;
 
   return (
