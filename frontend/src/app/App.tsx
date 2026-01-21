@@ -62,7 +62,7 @@ import MassUploadResultPage from '../pages/MassUploadResult'; // Bulk upload res
 import { extractInvoiceDataWithRetry, getAgentResponse, getGroundedAgentResponse } from '../services/geminiService';
 
 // API Service - Handles all HTTP requests to Django backend
-import { apiService } from '../services';
+import { apiService, httpClient } from '../services';
 
 // Initial Data - Default data for new companies (fallback if backend is empty)
 import { initialLedgers, initialLedgerGroups } from '../store/initialData';
@@ -178,6 +178,13 @@ const App: React.FC = () => {
   // Vouchers - all transactions (sales, purchase, payment, receipt, etc.)
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
 
+  // RICH DATA for AI Agency (Emails, Phones, etc.)
+  const [richVendors, setRichVendors] = useState<any[]>([]);
+  const [richCustomers, setRichCustomers] = useState<any[]>([]);
+
+  // Database Schema (for AI "Table Knowledge")
+  const [userTables, setUserTables] = useState<any[]>([]);
+
   // Stock Items - inventory items for sales/purchase
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
 
@@ -199,7 +206,7 @@ const App: React.FC = () => {
 
   // AI Agent conversation history
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([
-    { role: 'model', text: 'Hello! I am Kiki. How can I help you with your accounting data today? Use the toggle below to search the web for up-to-date information.' }
+    { role: 'model', text: 'Hello! I am your AI Agent. How can I help you with your accounting data today? Use the toggle below to search the web for up-to-date information.' }
   ]);
 
   // AI Agent loading state (when waiting for response)
@@ -211,6 +218,9 @@ const App: React.FC = () => {
 
   // Import summary - shows success/failure count after bulk import
   const [importSummary, setImportSummary] = useState<{ success: number, failed: number } | null>(null);
+
+  // CONTEXT STATE: Stores what the AI is waiting for (Name, Email, etc.)
+  const [pendingContext, setPendingContext] = useState<{ field: string, action: string, data?: any } | null>(null);
 
   // Mass upload results - stores vouchers from bulk upload for review
   const [massUploadResult, setMassUploadResult] = useState<Voucher[] | null>(null);
@@ -356,6 +366,19 @@ const App: React.FC = () => {
           }
         } else {
           // Not logged in or no tenant ID, just show empty state
+          try {
+            const [rv, rc, ut] = await Promise.all([
+              apiService.getRichVendors(),
+              apiService.getRichCustomers(),
+              apiService.getUserTables()
+            ]);
+            setRichVendors(rv);
+            setRichCustomers(rc);
+            setUserTables(ut);
+          } catch (e) {
+            console.warn('Failed to load rich AI data', e);
+          }
+          // Fallback to empty state
           setLedgers([]);
           setLedgerGroups([]);
           setVouchers([]);
@@ -725,8 +748,155 @@ const App: React.FC = () => {
   // AI Agent state for queue status
   const [agentQueueStatus, setAgentQueueStatus] = useState<{ queuePosition?: number; estimatedWaitSeconds?: number; code?: string } | undefined>();
 
+  // --- AI AGENT ACTION DISPATCHER ---
+  const handleAgentAction = async (action: any) => {
+    console.log("🤖 AI Agent Action:", action);
+    const { tool_use, parameters } = action;
+
+    try {
+      switch (tool_use) {
+        case 'navigate': {
+          const pageMap: Record<string, string> = {
+            'Dashboard': 'Dashboard', 'Masters': 'Masters', 'Inventory': 'Inventory',
+            'Vouchers': 'Vouchers', 'Reports': 'Reports', 'Settings': 'Settings',
+            'Payroll': 'Payroll', 'Vendor Portal': 'Vendor Portal', 'Customer Portal': 'Customer Portal'
+          };
+          const paramPage = parameters.page || '';
+          // Find matching page key
+          const targetPageKey = Object.keys(pageMap).find(key => key.toLowerCase() === paramPage.toLowerCase());
+
+          if (targetPageKey) {
+            setCurrentPage(pageMap[targetPageKey] as Page);
+            setCurrentPage(parameters.page as Page);
+            return `✅ Navigated to ${parameters.page}`;
+          }
+        } // Close navigate case
+
+        case 'ask_for_info': {
+          // AI requests more info. Save the context state.
+          setPendingContext({
+            field: parameters.field,
+            action: parameters.action,
+            data: parameters.data || {} // Optional: Store partial data if AI sends it back
+          });
+          return parameters.question; // The reply text is just the question
+        }
+
+        case 'create_customer': {
+          // Use Customer Portal API for rich data
+          const payload = {
+            customer_name: parameters.name,
+            customer_code: `CUST-${Date.now().toString().slice(-6)}`,
+            email_address: parameters.email || null,
+            contact_number: parameters.phone || null,
+            // Default required fields for the API
+            gst_details: { gstins: [], branches: [] },
+            products_services: { items: [] }
+          };
+
+          try {
+            await httpClient.post('/api/customerportal/customer-master/', payload);
+            setCurrentPage('Customer Portal');
+            return `✅ Created customer '${parameters.name}' with full details. Navigating to Customer Portal.`;
+          } catch (err) {
+            console.error(err);
+            return `❌ Failed to create customer via Portal API.`;
+          }
+        }
+
+        case 'create_vendor': {
+          // Use Vendor Portal "Basic Details" API
+          const payload = {
+            vendor_name: parameters.name,
+            vendor_code: `VEN-${Date.now().toString().slice(-6)}`,
+            email: parameters.email,
+            contact_no: parameters.phone,
+            is_also_customer: false
+          };
+
+          try {
+            await httpClient.post('/api/vendors/basic-details/', payload);
+            setCurrentPage('Vendor Portal');
+            return `✅ Created vendor '${parameters.name}' with email/phone. Navigating to Vendor Portal.`;
+          } catch (err) {
+            console.error(err);
+            return `❌ Failed to create vendor. Ensure Email and Phone are provided.`;
+          }
+        }
+
+        case 'delete_customer': {
+          const ledger = ledgers.find(l => l.name.toLowerCase() === parameters.name.toLowerCase());
+          if (ledger) {
+            const idToDelete = ledger.id || ledger.name;
+            await handleDeleteLedger(idToDelete);
+            return `🗑️ Deleted customer: ${parameters.name}`;
+          }
+          return `❌ Customer not found: ${parameters.name}`;
+        }
+
+        case 'create_item': {
+          await httpClient.post('/api/inventory/items/', {
+            item_code: parameters.item_code,
+            name: parameters.name,
+            category: parameters.category || 1,
+            rate: parameters.rate || '0.00'
+          });
+          setCurrentPage('Inventory');
+          return `✅ Created item '${parameters.name}' and navigated to Inventory.`;
+        }
+
+        case 'delete_item': {
+          const itemsRes = await httpClient.get<any[]>('/api/inventory/items/');
+          const item = itemsRes.find(i => i.name.toLowerCase() === parameters.name.toLowerCase());
+          if (item) {
+            await httpClient.delete(`/api/inventory/items/${item.id}/`);
+            return `🗑️ Deleted item: ${parameters.name}`;
+          }
+          return `❌ Item not found: ${parameters.name}`;
+        }
+
+        case 'create_voucher': {
+          const voucherData = {
+            voucher_type: parameters.type || 'sales',
+            voucher_number: 'AUTO',
+            date: new Date().toISOString().split('T')[0],
+            party_name: parameters.party_name,
+            amount: parameters.amount || 0
+          };
+          await httpClient.post(`/api/masters/master-voucher-${parameters.type || 'sales'}/`, voucherData);
+          return `✅ Created ${parameters.type} voucher for ${parameters.party_name}`;
+        }
+
+        case 'delete_voucher': {
+          const v = vouchers.find(v => v.voucher_number === parameters.voucher_number || v.id === parameters.id);
+          if (v) {
+            await httpClient.delete(`/api/masters/master-voucher-${v.voucher_type}/${v.id}/`);
+            return `🗑️ Deleted voucher ${v.voucher_number}`;
+          }
+          return `❌ Voucher not found`;
+        }
+
+        default:
+          return `Unknown action: ${tool_use}`;
+      }
+    } catch (error: any) {
+      console.error("Action Execution Failed:", error);
+      return `❌ Action failed: ${error.message || 'Unknown error'}`;
+    }
+  };
+
   const handleSendMessageToAgent = async (message: string, useGrounding: boolean) => {
-    const userMessage: AgentMessage = { role: 'user', text: message };
+    let finalMessageText = message;
+
+    // INJECT CONTEXT if we are waiting for an answer
+    if (pendingContext) {
+      finalMessageText = `[SYSTEM: The user is answering your request for '${pendingContext.field}' for action '${pendingContext.action}'. Treat this input as the value for '${pendingContext.field}'. PRESERVE unrelated context.]\nUser Input: "${message}"`;
+      // Do not clear immediately? Or clear and assume AI consumes it?
+      // Better to clear it, assuming AI will either act or ask for next field.
+      setPendingContext(null);
+    }
+
+    const userMessage: AgentMessage = { role: 'user', text: message }; // Show original text to user
     setAgentMessages(prev => [...prev, userMessage]);
     setIsAgentLoading(true);
     setAgentQueueStatus(undefined); // Clear previous queue status
@@ -742,10 +912,54 @@ const App: React.FC = () => {
         const contextData = JSON.stringify({
           vouchers,
           ledgers,
+          stockItems,
+          ledgerGroups,
           companyDetails,
+          currentDate: new Date().toISOString().split('T')[0], // Give AI "Today"
+          // Inject Rich Data
+          vendors: richVendors,
+          customers: richCustomers,
+          // Inject Schema
+          tables: userTables
         });
-        const response = await getAgentResponse(contextData, message);
-        modelMessage = { role: 'model', text: response.reply };
+
+        // Prepare updated history locally (since state update is async)
+        const currentHistory = [...agentMessages, { role: 'user', text: finalMessageText }].map(msg => ({
+          role: msg.role === 'model' ? 'model' : 'user',
+          text: msg.text
+        }));
+
+        const response = await getAgentResponse(contextData, finalMessageText, currentHistory);
+        let replyText = response.reply;
+
+        // --- JSON Parsing & Tool Execution ---
+        try {
+          let jsonString = '';
+          // 1. Try md code block
+          const codeBlockMatch = replyText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+          if (codeBlockMatch) {
+            jsonString = codeBlockMatch[1];
+          } else {
+            // 2. Try raw JSON extraction
+            const jsonMatch = replyText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              jsonString = jsonMatch[0];
+            }
+          }
+
+          if (jsonString) {
+            const action = JSON.parse(jsonString);
+            if (action.tool_use) {
+              const actionResult = await handleAgentAction(action);
+              replyText = `${actionResult}\n\n(Action: ${action.tool_use})`;
+            }
+          }
+        } catch (e) {
+          console.log("No valid tool call found in response", e);
+        }
+        // -------------------------------------
+
+        modelMessage = { role: 'model', text: replyText };
 
         // Set queue status if applicable
         if (response.code === 'QUEUED' || response.code === 'RATE_LIMIT') {

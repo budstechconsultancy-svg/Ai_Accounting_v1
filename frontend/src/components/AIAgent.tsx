@@ -163,7 +163,7 @@ const AIAgent: React.FC<AIAgentProps> = ({ isOpen, onClose, messages, onSendMess
             <div className="w-10 h-10 bg-white rounded-full overflow-hidden flex items-center justify-center p-1">
               <img src="/src/assets/fox_agent.png" alt="Kiki" className="w-full h-full object-contain" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-800">Kiki</h3>
+            <h3 className="text-lg font-semibold text-gray-800">AI Agent</h3>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <Icon name="close" className="w-6 h-6" />

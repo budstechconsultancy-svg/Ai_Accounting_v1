@@ -174,7 +174,8 @@ export const extractInvoiceDataWithRetry = async (
  */
 export const getAgentResponse = async (
   contextData: string,
-  userQuery: string
+  userQuery: string,
+  history: { role: string; text: string }[] = []
 ): Promise<{ reply: string; code?: string; retryAfter?: number; queuePosition?: number; estimatedWaitSeconds?: number }> => {
   try {
     // Get API configuration
@@ -191,6 +192,7 @@ export const getAgentResponse = async (
       credentials: 'include', // Send cookies for authentication
       body: JSON.stringify({
         message: userQuery,
+        history: history, // Send conversation history
         contextData,
         useGrounding: false  // Use internal data, not web search
       }),

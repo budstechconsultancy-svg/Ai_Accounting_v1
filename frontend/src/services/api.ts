@@ -137,8 +137,28 @@ class ApiService {
         return httpClient.put<{ success: boolean }>(`/api/masters/ledger-groups/${id}/`, data);
     }
 
+    async updateLedgerGroup(id: number, data: Partial<LedgerGroupMaster>) {
+        return httpClient.put<{ success: boolean }>(`/api/masters/ledger-groups/${id}/`, data);
+    }
+
     async deleteLedgerGroup(id: number) {
         return httpClient.delete<{ success: boolean }>(`/api/masters/ledger-groups/${id}/`);
+    }
+
+    /**
+     * Get RICH Vendor Data (Basic Details like email, phone)
+     * Used for AI Context
+     */
+    async getRichVendors() {
+        return httpClient.get<any[]>('/api/vendors/basic-details/');
+    }
+
+    /**
+     * Get RICH Customer Data (Email, Phone, GST)
+     * Used for AI Context
+     */
+    async getRichCustomers() {
+        return httpClient.get<any[]>('/api/customerportal/customer-master/');
     }
 
     // ============================================================================
