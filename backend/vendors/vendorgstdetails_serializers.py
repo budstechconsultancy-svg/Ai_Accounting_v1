@@ -29,7 +29,12 @@ class VendorGSTDetailsSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'created_by',
-            'updated_by'
+            'updated_by',
+            'reference_name',
+            'branch_address',
+            'branch_contact_person',
+            'branch_email',
+            'branch_contact_no'
         ]
         read_only_fields = ['id', 'tenant_id', 'created_at', 'updated_at']
 
@@ -46,7 +51,12 @@ class VendorGSTDetailsCreateSerializer(serializers.ModelSerializer):
             'gstin',
             'gst_registration_type',
             'legal_name',
-            'trade_name'
+            'trade_name',
+            'reference_name',
+            'branch_address',
+            'branch_contact_person',
+            'branch_email',
+            'branch_contact_no'
         ]
     
     def validate_gstin(self, value):

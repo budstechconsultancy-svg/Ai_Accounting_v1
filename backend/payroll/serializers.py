@@ -103,11 +103,12 @@ class EmployeeCompleteSerializer(serializers.ModelSerializer):
             ret['aadhar_number'] = instance.statutory.aadhar_number
         
         # Bank Details
-        if hasattr(instance, 'bank_details'):
-            ret['account_number'] = instance.bank_details.account_number
-            ret['ifsc_code'] = instance.bank_details.ifsc_code
-            ret['bank_name'] = instance.bank_details.bank_name
-            ret['branch_name'] = instance.bank_details.branch_name
+        if hasattr(instance, 'bank_details') and instance.bank_details.exists():
+            bank_detail = instance.bank_details.first()
+            ret['account_number'] = bank_detail.account_number
+            ret['ifsc_code'] = bank_detail.ifsc_code
+            ret['bank_name'] = bank_detail.bank_name
+            ret['branch_name'] = bank_detail.branch_name
             
         return ret
     
@@ -203,9 +204,18 @@ class EmployeeCompleteSerializer(serializers.ModelSerializer):
             instance.statutory.save()
         
         if bank_details_data is not None:
-            for attr, value in bank_details_data.items():
-                setattr(instance.bank_details, attr, value)
-            instance.bank_details.save()
+            # Check if exists (it's a reverse FK now, so it returns a manager)
+            bank_detail_obj = instance.bank_details.first()
+            if bank_detail_obj:
+                for attr, value in bank_details_data.items():
+                    setattr(bank_detail_obj, attr, value)
+                bank_detail_obj.save()
+            else:
+                # Create if not exists
+                from .models import EmployeeBankDetails
+                bank_details_data['employee_basic'] = instance
+                bank_details_data['tenant_id'] = instance.tenant_id
+                EmployeeBankDetails.objects.create(**bank_details_data)
         
         return instance
 

@@ -361,13 +361,43 @@ const AddEmployeeModal: React.FC<{ onClose: () => void; onSuccess: () => void }>
 
     const handleSubmit = async () => {
         try {
-            await httpClient.post('/api/payroll/employees/', formData);
+            // Validate required fields
+            if (!formData.employee_name || !formData.email) {
+                alert('Please fill in all required fields (Employee Name and Email)');
+                return;
+            }
+
+            // Format the data properly for backend
+            const payload = {
+                tenant_id: formData.tenant_id || localStorage.getItem('tenantId'),
+                employee_name: formData.employee_name,
+                employee_code: formData.employee_code,
+                email: formData.email,
+                phone: formData.phone || '',
+                date_of_birth: formData.date_of_birth || null,
+                gender: formData.gender || '',
+                address: formData.address || '',
+                department: formData.department || '',
+                designation: formData.designation || '',
+                date_of_joining: formData.date_of_joining || null,
+                employment_type: formData.employment_type,
+                basic_salary: formData.basic_salary ? parseFloat(formData.basic_salary) : 0,
+                hra: formData.hra ? parseFloat(formData.hra) : 0,
+                pan_number: formData.pan_number || '',
+                uan_number: formData.uan_number || '',
+                esi_number: formData.esi_number || '',
+                account_number: formData.account_number || '',
+                ifsc_code: formData.ifsc_code || '',
+                bank_name: formData.bank_name || ''
+            };
+
+            await httpClient.post('/api/payroll/employees/', payload);
             alert('Employee added successfully!');
             onSuccess();
             onClose();
         } catch (error) {
             console.error('Error adding employee:', error);
-            alert('Failed to add employee');
+            alert('Failed to add employee. Please check the form data.');
         }
     };
 
