@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Ledger, Voucher, StockItem, SalesPurchaseVoucher, LedgerGroupMaster } from '../../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts';
 
@@ -185,56 +185,101 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
   }
 
   const [aiInput, setAiInput] = useState<string>('');
-  const [aiMessages, setAiMessages] = useState<AIMessage[]>([
-    {
-      role: 'ai',
-      text: "Hi! I'm your AI Report Assistant. Ask me anything about your financial data, such as:\n• \"What's my total sales this month?\"\n• \"Show me top 5 customers by revenue\"\n• \"Compare expenses between Jan and Feb\"\n• \"What's my GST liability for this quarter?\""
-    }
-  ]);
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [currentReport, setCurrentReport] = useState<AIMessage['reportData'] | null>(null);
-  const aiMessagesEndRef = useRef<HTMLDivElement>(null);
+  const [reportView, setReportView] = useState<'table' | 'chart'>('table'); // Default to table view
 
   // Chart colors
   const CHART_COLORS = ['#f97316', '#3b82f6', '#22c55e', '#a855f7', '#ef4444', '#06b6d4', '#eab308', '#ec4899'];
-
-  // Scroll to bottom of AI messages
-  useEffect(() => {
-    aiMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [aiMessages]);
 
   // Generate report data based on query
   const generateReportFromQuery = useCallback((query: string) => {
     const lowerQuery = query.toLowerCase();
     let reportData: AIMessage['reportData'] | null = null;
 
-    // Calculate common metrics
+    // Calculate common metrics with proper number conversion
     const salesVouchers = vouchers.filter(v => v.type === 'Sales') as SalesPurchaseVoucher[];
     const purchaseVouchers = vouchers.filter(v => v.type === 'Purchase') as SalesPurchaseVoucher[];
-    const totalSales = salesVouchers.reduce((sum, v) => sum + (v.total || 0), 0);
-    const totalPurchases = purchaseVouchers.reduce((sum, v) => sum + (v.total || 0), 0);
+
+    // Ensure proper number conversion
+    const totalSales = salesVouchers.reduce((sum, v) => {
+      const total = Number(v.total) || 0;
+      return sum + total;
+    }, 0);
+
+    const totalPurchases = purchaseVouchers.reduce((sum, v) => {
+      const total = Number(v.total) || 0;
+      return sum + total;
+    }, 0);
+
     const grossProfit = totalSales - totalPurchases;
     const profitMargin = totalSales > 0 ? ((grossProfit / totalSales) * 100).toFixed(1) : '0';
 
     // Sales related queries
     if (lowerQuery.includes('sales') || lowerQuery.includes('revenue')) {
-      // Group by party
-      const salesByParty: { [key: string]: number } = {};
+      // Calculate detailed metrics for each customer
+      const customerDetails: {
+        [key: string]: {
+          total: number;
+          count: number;
+          taxableAmount: number;
+          cgst: number;
+          sgst: number;
+          igst: number;
+          dates: Date[];
+        }
+      } = {};
+
       salesVouchers.forEach(v => {
-        salesByParty[v.party] = (salesByParty[v.party] || 0) + (v.total || 0);
+        if (!customerDetails[v.party]) {
+          customerDetails[v.party] = {
+            total: 0,
+            count: 0,
+            taxableAmount: 0,
+            cgst: 0,
+            sgst: 0,
+            igst: 0,
+            dates: []
+          };
+        }
+        customerDetails[v.party].total += Number(v.total) || 0;
+        customerDetails[v.party].count += 1;
+        customerDetails[v.party].taxableAmount += Number(v.totalTaxableAmount) || 0;
+        customerDetails[v.party].cgst += Number(v.totalCgst) || 0;
+        customerDetails[v.party].sgst += Number(v.totalSgst) || 0;
+        customerDetails[v.party].igst += Number(v.totalIgst) || 0;
+        customerDetails[v.party].dates.push(new Date(v.date));
       });
 
-      const chartData = Object.entries(salesByParty)
-        .map(([name, value], idx) => ({ name, value, color: CHART_COLORS[idx % CHART_COLORS.length] }))
+      const chartData = Object.entries(customerDetails)
+        .map(([name, details], idx) => ({ name, value: details.total, color: CHART_COLORS[idx % CHART_COLORS.length] }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 6);
 
-      const tableData = chartData.map((item, idx) => ({
-        '#': idx + 1,
-        'Customer': item.name,
-        'Amount (₹)': item.value.toLocaleString('en-IN'),
-        'Percentage': totalSales > 0 ? ((item.value / totalSales) * 100).toFixed(1) + '%' : '0%'
-      }));
+      const tableData = chartData.map((item, idx) => {
+        const details = customerDetails[item.name];
+        const avgValue = details.count > 0 ? details.total / details.count : 0;
+        const totalTax = details.cgst + details.sgst + details.igst;
+        const sortedDates = details.dates.sort((a, b) => a.getTime() - b.getTime());
+        const firstDate = sortedDates[0];
+        const lastDate = sortedDates[sortedDates.length - 1];
+
+        return {
+          '#': String(idx + 1),
+          'Customer': item.name,
+          'Total Sales (₹)': `₹${item.value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'Transactions': String(details.count),
+          'Avg Transaction (₹)': `₹${avgValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'Taxable Amount (₹)': `₹${details.taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'Total Tax (₹)': `₹${totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'CGST (₹)': `₹${details.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'SGST (₹)': `₹${details.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'IGST (₹)': `₹${details.igst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'First Transaction': firstDate.toLocaleDateString('en-IN'),
+          'Last Transaction': lastDate.toLocaleDateString('en-IN'),
+          'Share (%)': totalSales > 0 ? `${((item.value / totalSales) * 100).toFixed(1)}%` : '0%'
+        };
+      });
 
       const avgOrderValue = salesVouchers.length > 0 ? totalSales / salesVouchers.length : 0;
 
@@ -245,31 +290,98 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
         chartData,
         chartType: 'bar',
         kpiMetrics: [
-          { label: 'Total Revenue', value: `₹${totalSales.toLocaleString('en-IN')}`, icon: 'sales', change: '+12.5%', changeType: 'positive' },
-          { label: 'Transactions', value: salesVouchers.length.toString(), icon: 'receipt', change: '+8', changeType: 'positive' },
-          { label: 'Avg Order Value', value: `₹${avgOrderValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, icon: 'payment' },
-          { label: 'Top Customers', value: Object.keys(salesByParty).length.toString(), icon: 'profit' }
+          {
+            label: 'Total Revenue',
+            value: `₹${totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            icon: 'sales',
+            change: '+12.5%',
+            changeType: 'positive'
+          },
+          {
+            label: 'Transactions',
+            value: salesVouchers.length.toString(),
+            icon: 'receipt',
+            change: '+8',
+            changeType: 'positive'
+          },
+          {
+            label: 'Avg Order Value',
+            value: `₹${avgOrderValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            icon: 'payment'
+          },
+          {
+            label: 'Top Customers',
+            value: Object.keys(customerDetails).length.toString(),
+            icon: 'profit'
+          }
         ]
       };
     }
     // Purchase/Expense related queries
     else if (lowerQuery.includes('purchase') || lowerQuery.includes('expense') || lowerQuery.includes('spending') || lowerQuery.includes('vendor')) {
-      const purchasesByParty: { [key: string]: number } = {};
+      // Calculate detailed metrics for each vendor
+      const vendorDetails: {
+        [key: string]: {
+          total: number;
+          count: number;
+          taxableAmount: number;
+          cgst: number;
+          sgst: number;
+          igst: number;
+          dates: Date[];
+        }
+      } = {};
+
       purchaseVouchers.forEach(v => {
-        purchasesByParty[v.party] = (purchasesByParty[v.party] || 0) + (v.total || 0);
+        if (!vendorDetails[v.party]) {
+          vendorDetails[v.party] = {
+            total: 0,
+            count: 0,
+            taxableAmount: 0,
+            cgst: 0,
+            sgst: 0,
+            igst: 0,
+            dates: []
+          };
+        }
+        vendorDetails[v.party].total += Number(v.total) || 0;
+        vendorDetails[v.party].count += 1;
+        vendorDetails[v.party].taxableAmount += Number(v.totalTaxableAmount) || 0;
+        vendorDetails[v.party].cgst += Number(v.totalCgst) || 0;
+        vendorDetails[v.party].sgst += Number(v.totalSgst) || 0;
+        vendorDetails[v.party].igst += Number(v.totalIgst) || 0;
+        vendorDetails[v.party].dates.push(new Date(v.date));
       });
 
-      const chartData = Object.entries(purchasesByParty)
-        .map(([name, value], idx) => ({ name, value, color: CHART_COLORS[idx % CHART_COLORS.length] }))
+      const chartData = Object.entries(vendorDetails)
+        .map(([name, details], idx) => ({ name, value: details.total, color: CHART_COLORS[idx % CHART_COLORS.length] }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 6);
 
-      const tableData = chartData.map((item, idx) => ({
-        '#': idx + 1,
-        'Vendor': item.name,
-        'Amount (₹)': item.value.toLocaleString('en-IN'),
-        'Percentage': totalPurchases > 0 ? ((item.value / totalPurchases) * 100).toFixed(1) + '%' : '0%'
-      }));
+      const tableData = chartData.map((item, idx) => {
+        const details = vendorDetails[item.name];
+        const avgValue = details.count > 0 ? details.total / details.count : 0;
+        const totalTax = details.cgst + details.sgst + details.igst;
+        const sortedDates = details.dates.sort((a, b) => a.getTime() - b.getTime());
+        const firstDate = sortedDates[0];
+        const lastDate = sortedDates[sortedDates.length - 1];
+
+        return {
+          '#': String(idx + 1),
+          'Vendor': item.name,
+          'Total Purchases (₹)': `₹${item.value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'Transactions': String(details.count),
+          'Avg Transaction (₹)': `₹${avgValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'Taxable Amount (₹)': `₹${details.taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'Total Tax (₹)': `₹${totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'CGST (₹)': `₹${details.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'SGST (₹)': `₹${details.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'IGST (₹)': `₹${details.igst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          'First Transaction': firstDate.toLocaleDateString('en-IN'),
+          'Last Transaction': lastDate.toLocaleDateString('en-IN'),
+          'Share (%)': totalPurchases > 0 ? `${((item.value / totalPurchases) * 100).toFixed(1)}%` : '0%'
+        };
+      });
 
       const avgPurchaseValue = purchaseVouchers.length > 0 ? totalPurchases / purchaseVouchers.length : 0;
 
@@ -280,10 +392,10 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
         chartData,
         chartType: 'pie',
         kpiMetrics: [
-          { label: 'Total Expenses', value: `₹${totalPurchases.toLocaleString('en-IN')}`, icon: 'purchase', change: '-5.2%', changeType: 'positive' },
+          { label: 'Total Expenses', value: `₹${totalPurchases.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: 'purchase', change: '-5.2%', changeType: 'positive' },
           { label: 'Transactions', value: purchaseVouchers.length.toString(), icon: 'receipt' },
-          { label: 'Avg Purchase', value: `₹${avgPurchaseValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, icon: 'payment' },
-          { label: 'Vendors', value: Object.keys(purchasesByParty).length.toString(), icon: 'profit' }
+          { label: 'Avg Purchase', value: `₹${avgPurchaseValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: 'payment' },
+          { label: 'Vendors', value: Object.keys(vendorDetails).length.toString(), icon: 'profit' }
         ]
       };
     }
@@ -311,10 +423,10 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
       ];
 
       const tableData = [
-        { 'Tax Type': 'CGST', 'Output (₹)': outputCGST.toLocaleString('en-IN'), 'Input (₹)': inputCGST.toLocaleString('en-IN'), 'Net (₹)': (outputCGST - inputCGST).toLocaleString('en-IN') },
-        { 'Tax Type': 'SGST', 'Output (₹)': outputSGST.toLocaleString('en-IN'), 'Input (₹)': inputSGST.toLocaleString('en-IN'), 'Net (₹)': (outputSGST - inputSGST).toLocaleString('en-IN') },
-        { 'Tax Type': 'IGST', 'Output (₹)': outputIGST.toLocaleString('en-IN'), 'Input (₹)': inputIGST.toLocaleString('en-IN'), 'Net (₹)': (outputIGST - inputIGST).toLocaleString('en-IN') },
-        { 'Tax Type': 'TOTAL', 'Output (₹)': totalOutput.toLocaleString('en-IN'), 'Input (₹)': totalInput.toLocaleString('en-IN'), 'Net (₹)': netLiability.toLocaleString('en-IN') }
+        { 'Tax Type': 'CGST', 'Output (₹)': `₹${outputCGST.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Input (₹)': `₹${inputCGST.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Net (₹)': `₹${(outputCGST - inputCGST).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+        { 'Tax Type': 'SGST', 'Output (₹)': `₹${outputSGST.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Input (₹)': `₹${inputSGST.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Net (₹)': `₹${(outputSGST - inputSGST).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+        { 'Tax Type': 'IGST', 'Output (₹)': `₹${outputIGST.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Input (₹)': `₹${inputIGST.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Net (₹)': `₹${(outputIGST - inputIGST).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+        { 'Tax Type': 'TOTAL', 'Output (₹)': `₹${totalOutput.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Input (₹)': `₹${totalInput.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Net (₹)': `₹${netLiability.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }
       ];
 
       reportData = {
@@ -324,42 +436,106 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
         chartData,
         chartType: 'bar',
         kpiMetrics: [
-          { label: 'Output Tax', value: `₹${totalOutput.toLocaleString('en-IN')}`, icon: 'tax', change: 'Collected', changeType: 'neutral' },
-          { label: 'Input Credit', value: `₹${totalInput.toLocaleString('en-IN')}`, icon: 'receipt', change: 'Claimable', changeType: 'positive' },
-          { label: 'Net Liability', value: `₹${netLiability.toLocaleString('en-IN')}`, icon: 'payment', change: netLiability > 0 ? 'Payable' : 'Refund', changeType: netLiability > 0 ? 'negative' : 'positive' },
+          { label: 'Output Tax', value: `₹${totalOutput.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: 'tax', change: 'Collected', changeType: 'neutral' },
+          { label: 'Input Credit', value: `₹${totalInput.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: 'receipt', change: 'Claimable', changeType: 'positive' },
+          { label: 'Net Liability', value: `₹${netLiability.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: 'payment', change: netLiability > 0 ? 'Payable' : 'Refund', changeType: netLiability > 0 ? 'negative' : 'positive' },
           { label: 'Effective Rate', value: totalSales > 0 ? `${((totalOutput / totalSales) * 100).toFixed(1)}%` : '0%', icon: 'profit' }
         ]
       };
     }
-    // Default - Summary of all transactions
+    // Default - Show customer/vendor breakdown
     else {
-      const paymentTotal = vouchers.filter(v => v.type === 'Payment').reduce((sum, v: any) => sum + (v.amount || 0), 0);
-      const receiptTotal = vouchers.filter(v => v.type === 'Receipt').reduce((sum, v: any) => sum + (v.amount || 0), 0);
+      // Combine sales and purchase data for a comprehensive view
+      const partyDetails: {
+        [key: string]: {
+          sales: number;
+          purchases: number;
+          salesCount: number;
+          purchasesCount: number;
+          totalTax: number;
+          dates: Date[];
+        }
+      } = {};
 
-      const chartData = [
-        { name: 'Sales', value: totalSales, color: '#22c55e' },
-        { name: 'Purchases', value: totalPurchases, color: '#ef4444' },
-        { name: 'Payments', value: paymentTotal, color: '#3b82f6' },
-        { name: 'Receipts', value: receiptTotal, color: '#f97316' }
-      ];
+      // Process sales vouchers
+      salesVouchers.forEach(v => {
+        if (!partyDetails[v.party]) {
+          partyDetails[v.party] = {
+            sales: 0,
+            purchases: 0,
+            salesCount: 0,
+            purchasesCount: 0,
+            totalTax: 0,
+            dates: []
+          };
+        }
+        partyDetails[v.party].sales += Number(v.total) || 0;
+        partyDetails[v.party].salesCount += 1;
+        partyDetails[v.party].totalTax += (Number(v.totalCgst) || 0) + (Number(v.totalSgst) || 0) + (Number(v.totalIgst) || 0);
+        partyDetails[v.party].dates.push(new Date(v.date));
+      });
 
-      const tableData = chartData.map((item, idx) => ({
-        '#': idx + 1,
-        'Category': item.name,
-        'Amount (₹)': item.value.toLocaleString('en-IN'),
-        'Count': vouchers.filter(v => v.type === item.name.slice(0, -1) || v.type === item.name).length
-      }));
+      // Process purchase vouchers
+      purchaseVouchers.forEach(v => {
+        if (!partyDetails[v.party]) {
+          partyDetails[v.party] = {
+            sales: 0,
+            purchases: 0,
+            salesCount: 0,
+            purchasesCount: 0,
+            totalTax: 0,
+            dates: []
+          };
+        }
+        partyDetails[v.party].purchases += Number(v.total) || 0;
+        partyDetails[v.party].purchasesCount += 1;
+        partyDetails[v.party].totalTax += (Number(v.totalCgst) || 0) + (Number(v.totalSgst) || 0) + (Number(v.totalIgst) || 0);
+        partyDetails[v.party].dates.push(new Date(v.date));
+      });
+
+      const chartData = Object.entries(partyDetails)
+        .map(([name, details]) => ({
+          name,
+          value: details.sales + details.purchases,
+          color: CHART_COLORS[0]
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 6);
+
+      const tableData = Object.entries(partyDetails)
+        .sort(([, a], [, b]) => (b.sales + b.purchases) - (a.sales + a.purchases))
+        .slice(0, 10)
+        .map(([name, details], idx) => {
+          const totalTransactions = details.salesCount + details.purchasesCount;
+          const totalAmount = details.sales + details.purchases;
+          const netBalance = details.sales - details.purchases;
+          const sortedDates = details.dates.sort((a, b) => a.getTime() - b.getTime());
+          const firstDate = sortedDates[0];
+          const lastDate = sortedDates[sortedDates.length - 1];
+
+          return {
+            '#': String(idx + 1),
+            'Party Name': name,
+            'Sales (₹)': `₹${details.sales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            'Purchases (₹)': `₹${details.purchases.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            'Net Balance (₹)': `₹${netBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            'Total Tax (₹)': `₹${details.totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            'Transactions': String(totalTransactions),
+            'First Transaction': firstDate ? firstDate.toLocaleDateString('en-IN') : '-',
+            'Last Transaction': lastDate ? lastDate.toLocaleDateString('en-IN') : '-'
+          };
+        });
 
       reportData = {
-        title: 'Financial Overview Dashboard',
-        summary: `Complete business performance snapshot`,
+        title: 'Party-wise Financial Overview',
+        summary: `Comprehensive analysis of ${Object.keys(partyDetails).length} parties with ${vouchers.length} total transactions`,
         tableData,
         chartData,
-        chartType: 'area',
+        chartType: 'bar',
         kpiMetrics: [
-          { label: 'Total Sales', value: `₹${totalSales.toLocaleString('en-IN')}`, icon: 'sales', change: '+15.3%', changeType: 'positive' },
-          { label: 'Total Expenses', value: `₹${totalPurchases.toLocaleString('en-IN')}`, icon: 'purchase', change: '-3.2%', changeType: 'positive' },
-          { label: 'Gross Profit', value: `₹${grossProfit.toLocaleString('en-IN')}`, icon: 'profit', change: `${profitMargin}%`, changeType: grossProfit >= 0 ? 'positive' : 'negative' },
+          { label: 'Total Sales', value: `₹${totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: 'sales', change: '+15.3%', changeType: 'positive' },
+          { label: 'Total Expenses', value: `₹${totalPurchases.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: 'purchase', change: '-3.2%', changeType: 'positive' },
+          { label: 'Gross Profit', value: `₹${grossProfit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, icon: 'profit', change: `${profitMargin}%`, changeType: grossProfit >= 0 ? 'positive' : 'negative' },
           { label: 'Transactions', value: vouchers.length.toString(), icon: 'receipt' }
         ]
       };
@@ -372,19 +548,11 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
   const handleAiSend = useCallback(() => {
     if (!aiInput.trim() || aiLoading) return;
 
-    const userMessage: AIMessage = { role: 'user', text: aiInput };
-    setAiMessages(prev => [...prev, userMessage]);
     setAiLoading(true);
 
     // Simulate AI processing
     setTimeout(() => {
       const reportData = generateReportFromQuery(aiInput);
-      const aiResponse: AIMessage = {
-        role: 'ai',
-        text: reportData ? `Here's your ${reportData.title}:` : "I couldn't find relevant data for your query. Please try asking about sales, purchases, expenses, or GST.",
-        reportData: reportData || undefined
-      };
-      setAiMessages(prev => [...prev, aiResponse]);
       setCurrentReport(reportData);
       setAiLoading(false);
     }, 1500);
@@ -1432,91 +1600,40 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
         )}
         {reportType === 'AIReport' && (
           <div className="space-y-6">
-            {/* AI Report Header */}
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-6 text-white">
-              <div className="flex items-center gap-3 mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
-                  <path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 00-1.032-.211 50.89 50.89 0 00-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 002.433 3.984L7.28 21.53A.75.75 0 016 21v-4.03a48.527 48.527 0 01-1.087-.128C2.905 16.58 1.5 14.833 1.5 12.862V6.638c0-1.97 1.405-3.718 3.413-3.979z" />
-                  <path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 001.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0015.75 7.5z" />
-                </svg>
-                <h3 className="text-2xl font-bold">AI-Powered Report Analysis</h3>
-              </div>
-              <p className="text-orange-100">Ask questions about your financial data and get reports in Excel, PDF, and Chart formats.</p>
-            </div>
+            {/* Simple Heading */}
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">AI Report</h2>
 
-            {/* Chat Interface */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              {/* Chat Messages Area */}
-              <div className="h-[300px] p-6 overflow-y-auto bg-gray-50">
-                <div className="flex flex-col gap-4">
-                  {aiMessages.map((msg, idx) => (
-                    <div key={idx} className={`flex items-start gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                      {msg.role === 'ai' ? (
-                        <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-white">
-                            <path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 00-1.032-.211 50.89 50.89 0 00-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 002.433 3.984L7.28 21.53A.75.75 0 016 21v-4.03a48.527 48.527 0 01-1.087-.128C2.905 16.58 1.5 14.833 1.5 12.862V6.638c0-1.97 1.405-3.718 3.413-3.979z" />
-                            <path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 001.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0015.75 7.5z" />
-                          </svg>
-                        </div>
-                      ) : (
-                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-white">
-                            <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      )}
-                      <div className={`rounded-2xl px-4 py-3 shadow-sm border max-w-[80%] ${msg.role === 'user'
-                        ? 'bg-blue-500 text-white rounded-tr-none border-blue-500'
-                        : 'bg-white text-gray-800 rounded-tl-none border-gray-100'
-                        }`}>
-                        <p className="whitespace-pre-wrap">{msg.text}</p>
-                      </div>
-                    </div>
-                  ))}
-                  {aiLoading && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-white">
-                          <path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 00-1.032-.211 50.89 50.89 0 00-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 002.433 3.984L7.28 21.53A.75.75 0 016 21v-4.03a48.527 48.527 0 01-1.087-.128C2.905 16.58 1.5 14.833 1.5 12.862V6.638c0-1.97 1.405-3.718 3.413-3.979z" />
-                          <path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 001.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0015.75 7.5z" />
-                        </svg>
-                      </div>
-                      <div className="bg-white rounded-2xl rounded-tl-none px-4 py-3 shadow-sm border border-gray-100">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                          <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                          <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                        </div>
-                      </div>
-                    </div>
+            {/* Simple Input Interface */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={aiInput}
+                  onChange={(e) => setAiInput(e.target.value)}
+                  onKeyDown={handleAiKeyPress}
+                  placeholder="What would you like to know? (e.g., 'Show sales report', 'GST summary', 'Expense analysis')"
+                  disabled={aiLoading}
+                  className="flex-1 px-5 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors disabled:bg-gray-100 text-base"
+                />
+                <button
+                  onClick={handleAiSend}
+                  disabled={aiLoading || !aiInput.trim()}
+                  className="px-8 py-4 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors shadow-sm flex items-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  {aiLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                        <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                      </svg>
+                      Generate
+                    </>
                   )}
-                  <div ref={aiMessagesEndRef} />
-                </div>
-              </div>
-
-              {/* Input Area */}
-              <div className="p-4 border-t border-gray-200 bg-white">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    value={aiInput}
-                    onChange={(e) => setAiInput(e.target.value)}
-                    onKeyDown={handleAiKeyPress}
-                    placeholder="Ask about your reports... (e.g., 'Show sales report', 'GST summary', 'Expense analysis')"
-                    disabled={aiLoading}
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors disabled:bg-gray-100"
-                  />
-                  <button
-                    onClick={handleAiSend}
-                    disabled={aiLoading || !aiInput.trim()}
-                    className="px-6 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors shadow-sm flex items-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                      <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
-                    </svg>
-                    Send
-                  </button>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -1543,47 +1660,48 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
                   </div>
                 </div>
 
-                {/* KPI Metrics - Clean Minimal Style */}
-                {currentReport.kpiMetrics && (
-                  <div className="grid grid-cols-4 gap-4">
-                    {currentReport.kpiMetrics.map((kpi, idx) => (
-                      <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4 hover:border-[#2B5797] transition-colors">
-                        <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-1">{kpi.label}</p>
-                        <p className="text-2xl font-bold text-[#2B5797] mb-1">{kpi.value}</p>
-                        {kpi.change && <p className="text-xs text-gray-400">{kpi.change}</p>}
+                {/* View Toggle Buttons */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                    <button
+                      onClick={() => setReportView('table')}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${reportView === 'table'
+                        ? 'bg-white text-[#2B5797] shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Table View
                       </div>
-                    ))}
+                    </button>
+                    <button
+                      onClick={() => setReportView('chart')}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${reportView === 'chart'
+                        ? 'bg-white text-[#2B5797] shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        Chart View
+                      </div>
+                    </button>
                   </div>
-                )}
+                </div>
 
-                {/* Chart & Table Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  {/* Chart Card */}
+                {/* Conditional View Rendering */}
+                {reportView === 'table' ? (
+                  /* Table View */
                   <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                      <h5 className="text-sm font-semibold text-gray-700">Chart</h5>
+                      <h5 className="text-sm font-semibold text-gray-700">Data Table</h5>
                     </div>
-                    <div className="p-4">
-                      <div className="h-[280px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          {currentReport.chartType === 'pie' ? (
-                            <PieChart><Pie data={currentReport.chartData} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>{currentReport.chartData.map((_, index) => (<Cell key={`cell-${index}`} fill={index === 0 ? '#2B5797' : index === 1 ? '#5E92C7' : index === 2 ? '#8AB8E8' : index === 3 ? '#B8D4F0' : '#D6E6F5'} />))}</Pie><Tooltip formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`} /></PieChart>
-                          ) : currentReport.chartType === 'area' ? (
-                            <AreaChart data={currentReport.chartData}><CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" /><XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} /><YAxis tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} /><Tooltip formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`} /><Area type="monotone" dataKey="value" stroke="#2B5797" fill="#2B5797" fillOpacity={0.2} strokeWidth={2} /></AreaChart>
-                          ) : (
-                            <BarChart data={currentReport.chartData} barSize={35}><CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" /><XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} /><YAxis tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} /><Tooltip formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`} cursor={{ fill: 'rgba(43, 87, 151, 0.05)' }} /><Bar dataKey="value" fill="#2B5797" radius={[3, 3, 0, 0]} /></BarChart>
-                          )}
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Table Card */}
-                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                      <h5 className="text-sm font-semibold text-gray-700">Data</h5>
-                    </div>
-                    <div className="overflow-auto max-h-[320px]">
+                    <div className="overflow-auto max-h-[500px]">
                       <table className="w-full">
                         <thead className="bg-[#2B5797] sticky top-0">
                           <tr>{Object.keys(currentReport.tableData[0] || {}).map((h, i) => (<th key={i} className="px-4 py-2.5 text-left text-xs font-semibold text-white uppercase">{h}</th>))}</tr>
@@ -1592,58 +1710,29 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
                       </table>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  /* Chart View */
+                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                      <h5 className="text-sm font-semibold text-gray-700">Chart</h5>
+                    </div>
+                    <div className="p-6">
+                      <div className="h-[400px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          {currentReport.chartType === 'pie' ? (
+                            <PieChart><Pie data={currentReport.chartData} cx="50%" cy="50%" innerRadius={60} outerRadius={120} dataKey="value" label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>{currentReport.chartData.map((_, index) => (<Cell key={`cell-${index}`} fill={index === 0 ? '#2B5797' : index === 1 ? '#5E92C7' : index === 2 ? '#8AB8E8' : index === 3 ? '#B8D4F0' : '#D6E6F5'} />))}</Pie><Tooltip formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`} /></PieChart>
+                          ) : currentReport.chartType === 'area' ? (
+                            <AreaChart data={currentReport.chartData}><CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" /><XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} /><YAxis tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} /><Tooltip formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`} /><Area type="monotone" dataKey="value" stroke="#2B5797" fill="#2B5797" fillOpacity={0.2} strokeWidth={2} /></AreaChart>
+                          ) : (
+                            <BarChart data={currentReport.chartData} barSize={50}><CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" /><XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} /><YAxis tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={{ stroke: '#e5e7eb' }} /><Tooltip formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`} cursor={{ fill: 'rgba(43, 87, 151, 0.05)' }} /><Bar dataKey="value" fill="#2B5797" radius={[4, 4, 0, 0]} /></BarChart>
+                          )}
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-
-            {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button
-                onClick={() => { setAiInput('Show me sales report'); handleAiSend(); }}
-                className="p-4 bg-white rounded-xl border border-gray-200 hover:border-orange-300 hover:shadow-md transition-all text-left group"
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-blue-600">
-                      <path fillRule="evenodd" d="M2.25 2.25a.75.75 0 000 1.5H3v10.5a3 3 0 003 3h1.21l-1.172 3.513a.75.75 0 001.424.474l.329-.987h8.418l.33.987a.75.75 0 001.422-.474l-1.17-3.513H18a3 3 0 003-3V3.75h.75a.75.75 0 000-1.5H2.25zm6.04 16.5l.5-1.5h6.42l.5 1.5H8.29zm7.46-12a.75.75 0 00-1.5 0v6a.75.75 0 001.5 0v-6zm-3 2.25a.75.75 0 00-1.5 0v3.75a.75.75 0 001.5 0V9zm-3 2.25a.75.75 0 00-1.5 0v1.5a.75.75 0 001.5 0v-1.5z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <span className="font-semibold text-gray-800">Sales Summary</span>
-                </div>
-                <p className="text-sm text-gray-500">Get AI analysis of sales trends</p>
-              </button>
-              <button
-                onClick={() => { setAiInput('Show me expense report'); handleAiSend(); }}
-                className="p-4 bg-white rounded-xl border border-gray-200 hover:border-orange-300 hover:shadow-md transition-all text-left group"
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-green-600">
-                      <path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" />
-                      <path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v9.75c0 1.036-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 14.625v-9.75zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" />
-                      <path d="M2.25 18a.75.75 0 000 1.5c5.4 0 10.63.722 15.6 2.075 1.19.324 2.4-.558 2.4-1.82V18.75a.75.75 0 00-.75-.75H2.25z" />
-                    </svg>
-                  </div>
-                  <span className="font-semibold text-gray-800">Expense Insights</span>
-                </div>
-                <p className="text-sm text-gray-500">Analyze spending patterns</p>
-              </button>
-              <button
-                onClick={() => { setAiInput('Show me GST report'); handleAiSend(); }}
-                className="p-4 bg-white rounded-xl border border-gray-200 hover:border-orange-300 hover:shadow-md transition-all text-left group"
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-purple-600">
-                      <path fillRule="evenodd" d="M7.5 5.25a3 3 0 013-3h3a3 3 0 013 3v.205c.933.085 1.857.197 2.774.334 1.454.218 2.476 1.483 2.476 2.917v3.033c0 1.211-.734 2.352-1.936 2.752A24.726 24.726 0 0112 15.75c-2.73 0-5.357-.442-7.814-1.259-1.202-.4-1.936-1.541-1.936-2.752V8.706c0-1.434 1.022-2.7 2.476-2.917A48.814 48.814 0 017.5 5.455V5.25zm7.5 0v.09a49.488 49.488 0 00-6 0v-.09a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5zm-3 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
-                      <path d="M3 18.4v-2.796a4.3 4.3 0 00.713.31A26.226 26.226 0 0012 17.25c2.892 0 5.68-.468 8.287-1.335.252-.084.49-.189.713-.311V18.4c0 1.452-1.047 2.728-2.523 2.923-2.12.282-4.282.427-6.477.427a49.19 49.19 0 01-6.477-.427C4.047 21.128 3 19.852 3 18.4z" />
-                    </svg>
-                  </div>
-                  <span className="font-semibold text-gray-800">Tax Overview</span>
-                </div>
-                <p className="text-sm text-gray-500">GST & tax compliance check</p>
-              </button>
-            </div>
           </div>
         )}
         <div className="overflow-x-auto">

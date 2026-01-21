@@ -10,6 +10,17 @@ from django.db.models import Q
 # from inventory.models import StockItem
 from .utils import IsTenantMember
 import io
+import os
+import json
+import datetime
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
+# Configure Gemini
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
 
 class BaseExcelView(APIView):
     permission_classes = [IsAuthenticated, IsTenantMember]
@@ -345,3 +356,105 @@ class GSTReportExcelView(BaseExcelView):
         # Placeholder for GST
         df = pd.DataFrame(columns=['GSTIN', 'Party Name', 'Invoice No', 'Date', 'Value', 'Tax'])
         return self.export_excel(df, 'GSTReport.xlsx')
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AIReportExcelView(BaseExcelView):
+    def post(self, request):
+        query = request.data.get('query')
+        if not query:
+            return Response({'error': 'Query is required'}, status=400)
+            
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key or not genai:
+             return Response({'error': 'AI service not configured'}, status=503)
+
+        try:
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            # 1. Ask AI to interpret the query into parameters
+            current_date = datetime.date.today().isoformat()
+            prompt = f"""
+            You are a smart accounting assistant. The user wants to download an Excel report.
+            Current Date: {current_date}
+            User Query: "{query}"
+            
+            Extract the following parameters in JSON format:
+            - report_type: One of ['sales', 'purchase', 'payment', 'receipt', 'ledger', 'daybook'] (default 'daybook')
+            - start_date: YYYY-MM-DD (calculate if user says 'last month', 'this week', etc. Default to first day of current month if unspecified)
+            - end_date: YYYY-MM-DD (calculate if necessary. Default to today if unspecified)
+            - party_name: Name of specific customer/vendor/ledger if mentioned (or null)
+            
+            Return ONLY the JSON.
+            """
+            
+            response = model.generate_content(prompt)
+            text = response.text.replace('```json', '').replace('```', '').strip()
+            params = json.loads(text)
+            
+            # 2. Map params to request query params
+            # We mock the request parameters for re-using `get_filtered_vouchers` or custom logic
+            request.GET._mutable = True
+            request.query_params._mutable = True
+            
+            if params.get('start_date'):
+                request.query_params['startDate'] = params['start_date']
+            if params.get('end_date'):
+                request.query_params['endDate'] = params['end_date']
+            
+            report_type = params.get('report_type', 'daybook').lower()
+            party_name = params.get('party_name')
+            
+            # 3. Fetch Data
+            # Note: get_filtered_vouchers returns a list of dictionaries
+            vouchers = self.get_filtered_vouchers(request)
+            
+            # 4. Filter by type/party if needed (since get_filtered_vouchers gets EVERYTHING by default)
+            filtered_vouchers = []
+            
+            for v in vouchers:
+                # Type Filter
+                if report_type == 'sales' and v['type'] != 'Sales': continue
+                if report_type == 'purchase' and v['type'] != 'Purchase': continue
+                if report_type == 'payment' and v['type'] != 'Payment': continue
+                if report_type == 'receipt' and v['type'] != 'Receipt': continue
+                
+                # Party Filter (fuzzy match or exact?) 
+                # Simple exact match or "in" string for now needed? 
+                # AI extracted 'party_name', let's filter if it matches somewhat
+                if party_name:
+                    p = (v.get('party') or '').lower()
+                    a = (v.get('account') or '').lower()
+                    pn = party_name.lower()
+                    if pn not in p and pn not in a:
+                        continue
+                        
+                filtered_vouchers.append(v)
+            
+            # 5. Convert to Pandas DataFrame suitable for Excel
+            data = []
+            for v in filtered_vouchers:
+                row = {
+                    'Date': v['date'],
+                    'Type': v['type'],
+                    'Voucher No': v['voucher_number'],
+                    'Party': v.get('party') or v.get('account'),
+                    'Amount': v.get('amount') or v.get('total'),
+                    'Narration': v.get('narration', '')
+                }
+                data.append(row)
+                
+            df = pd.DataFrame(data)
+            if df.empty:
+                # Return empty with headers
+                df = pd.DataFrame(columns=['Date', 'Type', 'Voucher No', 'Party', 'Amount', 'Narration'])
+            
+            # 6. Return Excel
+            filename = f"AI_{report_type.title()}_Report_{current_date}.xlsx"
+            return self.export_excel(df, filename)
+
+        except Exception as e:
+            # Fallback text response if critical failure, or plain error
+            # But user wants Excel. If error, maybe return a Text file or JSON error?
+            # Standard DRF error is better
+            return Response({'error': str(e)}, status=500)
