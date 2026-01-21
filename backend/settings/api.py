@@ -6,7 +6,7 @@ Only HTTP handling - all logic delegated to flow.py
 
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from core.models import CompanyFullInfo
 from core.serializers import CompanySettingsSerializer
@@ -68,3 +68,15 @@ class CompanySettingsViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         flow.delete_company_settings(request.user, instance.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UserTablesViewSet(viewsets.ViewSet):
+    """
+    API endpoint for user tables schema/metadata for AI.
+    Currently returns empty list as models are not fully defined.
+    """
+    permission_classes = [AllowAny]
+    
+    def list(self, request):
+        # Return empty list or mock data
+        return Response([])

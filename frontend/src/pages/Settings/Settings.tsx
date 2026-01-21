@@ -138,7 +138,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ companyDetails, onSave }) =
                 <input
                   type="text"
                   name="name"
-                  value={details.name}
+                  value={details.name || ''}
                   onChange={handleChange}
                   disabled={!isEditMode}
                   className={`w-full px-4 py-3 border rounded-lg transition-colors ${isEditMode
@@ -166,7 +166,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ companyDetails, onSave }) =
                 <textarea
                   name="address"
                   rows={4}
-                  value={details.address}
+                  value={details.address || ''}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors resize-none"
                   placeholder="Enter company address"
@@ -240,7 +240,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ companyDetails, onSave }) =
                 <input
                   type="text"
                   name="gstin"
-                  value={details.gstin}
+                  value={details.gstin || ''}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
                   placeholder="22AAAAA0000A1Z5"
@@ -252,7 +252,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ companyDetails, onSave }) =
                 </label>
                 <select
                   name="state"
-                  value={details.state}
+                  value={details.state || ''}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors bg-white"
                 >

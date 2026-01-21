@@ -26,8 +26,8 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         tenant_id = self.request.session.get('tenant_id')
         return EmployeeBasicDetails.objects.filter(tenant_id=tenant_id).select_related(
-            'employment', 'salary', 'statutory', 'bank_details'
-        ).order_by('-created_at')
+            'employment', 'salary', 'statutory'
+        ).prefetch_related('bank_details').order_by('-created_at')
     
     @transaction.atomic
     def perform_create(self, serializer):
