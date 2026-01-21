@@ -95,15 +95,15 @@ const CustomerPortalPage: React.FC = () => {
                 {activeTab === 'Masters' && (
                     <div>
                         {/* Sub-tabs for Masters */}
-                        <div className="mb-6 bg-white p-2 rounded-lg inline-block shadow-sm">
-                            <div className="flex space-x-2">
+                        <div className="mb-6 border-b border-gray-200">
+                            <div className="flex gap-8">
                                 {['Category', 'Sales Quotation & Order', 'Customer', 'Long-term Contracts'].map((subTab) => (
                                     <button
                                         key={subTab}
                                         onClick={() => setActiveMasterSubTab(subTab as MasterSubTab)}
-                                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeMasterSubTab === subTab
-                                            ? 'bg-indigo-50 text-indigo-700'
-                                            : 'text-gray-600 hover:bg-gray-50'
+                                        className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeMasterSubTab === subTab
+                                            ? 'border-indigo-600 text-indigo-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700'
                                             }`}
                                     >
                                         {subTab}
@@ -125,15 +125,15 @@ const CustomerPortalPage: React.FC = () => {
                 {activeTab === 'Transactions' && (
                     <div>
                         {/* Sub-tabs for Transactions */}
-                        <div className="mb-6 bg-white p-2 rounded-lg inline-block shadow-sm">
-                            <div className="flex space-x-2">
+                        <div className="mb-6 border-b border-gray-200">
+                            <div className="flex gap-8">
                                 {['Sales Quotation', 'Sales Order', 'Sales', 'Receipt'].map((subTab) => (
                                     <button
                                         key={subTab}
                                         onClick={() => setActiveTransactionSubTab(subTab as TransactionSubTab)}
-                                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTransactionSubTab === subTab
-                                            ? 'bg-indigo-50 text-indigo-700'
-                                            : 'text-gray-600 hover:bg-gray-50'
+                                        className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTransactionSubTab === subTab
+                                            ? 'border-indigo-600 text-indigo-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700'
                                             }`}
                                     >
                                         {subTab}
@@ -400,7 +400,7 @@ const CategoryContent: React.FC = () => {
 const CustomerContent: React.FC = () => {
     // State for view mode
     const [view, setView] = useState<'list' | 'create'>('list');
-    const [activeTab, setActiveTab] = useState('Basic Details');
+    const [activeTab, setActiveTab] = useState(''); // Start with empty to show overview first
 
     // State for filters
     const [searchTerm, setSearchTerm] = useState('');
@@ -889,6 +889,20 @@ const CustomerContent: React.FC = () => {
         ));
     };
 
+    // Helper function to handle Back button navigation
+    const handleBackButton = () => {
+        const tabs = ['Basic Details', 'GST Details', 'Products/Services', 'TDS & Other Statutory Details', 'Banking Info', 'Terms & Conditions'];
+        const currentIndex = tabs.indexOf(activeTab);
+
+        if (currentIndex > 0) {
+            // Navigate to previous tab
+            setActiveTab(tabs[currentIndex - 1] as typeof activeTab);
+        } else {
+            // If on first tab, go back to list
+            setView('list');
+        }
+    };
+
     const filteredCustomers = (customers || []).filter(customer => {
         const name = customer.customer_name || customer.name || '';
         const code = customer.customer_code || customer.code || '';
@@ -904,26 +918,63 @@ const CustomerContent: React.FC = () => {
     });
 
     if (view === 'create') {
+        // Show card overview if no tab is selected
+        const showOverview = !activeTab;
+
         return (
             <div className="p-8">
-                {/* ... (Header and Tabs) */}
-                <h3 className="text-xl font-bold text-gray-900 mb-6">Create New Customer</h3>
-
-                {/* Tabs */}
-                <div className="flex gap-8 border-b border-gray-200 mb-8 overflow-x-auto">
-                    {['Basic Details', 'GST Details', 'Products/Services', 'TDS & Other Statutory Details', 'Banking Info', 'Terms & Conditions'].map(tab => (
+                {showOverview ? (
+                    <>
                         <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === tab
-                                ? 'border-indigo-600 text-indigo-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                                }`}
+                            onClick={() => setView('list')}
+                            className="flex items-center gap-2 text-sm text-gray-600 hover:text-indigo-600 mb-4 transition-colors"
                         >
-                            {tab}
+                            <ChevronLeft className="w-4 h-4" />
+                            Back to Customer List
                         </button>
-                    ))}
-                </div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Create New Customer</h3>
+                        <p className="text-sm text-gray-600 mb-8">Select a tab below to configure customer details:</p>
+
+                        {/* Card-based Tab Overview */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                            {[
+                                { name: 'Basic Details', description: 'Configure basic details' },
+                                { name: 'GST Details', description: 'Configure gst details' },
+                                { name: 'Products/Services', description: 'Configure products/services' },
+                                { name: 'TDS & Other Statutory Details', description: 'Configure tds & other statutory' },
+                                { name: 'Banking Info', description: 'Configure banking info' },
+                                { name: 'Terms & Conditions', description: 'Configure terms & conditions' }
+                            ].map(tab => (
+                                <button
+                                    key={tab.name}
+                                    onClick={() => setActiveTab(tab.name)}
+                                    className="p-6 border border-gray-200 bg-white rounded-lg text-left transition-all hover:border-indigo-300 hover:shadow-sm"
+                                >
+                                    <h4 className="text-base font-semibold mb-1 text-gray-900">
+                                        {tab.name}
+                                    </h4>
+                                    <p className="text-sm text-gray-500">
+                                        {tab.description}
+                                    </p>
+                                </button>
+                            ))}
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        {/* Section Header with Back to Overview */}
+                        <div className="mb-6">
+                            <button
+                                onClick={() => setActiveTab('')}
+                                className="flex items-center gap-2 text-sm text-gray-600 hover:text-indigo-600 mb-4 transition-colors"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                                Back to overview
+                            </button>
+                            <h3 className="text-xl font-bold text-gray-900">{activeTab}</h3>
+                        </div>
+                    </>
+                )}
 
                 {/* Basic Details Content */}
                 {activeTab === 'Basic Details' && (
@@ -1116,14 +1167,23 @@ const CustomerContent: React.FC = () => {
                         </div>
 
                         {/* Footer Buttons */}
-                        <div className="flex justify-end gap-4 mt-12 border-t border-gray-200 pt-6">
-                            <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+                        <div className="flex justify-between items-center gap-4 mt-12 border-t border-gray-200 pt-6">
                             <button
-                                onClick={() => setActiveTab('GST Details')}
-                                className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                                onClick={handleBackButton}
+                                className="flex items-center gap-2 px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                             >
-                                Next
+                                <ChevronLeft className="w-4 h-4" />
+                                Back
                             </button>
+                            <div className="flex gap-4">
+                                <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+                                <button
+                                    onClick={() => setActiveTab('GST Details')}
+                                    className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1431,14 +1491,23 @@ const CustomerContent: React.FC = () => {
                         )}
 
                         {/* Footer Buttons for GST Tab */}
-                        <div className="flex justify-end gap-4 mt-12 border-t border-gray-200 pt-6">
-                            <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+                        <div className="flex justify-between items-center gap-4 mt-12 border-t border-gray-200 pt-6">
                             <button
-                                onClick={() => setActiveTab('Products/Services')}
-                                className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                                onClick={handleBackButton}
+                                className="flex items-center gap-2 px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                             >
-                                Next
+                                <ChevronLeft className="w-4 h-4" />
+                                Back
                             </button>
+                            <div className="flex gap-4">
+                                <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+                                <button
+                                    onClick={() => setActiveTab('Products/Services')}
+                                    className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1552,14 +1621,23 @@ const CustomerContent: React.FC = () => {
                         </div>
 
                         {/* Footer Buttons */}
-                        <div className="flex justify-end gap-4 border-t border-gray-200 pt-6">
-                            <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+                        <div className="flex justify-between items-center gap-4 border-t border-gray-200 pt-6">
                             <button
-                                onClick={() => setActiveTab('TDS & Other Statutory Details')}
-                                className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                                onClick={handleBackButton}
+                                className="flex items-center gap-2 px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                             >
-                                Next
+                                <ChevronLeft className="w-4 h-4" />
+                                Back
                             </button>
+                            <div className="flex gap-4">
+                                <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+                                <button
+                                    onClick={() => setActiveTab('TDS & Other Statutory Details')}
+                                    className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1833,14 +1911,23 @@ const CustomerContent: React.FC = () => {
                         </div>
 
                         {/* Footer Buttons */}
-                        <div className="flex justify-end gap-4 border-t border-gray-200 pt-6">
-                            <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+                        <div className="flex justify-between items-center gap-4 border-t border-gray-200 pt-6">
                             <button
-                                onClick={() => setActiveTab('Banking Info')}
-                                className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                                onClick={handleBackButton}
+                                className="flex items-center gap-2 px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                             >
-                                Next
+                                <ChevronLeft className="w-4 h-4" />
+                                Back
                             </button>
+                            <div className="flex gap-4">
+                                <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+                                <button
+                                    onClick={() => setActiveTab('Banking Info')}
+                                    className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -2047,14 +2134,23 @@ const CustomerContent: React.FC = () => {
                         )}
 
                         {/* Footer Buttons */}
-                        <div className="flex justify-end gap-4 border-t border-gray-200 pt-6">
-                            <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+                        <div className="flex justify-between items-center gap-4 border-t border-gray-200 pt-6">
                             <button
-                                onClick={() => setActiveTab('Terms & Conditions')}
-                                className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                                onClick={handleBackButton}
+                                className="flex items-center gap-2 px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                             >
-                                Next
+                                <ChevronLeft className="w-4 h-4" />
+                                Back
                             </button>
+                            <div className="flex gap-4">
+                                <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+                                <button
+                                    onClick={() => setActiveTab('Terms & Conditions')}
+                                    className="px-6 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -2141,23 +2237,32 @@ const CustomerContent: React.FC = () => {
                         </div>
 
                         {/* Footer Buttons */}
-                        <div className="flex justify-end gap-4 border-t border-gray-200 pt-6 mt-8">
-                            <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+                        <div className="flex justify-between items-center gap-4 border-t border-gray-200 pt-6 mt-8">
                             <button
-                                onClick={async () => {
-                                    const success = await handleSaveCustomer({ exit: true });
-                                    if (success) {
-                                        // View change is handled inside handleSaveCustomer when exit: true
-                                    }
-                                }}
-                                className="px-6 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+                                onClick={handleBackButton}
+                                className="flex items-center gap-2 px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                             >
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                </svg>
-                                Onboard Customer
+                                <ChevronLeft className="w-4 h-4" />
+                                Back
                             </button>
+                            <div className="flex gap-4">
+                                <button onClick={() => setView('list')} className="px-6 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+                                <button
+                                    onClick={async () => {
+                                        const success = await handleSaveCustomer({ exit: true });
+                                        if (success) {
+                                            // View change is handled inside handleSaveCustomer when exit: true
+                                        }
+                                    }}
+                                    className="px-6 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                    </svg>
+                                    Onboard Customer
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
