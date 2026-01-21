@@ -212,25 +212,6 @@ const CreateSalesOrder: React.FC<CreateSalesOrderProps> = ({ onCancel }) => {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Top Navigation Tabs */}
-            <div className="bg-white border-b border-gray-200">
-                <div className="px-8">
-                    <div className="flex gap-8">
-                        {['Sales Quotation', 'Sales Orders', 'Sales', 'Receipt'].map((tab, index) => (
-                            <button
-                                key={tab}
-                                className={`py-4 px-1 text-sm font-medium border-b-2 transition-colors ${index === 1
-                                    ? 'border-indigo-600 text-indigo-700'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                                    }`}
-                            >
-                                {tab}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
             {/* Main Content */}
             <div className="px-8 py-6">
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
