@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Employee, SalaryComponent, SalaryTemplate, SalaryTemplateComponent,
-    EmployeeSalaryStructure, PayRun, PayRunDetail, StatutoryConfiguration,
+    PayRun, PayRunDetail, StatutoryConfiguration,
     Attendance, LeaveApplication
 )
 

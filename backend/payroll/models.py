@@ -3,8 +3,137 @@ from django.core.validators import MinValueValidator
 from decimal import Decimal
 
 
+class EmployeeBasicDetails(models.Model):
+    """Employee Basic Details - Core personal information"""
+    GENDER_CHOICES = [
+        ('Male', 'Male'),
+        ('Female', 'Female'),
+        ('Other', 'Other'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+    ]
+    
+    # Basic Details
+    tenant_id = models.CharField(max_length=36, db_index=True)
+    employee_code = models.CharField(max_length=50, unique=True)
+    employee_name = models.CharField(max_length=200)
+    email = models.EmailField()
+    phone = models.CharField(max_length=30, blank=True, null=True)
+    date_of_birth = models.DateField(blank=True, null=True)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    
+    # Status
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Active')
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'payroll_employee_basic_details'
+        unique_together = [['tenant_id', 'employee_code']]
+        indexes = [
+            models.Index(fields=['tenant_id', 'status']),
+            models.Index(fields=['employee_code']),
+        ]
+    
+    def __str__(self):
+        return f"{self.employee_code} - {self.employee_name}"
+
+
+class EmployeeEmployment(models.Model):
+    """Employee Employment Details"""
+    EMPLOYMENT_TYPE_CHOICES = [
+        ('Full-Time', 'Full-Time'),
+        ('Part-Time', 'Part-Time'),
+        ('Contract', 'Contract'),
+        ('Intern', 'Intern'),
+    ]
+    
+    employee_basic = models.OneToOneField(EmployeeBasicDetails, on_delete=models.CASCADE, related_name='employment')
+    tenant_id = models.CharField(max_length=36, db_index=True, blank=True, null=True)
+    department = models.CharField(max_length=100, blank=True, null=True)
+    designation = models.CharField(max_length=100, blank=True, null=True)
+    date_of_joining = models.DateField(blank=True, null=True)
+    employment_type = models.CharField(max_length=20, choices=EMPLOYMENT_TYPE_CHOICES, default='Full-Time')
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'payroll_employee_employment'
+    
+    def __str__(self):
+        return f"{self.employee_basic.employee_name} - Employment"
+
+
+class EmployeeSalary(models.Model):
+    """Employee Salary Details"""
+    employee_basic = models.OneToOneField(EmployeeBasicDetails, on_delete=models.CASCADE, related_name='salary')
+    tenant_id = models.CharField(max_length=36, db_index=True, blank=True, null=True)
+    basic_salary = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(Decimal('0'))])
+    hra = models.DecimalField(max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(Decimal('0'))])
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'payroll_employee_salary'
+    
+    def __str__(self):
+        return f"{self.employee_basic.employee_name} - Salary"
+
+
+class EmployeeStatutory(models.Model):
+    """Employee Statutory Compliance Details"""
+    employee_basic = models.OneToOneField(EmployeeBasicDetails, on_delete=models.CASCADE, related_name='statutory')
+    tenant_id = models.CharField(max_length=36, db_index=True, blank=True, null=True)
+    pan_number = models.CharField(max_length=10, blank=True, null=True)
+    uan_number = models.CharField(max_length=12, blank=True, null=True)  # EPF UAN
+    esi_number = models.CharField(max_length=17, blank=True, null=True)
+    aadhar_number = models.CharField(max_length=12, blank=True, null=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'payroll_employee_statutory'
+    
+    def __str__(self):
+        return f"{self.employee_basic.employee_name} - Statutory"
+
+
+class EmployeeBankDetails(models.Model):
+    """Employee Bank Details"""
+    employee_basic = models.ForeignKey(EmployeeBasicDetails, on_delete=models.CASCADE, related_name='bank_details')
+    tenant_id = models.CharField(max_length=36, db_index=True, blank=True, null=True)
+    account_number = models.CharField(max_length=20, blank=True, null=True)
+    ifsc_code = models.CharField(max_length=11, blank=True, null=True)
+    bank_name = models.CharField(max_length=100, blank=True, null=True)
+    branch_name = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'payroll_employee_bank_details'
+    
+    def __str__(self):
+        return f"{self.employee_basic.employee_name} - Bank Details"
+
+
+# Legacy Employee model kept for backward compatibility with existing records
+# Will be deprecated after data migration
 class Employee(models.Model):
-    """Employee Master - Core employee information"""
+    """Employee Master - Core employee information (DEPRECATED - Use EmployeeBasicDetails instead)"""
     EMPLOYMENT_TYPE_CHOICES = [
         ('Full-Time', 'Full-Time'),
         ('Part-Time', 'Part-Time'),
@@ -74,6 +203,7 @@ class Employee(models.Model):
         return f"{self.employee_code} - {self.employee_name}"
 
 
+
 class SalaryComponent(models.Model):
     """Salary Components - Earnings and Deductions"""
     COMPONENT_TYPE_CHOICES = [
@@ -138,22 +268,7 @@ class SalaryTemplateComponent(models.Model):
         return f"{self.template.template_name} - {self.component.component_name}"
 
 
-class EmployeeSalaryStructure(models.Model):
-    """Employee-specific salary structure"""
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='salary_structure')
-    component = models.ForeignKey(SalaryComponent, on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    is_active = models.BooleanField(default=True)
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        db_table = 'payroll_employee_salary_structure'
-        unique_together = [['employee', 'component']]
-    
-    def __str__(self):
-        return f"{self.employee.employee_name} - {self.component.component_name}"
+
 
 
 class PayRun(models.Model):
@@ -165,11 +280,11 @@ class PayRun(models.Model):
         ('Paid', 'Paid'),
     ]
     
-    tenant_id = models.CharField(max_length=36, db_index=True)
-    pay_run_code = models.CharField(max_length=50, unique=True)
-    pay_period = models.CharField(max_length=50)  # e.g., "January 2026"
-    start_date = models.DateField()
-    end_date = models.DateField()
+    tenant_id = models.CharField(max_length=36, db_index=True, blank=True, null=True)
+    pay_run_code = models.CharField(max_length=50, unique=True, blank=True, null=True)
+    pay_period = models.CharField(max_length=50, blank=True, null=True)  # e.g., "January 2026"
+    start_date = models.DateField(blank=True, null=True)
+    end_date = models.DateField(blank=True, null=True)
     payment_date = models.DateField(blank=True, null=True)
     
     total_employees = models.IntegerField(default=0)
@@ -177,7 +292,7 @@ class PayRun(models.Model):
     total_deductions = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     net_pay = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Draft')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Draft', blank=True, null=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -354,3 +469,6 @@ class LeaveApplication(models.Model):
     
     def __str__(self):
         return f"{self.employee.employee_name} - {self.leave_type} ({self.start_date} to {self.end_date})"
+
+# trigger reload
+

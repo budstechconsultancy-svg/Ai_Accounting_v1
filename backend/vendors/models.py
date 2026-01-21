@@ -370,6 +370,13 @@ class VendorMasterGSTDetails(models.Model):
     pan_linked_with_gstin = models.CharField(max_length=10, blank=True, null=True, help_text="PAN linked with GSTIN")
     date_of_registration = models.DateField(blank=True, null=True, help_text="Date of GST registration")
     
+    # Place of Business (Branch) Details
+    reference_name = models.CharField(max_length=200, blank=True, null=True, help_text="Branch reference name")
+    branch_address = models.TextField(blank=True, null=True, help_text="Branch address")
+    branch_contact_person = models.CharField(max_length=100, blank=True, null=True, help_text="Branch contact person")
+    branch_email = models.CharField(max_length=255, blank=True, null=True, help_text="Branch email")
+    branch_contact_no = models.CharField(max_length=20, blank=True, null=True, help_text="Branch contact number")
+    
     # Metadata
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -474,6 +481,12 @@ class VendorMasterTDS(models.Model):
     # Import/Export
     import_export_code = models.CharField(max_length=50, blank=True, null=True, help_text="Import Export Code (IEC)")
     eou_status = models.CharField(max_length=100, blank=True, null=True, help_text="Export Oriented Unit Status")
+    
+    # File Uploads
+    msme_file = models.FileField(upload_to='vendors/msme/', blank=True, null=True, help_text="MSME Certificate")
+    fssai_file = models.FileField(upload_to='vendors/fssai/', blank=True, null=True, help_text="FSSAI License")
+    import_export_file = models.FileField(upload_to='vendors/iec/', blank=True, null=True, help_text="IEC Certificate")
+    eou_file = models.FileField(upload_to='vendors/eou/', blank=True, null=True, help_text="EOU Certificate")
     
     # Metadata
     is_active = models.BooleanField(default=True)

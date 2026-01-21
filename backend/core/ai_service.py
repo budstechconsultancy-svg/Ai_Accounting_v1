@@ -85,30 +85,31 @@ def create_invoice_processing_request(image_file: UploadedFile, mime_type='image
         image_b64 = base64.b64encode(image_content).decode('utf-8')
 
         prompt = """
-        Extract invoice data from this image and return as JSON:
+        Extract invoice data from this image and return as a JSON ARRAY of objects. Each object should represent a line item from the invoice. If there are multiple line items, create multiple objects where header details (Invoice Number, Date, Supplier, etc.) are repeated, but item details vary to match the line item.
 
-        {
-            "invoiceNumber": "string",
-            "invoiceDate": "YYYY-MM-DD",
-            "dueDate": "YYYY-MM-DD",
-            "sellerName": "string",
-            "sellerGSTIN": "string",
-            "buyerName": "string",
-            "buyerGSTIN": "string",
-            "totalAmount": number,
-            "totalTax": number,
-            "lineItems": [
-                {
-                    "itemDescription": "string",
-                    "quantity": number,
-                    "rate": number,
-                    "amount": number
-                }
-            ],
-            "narration": "Brief summary of the invoice"
-        }
+        Use exactly these keys (if available):
+        "Voucher Date" (Format YYYY-MM-DD)
+        "Invoice Number"
+        "Supplier Name"
+        "Supplier Address - Bill from"
+        "GSTIN"
+        "PAN"
+        "Item/Description"
+        "Quantity" (number)
+        "Item Rate" (number)
+        "Item Amount" (number)
+        "HSN/SAC Details"
+        "Taxable Value" (number)
+        "IGST Amount" (number)
+        "CGST Amount" (number)
+        "SGST/UTGST Amount" (number)
+        "Invoice Value" (number, Total Invoice Amount)
+        "Bank - Bank Name"
+        "Bank - A/c No."
+        "Bank - IFS Code"
+        "Bank - Branch"
 
-        Return ONLY the JSON object.
+        Return ONLY the JSON array. Do not include markdown formatting.
         """
 
         request_data = {

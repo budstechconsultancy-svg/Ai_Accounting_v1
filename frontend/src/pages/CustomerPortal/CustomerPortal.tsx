@@ -8,7 +8,7 @@ import SalesQuotationList from './SalesQuotationList';
 import CreateSalesOrder from './CreateSalesOrder';
 import { Eye, Mail, Filter, ChevronLeft, X, Calendar } from 'lucide-react';
 
-type MainTab = 'Masters' | 'Transactions' | 'Reports';
+type MainTab = 'Masters' | 'Transactions';
 type MasterSubTab = 'Category' | 'Sales Quotation & Order' | 'Customer' | 'Long-term Contracts';
 
 type TransactionSubTab = 'Sales Quotation' | 'Sales Order' | 'Sales' | 'Receipt';
@@ -75,7 +75,7 @@ const CustomerPortalPage: React.FC = () => {
             {/* Main Tabs */}
             <div className="bg-white border-b border-gray-200 px-8">
                 <div className="flex gap-8">
-                    {['Masters', 'Transactions', 'Reports'].map((tab) => (
+                    {['Masters', 'Transactions'].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as MainTab)}
@@ -363,12 +363,7 @@ const CustomerPortalPage: React.FC = () => {
                     </div>
                 )}
 
-                {activeTab === 'Reports' && (
-                    <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-                        <h3 className="text-lg font-medium text-gray-900">Reports</h3>
-                        <p className="text-gray-500 mt-2">Reports dashboard interface coming soon.</p>
-                    </div>
-                )}
+
             </div>
         </div >
     );
@@ -479,11 +474,45 @@ const CustomerContent: React.FC = () => {
     const [showGstDropdown, setShowGstDropdown] = useState(false); // Dropdown visibility state
     const [addMultipleBranches, setAddMultipleBranches] = useState(false); // Toggle for multiple branches
     const [unregisteredBranches, setUnregisteredBranches] = useState([
-        { id: 1, referenceName: '', address: '', contactPerson: '', email: '', contactNumber: '' }
+        { id: 1, referenceName: '', address: '', contactPerson: '', email: '', contactNumber: '', gstin: null }
     ]);
+    const [registeredBranches, setRegisteredBranches] = useState<any[]>([]); // Track registered branch inputs
+
     const [productRows, setProductRows] = useState([
         { id: 1, itemCode: '', itemName: 'Auto-fetched', uom: '', custItemCode: '', custItemName: '', custUom: '' }
     ]);
+
+    // ... (rest of state)
+
+    // ... (existing handlers)
+
+    const handleRegisteredBranchChange = (gstin: string, field: string, value: string) => {
+        setRegisteredBranches(prev => {
+            const existing = prev.find(b => b.gstin === gstin);
+            if (existing) {
+                return prev.map(b => b.gstin === gstin ? { ...b, [field]: value } : b);
+            }
+            // Should not happen if initialized correctly, but safe fallback
+            return [...prev, { gstin, [field]: value }];
+        });
+    };
+
+    // Function to populate inputs when GSTIN is selected
+    const initializeRegisteredBranch = (gstin: string) => {
+        setRegisteredBranches(prev => {
+            if (prev.find(b => b.gstin === gstin)) return prev;
+            // Pre-fill from mock if available, or empty
+            const mock = mockBranches.find(b => b.gstin === gstin);
+            return [...prev, {
+                gstin,
+                defaultRef: mock ? mock.defaultRef : '',
+                address: mock ? mock.address : '',
+                contactPerson: '',
+                contactNumber: '',
+                email: ''
+            }];
+        });
+    };
     const [statutoryDetails, setStatutoryDetails] = useState({
         msmeNo: '',
         fssaiNo: '',
@@ -494,6 +523,45 @@ const CustomerContent: React.FC = () => {
         tdsSection: '',
         tdsEnabled: false
     });
+
+    // TDS Sections Data
+    const tdsSections = [
+        { section: 'Section 194C', name: 'Contracts- Individual/HUF', description: 'Payment to Contractors who are Individuals or Hindu Undivided Family (HUF)' },
+        { section: 'Section 194C', name: 'Contracts- Others', description: 'Payment to Contractors other than Individuals & HUF' },
+        { section: 'Section 194H', name: 'Commission/Brokerage', description: 'Commission and Brokerage to agents' },
+        { section: 'Section 194-I', name: 'Rent- Land, Building, Furniture & fitting', description: 'Rent on Land, Building, or Furniture & fitting' },
+        { section: 'Section 194-I', name: 'Rent- Plant & Machinery, Equipment', description: 'Rent on Plant & Machinery, or Equipment' },
+        { section: 'Section 194J', name: 'Technical Services', description: 'Fees for Technical Services, Call Center Operations, Royalty on sale & distribution of films' },
+        { section: 'Section 194J', name: 'Professional Services', description: 'Professional Services, Royalty from other than films, Non-Compete Fees, etc.' },
+        { section: 'Section 194J', name: 'Director\'s Remuneration', description: 'Director\'s Remuneration' },
+        { section: 'Section 194Q', name: 'Purchase of Goods', description: 'Purchase of Goods of aggregate value exceeding Rs. 50 Lakhs' },
+        { section: 'Section 194A', name: 'Interest other than interest on securities', description: 'Interest payments made on loans, FDs, advances, etc., other than interest on securities' },
+        { section: 'Section 194R', name: 'Benefit or Perquisite', description: 'Benefit or Perquisite given by a business or professional exceeding Rs 20,000' },
+        { section: 'Section 194-IA', name: 'Immovable Property Transfer', description: 'Transfer of immovable property valuing Rs 50 lakhs or more' },
+        { section: 'Section 194-IB', name: 'Rent by Individual or HUF', description: 'Rent exceeding Rs 50,000 per month paid by Individual & HUFs who are not subject to tax audit' },
+        { section: 'Section 194M', name: 'Contractors & Professionals', description: 'Payment exceeding Rs 50 lakh to contractors and professionals by Individuals & HUFs who are not subject to tax audit' },
+        { section: 'Section 194O', name: 'E-Commerce', description: 'Facilitating sales or services by an E-commerce operator for an E-commerce participant' },
+        { section: 'Section 195', name: 'Payment to Non-Residents', description: 'Any payment made to a Non-Resident or Foreign Company' }
+    ];
+
+    // State for TDS info modal
+    const [showTdsInfo, setShowTdsInfo] = useState(false);
+    const [selectedTdsInfo, setSelectedTdsInfo] = useState<{ section: string; name: string; description: string } | null>(null);
+
+    // TCS Sections Data
+    const tcsSections = [
+        { section: 'Section 206C(1)', name: 'Sale of Scrap, Alcoholic Liquor, Minerals', description: 'Sale of Scrap, Alcoholic Liquor for human consumption, and Minerals being coal or lignite or iron ore' },
+        { section: 'Section 206C(1)', name: 'Sale of Tendu Leaves', description: 'Sale of Tendu Leaves' },
+        { section: 'Section 206C(1)', name: 'Sale of Forest Produce', description: 'Sale of Timber and Forest produce under a forest lease' },
+        { section: 'Section 206C(1)', name: 'Sale of Timber', description: 'Sale of Timber from modes other than forest lease' },
+        { section: 'Section 206C(1F)', name: 'Sale of Motor Vehicles', description: 'Sale of Motor Vehicle for value of more than Rs.10 Lakhs' },
+        { section: 'Section 206C(1F)', name: 'Sale of Specified Luxury Goods', description: 'Sale of Luxury Goods like yachts, helicopters, aircraft, jewellery, home theatre systems, etc. for value of more than Rs 10 Lakhs' }
+    ];
+
+    // State for TCS info display
+    const [showTcsInfo, setShowTcsInfo] = useState(false);
+    const [selectedTcsInfo, setSelectedTcsInfo] = useState<{ section: string; name: string; description: string } | null>(null);
+
     const [bankAccounts, setBankAccounts] = useState<{
         id: number;
         accountNumber: string;
@@ -504,6 +572,7 @@ const CustomerContent: React.FC = () => {
         associatedBranches: string[];
     }[]>([]);
     const [isAddingBank, setIsAddingBank] = useState(false);
+    const [openBranchDropdown, setOpenBranchDropdown] = useState<number | null>(null);
 
     // T&C Details State
     const [termsDetails, setTermsDetails] = useState({
@@ -531,6 +600,21 @@ const CustomerContent: React.FC = () => {
     // Track created customer ID for progressive saving
     const [createdCustomerId, setCreatedCustomerId] = useState<number | null>(null);
 
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            if (!target.closest('.branch-dropdown-container')) {
+                setOpenBranchDropdown(null);
+            }
+        };
+
+        if (openBranchDropdown !== null) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [openBranchDropdown]);
+
     // Handle form field changes
     const handleCustomerFieldChange = (field: string, value: string) => {
         setCustomerFormData(prev => ({ ...prev, [field]: value }));
@@ -555,9 +639,23 @@ const CustomerContent: React.FC = () => {
                 contact_number: customerFormData.contact_number || null,
                 is_also_vendor: isVendor,
                 // GST Details
-                gst_details: isUnregistered ? null : {
-                    gstins: selectedGSTINs,
-                    branches: showBranchDetails ? mockBranches : []
+                gst_details: {
+                    gstins: isUnregistered ? [] : selectedGSTINs,
+                    branches: isUnregistered ? unregisteredBranches.map(b => ({
+                        defaultRef: b.referenceName,
+                        address: b.address,
+                        contactPerson: b.contactPerson,
+                        email: b.email,
+                        contactNumber: b.contactNumber,
+                        gstin: null
+                    })) : (showBranchDetails ? registeredBranches.map(b => ({
+                        defaultRef: b.defaultRef,
+                        address: b.address,
+                        contactPerson: b.contactPerson,
+                        email: b.email,
+                        contactNumber: b.contactNumber,
+                        gstin: b.gstin
+                    })) : [])
                 },
                 // Products/Services
                 products_services: {
@@ -584,14 +682,33 @@ const CustomerContent: React.FC = () => {
                 dispute_terms: termsDetails.disputeTerms || null
             };
 
+            // DEBUG LOGGING
+            console.log('='.repeat(80));
+            console.log('CUSTOMER SAVE - FRONTEND');
+            console.log('='.repeat(80));
+            console.log('Full Payload:', payload);
+            console.log('Terms & Conditions:', {
+                credit_period: payload.credit_period,
+                credit_terms: payload.credit_terms,
+                penalty_terms: payload.penalty_terms,
+                delivery_terms: payload.delivery_terms,
+                warranty_details: payload.warranty_details,
+                force_majeure: payload.force_majeure,
+                dispute_terms: payload.dispute_terms
+            });
+            console.log('='.repeat(80));
+
             let response;
             if (createdCustomerId) {
                 // Update existing customer
+                console.log('Updating existing customer:', createdCustomerId);
                 response = await httpClient.patch(`/api/customerportal/customer-master/${createdCustomerId}/`, payload);
                 if (options.exit) alert('Customer updated successfully!');
             } else {
                 // Create new customer
+                console.log('Creating new customer...');
                 response = await httpClient.post('/api/customerportal/customer-master/', payload);
+                console.log('Customer created! Response:', response);
                 setCreatedCustomerId(response.id);
                 if (options.exit) alert('Customer created successfully!');
             }
@@ -660,9 +777,12 @@ const CustomerContent: React.FC = () => {
         setIsAddingBank(true); // Keep this if we use it to track "edit mode", but simplified logic might just rely on array length
     };
 
+
     const handleRemoveBank = (id: number) => {
-        setBankAccounts(prev => prev.filter(acc => acc.id !== id));
-        if (bankAccounts.length === 1) setIsAddingBank(false);
+        if (window.confirm('Are you sure you want to remove this bank account? This action cannot be undone.')) {
+            setBankAccounts(prev => prev.filter(acc => acc.id !== id));
+            if (bankAccounts.length === 1) setIsAddingBank(false);
+        }
     };
 
     const handleBankChange = (id: number, field: string, value: any) => {
@@ -713,9 +833,11 @@ const CustomerContent: React.FC = () => {
     const handleGstSelect = (gstin: string) => {
         if (selectedGSTINs.includes(gstin)) {
             setSelectedGSTINs(prev => prev.filter(g => g !== gstin));
+            setRegisteredBranches(prev => prev.filter(b => b.gstin !== gstin)); // Cleanup
         } else {
             setSelectedGSTINs(prev => [...prev, gstin]);
             setGstInput(''); // Clear input on selection
+            initializeRegisteredBranch(gstin); // Initialize data
         }
     };
 
@@ -1224,7 +1346,7 @@ const CustomerContent: React.FC = () => {
                                 {showBranchDetails && (
                                     <div className="space-y-4">
                                         {selectedGSTINs.map((gstin, index) => {
-                                            const branch = mockBranches.find(b => b.gstin === gstin) || { address: 'Address not fetched', defaultRef: 'New Branch' };
+                                            const branch = registeredBranches.find(b => b.gstin === gstin) || { defaultRef: '', address: '', contactPerson: '', contactNumber: '', email: '' }; // Fallback
                                             const isExpanded = expandedBranches.includes(index + 1);
 
                                             return (
@@ -1238,7 +1360,7 @@ const CustomerContent: React.FC = () => {
                                                             <span className="w-6 h-6 flex items-center justify-center bg-white border border-gray-200 rounded text-xs font-semibold text-gray-600">
                                                                 {index + 1}
                                                             </span>
-                                                            <span className="font-semibold text-gray-800">{branch.defaultRef}</span>
+                                                            <span className="font-semibold text-gray-800">{branch.defaultRef || 'New Branch'}</span>
                                                         </div>
                                                         <span className="text-gray-400">
                                                             {isExpanded ? '▲' : '▼'}
@@ -1249,31 +1371,54 @@ const CustomerContent: React.FC = () => {
                                                     {isExpanded && (
                                                         <div className="p-6 grid grid-cols-1 gap-6">
                                                             <div>
-                                                                <label className="block text-xs font-medium text-gray-500 mb-1">Address (Fetched)</label>
-                                                                <div className="p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-600">
-                                                                    {branch.address}
-                                                                </div>
+                                                                <label className="block text-xs font-medium text-gray-500 mb-1">Address (Fetched / Editable)</label>
+                                                                <textarea
+                                                                    rows={3}
+                                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none"
+                                                                    value={branch.address}
+                                                                    onChange={(e) => handleRegisteredBranchChange(gstin, 'address', e.target.value)}
+                                                                />
                                                             </div>
 
                                                             <div>
                                                                 <label className="block text-xs font-medium text-gray-500 mb-1">Reference Name</label>
-                                                                <input type="text" defaultValue={branch.defaultRef} className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
+                                                                <input
+                                                                    type="text"
+                                                                    value={branch.defaultRef}
+                                                                    onChange={(e) => handleRegisteredBranchChange(gstin, 'defaultRef', e.target.value)}
+                                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                                />
                                                             </div>
 
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                                 <div>
                                                                     <label className="block text-xs font-medium text-gray-500 mb-1">Contact Person</label>
-                                                                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
+                                                                    <input
+                                                                        type="text"
+                                                                        value={branch.contactPerson || ''}
+                                                                        onChange={(e) => handleRegisteredBranchChange(gstin, 'contactPerson', e.target.value)}
+                                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                                    />
                                                                 </div>
                                                                 <div>
                                                                     <label className="block text-xs font-medium text-gray-500 mb-1">Contact Number</label>
-                                                                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
+                                                                    <input
+                                                                        type="text"
+                                                                        value={branch.contactNumber || ''}
+                                                                        onChange={(e) => handleRegisteredBranchChange(gstin, 'contactNumber', e.target.value)}
+                                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                                    />
                                                                 </div>
                                                             </div>
 
                                                             <div>
                                                                 <label className="block text-xs font-medium text-gray-500 mb-1">Email Address</label>
-                                                                <input type="email" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm" />
+                                                                <input
+                                                                    type="email"
+                                                                    value={branch.email || ''}
+                                                                    onChange={(e) => handleRegisteredBranchChange(gstin, 'email', e.target.value)}
+                                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                                                                />
                                                             </div>
                                                         </div>
                                                     )}
@@ -1530,15 +1675,65 @@ const CustomerContent: React.FC = () => {
                                     <div className="space-y-4">
                                         <div>
                                             <label className="block text-xs font-medium text-gray-500 mb-1">Applicable Section</label>
-                                            <select
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
-                                                value={statutoryDetails.tcsSection}
-                                                onChange={(e) => setStatutoryDetails({ ...statutoryDetails, tcsSection: e.target.value })}
-                                            >
-                                                <option value="">Select TCS Section</option>
-                                                <option value="206C(1H)">206C(1H) - Sale of Goods</option>
-                                                <option value="Others">Others</option>
-                                            </select>
+                                            <div className="flex items-center gap-2">
+                                                <select
+                                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+                                                    value={statutoryDetails.tcsSection}
+                                                    onChange={(e) => {
+                                                        setStatutoryDetails({ ...statutoryDetails, tcsSection: e.target.value });
+                                                        // Auto-show description when a section is selected
+                                                        if (e.target.value) {
+                                                            const [section, name] = e.target.value.split('|');
+                                                            const tcsInfo = tcsSections.find(t => t.section === section && t.name === name);
+                                                            if (tcsInfo) {
+                                                                setSelectedTcsInfo(tcsInfo);
+                                                                setShowTcsInfo(true);
+                                                            }
+                                                        } else {
+                                                            setShowTcsInfo(false);
+                                                            setSelectedTcsInfo(null);
+                                                        }
+                                                    }}
+                                                >
+                                                    <option value="">Select TCS Section</option>
+                                                    {tcsSections.map((tcs, index) => (
+                                                        <option key={index} value={`${tcs.section}|${tcs.name}`}>
+                                                            {tcs.section} - {tcs.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {statutoryDetails.tcsSection && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowTcsInfo(!showTcsInfo)}
+                                                        className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-md transition-colors"
+                                                        title={showTcsInfo ? "Hide Description" : "Show Description"}
+                                                    >
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <circle cx="12" cy="12" r="10"></circle>
+                                                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                                                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                                        </svg>
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Description Display */}
+                                            {showTcsInfo && selectedTcsInfo && (
+                                                <div className="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-md">
+                                                    <div className="flex items-start gap-2">
+                                                        <svg className="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <circle cx="12" cy="12" r="10"></circle>
+                                                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                                                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                                        </svg>
+                                                        <div className="flex-1">
+                                                            <p className="text-xs font-medium text-indigo-900 mb-1">Description</p>
+                                                            <p className="text-sm text-indigo-800 leading-relaxed">{selectedTcsInfo.description}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                         <label className="flex items-center gap-2 cursor-pointer">
                                             <input
@@ -1563,15 +1758,65 @@ const CustomerContent: React.FC = () => {
                                     <div className="space-y-4">
                                         <div>
                                             <label className="block text-xs font-medium text-gray-500 mb-1">Receivable Section</label>
-                                            <select
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
-                                                value={statutoryDetails.tdsSection}
-                                                onChange={(e) => setStatutoryDetails({ ...statutoryDetails, tdsSection: e.target.value })}
-                                            >
-                                                <option value="">Select TDS Section</option>
-                                                <option value="194Q">194Q - Purchase of Goods</option>
-                                                <option value="194C">194C - Payments to Contractors</option>
-                                            </select>
+                                            <div className="flex items-center gap-2">
+                                                <select
+                                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+                                                    value={statutoryDetails.tdsSection}
+                                                    onChange={(e) => {
+                                                        setStatutoryDetails({ ...statutoryDetails, tdsSection: e.target.value });
+                                                        // Auto-show description when a section is selected
+                                                        if (e.target.value) {
+                                                            const [section, name] = e.target.value.split('|');
+                                                            const tdsInfo = tdsSections.find(t => t.section === section && t.name === name);
+                                                            if (tdsInfo) {
+                                                                setSelectedTdsInfo(tdsInfo);
+                                                                setShowTdsInfo(true);
+                                                            }
+                                                        } else {
+                                                            setShowTdsInfo(false);
+                                                            setSelectedTdsInfo(null);
+                                                        }
+                                                    }}
+                                                >
+                                                    <option value="">Select TDS Section</option>
+                                                    {tdsSections.map((tds, index) => (
+                                                        <option key={index} value={`${tds.section}|${tds.name}`}>
+                                                            {tds.section} - {tds.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {statutoryDetails.tdsSection && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowTdsInfo(!showTdsInfo)}
+                                                        className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-md transition-colors"
+                                                        title={showTdsInfo ? "Hide Description" : "Show Description"}
+                                                    >
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <circle cx="12" cy="12" r="10"></circle>
+                                                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                                                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                                        </svg>
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Description Display */}
+                                            {showTdsInfo && selectedTdsInfo && (
+                                                <div className="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-md">
+                                                    <div className="flex items-start gap-2">
+                                                        <svg className="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <circle cx="12" cy="12" r="10"></circle>
+                                                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                                                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                                        </svg>
+                                                        <div className="flex-1">
+                                                            <p className="text-xs font-medium text-indigo-900 mb-1">Description</p>
+                                                            <p className="text-sm text-indigo-800 leading-relaxed">{selectedTdsInfo.description}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                         <label className="flex items-center gap-2 cursor-pointer">
                                             <input
@@ -1599,6 +1844,7 @@ const CustomerContent: React.FC = () => {
                         </div>
                     </div>
                 )}
+
 
                 {/* Banking Info Content */}
                 {activeTab === 'Banking Info' && (
@@ -1655,7 +1901,7 @@ const CustomerContent: React.FC = () => {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-xs font-medium text-gray-500 mb-1">IFSC Code</label>
+                                                    <label className="block text-xs font-medium text-gray-500 mb-1">IFSC Code / Routing Number</label>
                                                     <input
                                                         type="text"
                                                         placeholder="ABCD0123456"
@@ -1701,23 +1947,88 @@ const CustomerContent: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* Full Width - Associate to Vendor Branch */}
+                                        {/* Associate to Vendor Branch - Multi-select Dropdown with Display Field */}
                                         <div className="mb-2">
                                             <label className="block text-xs font-medium text-gray-500 mb-1">Associate to Vendor Branch</label>
-                                            <select
-                                                multiple
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm h-24 bg-white"
-                                                value={account.associatedBranches}
-                                                onChange={(e) => {
-                                                    const selected = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
-                                                    handleBankChange(account.id, 'associatedBranches', selected);
-                                                }}
-                                            >
-                                                <option value="Bangalore HO">Bangalore HO</option>
-                                                <option value="City Branch">City Branch</option>
-                                                <option value="Mumbai Branch">Mumbai Branch</option>
-                                            </select>
-                                            <p className="text-[10px] text-gray-400 mt-1">Hold Ctrl/Cmd to select multiple branches</p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                {/* Multi-select Dropdown */}
+                                                <div className="relative branch-dropdown-container">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setOpenBranchDropdown(openBranchDropdown === account.id ? null : account.id)}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md bg-white text-sm text-left hover:border-indigo-400 transition-colors flex items-center justify-between"
+                                                    >
+                                                        <span className="text-gray-700">
+                                                            {(account.associatedBranches || []).length > 0
+                                                                ? `${(account.associatedBranches || []).length} branch(es) selected`
+                                                                : 'Select branches'}
+                                                        </span>
+                                                        <svg
+                                                            className={`w-4 h-4 text-gray-400 transition-transform ${openBranchDropdown === account.id ? 'rotate-180' : ''}`}
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            viewBox="0 0 24 24"
+                                                        >
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                    </button>
+
+                                                    {/* Dropdown Menu */}
+                                                    {openBranchDropdown === account.id && (
+                                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
+                                                            <div className="p-2 space-y-1">
+                                                                {['Bangalore HO', 'City Branch', 'Mumbai Branch'].map((branch) => (
+                                                                    <label key={branch} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                                                                            checked={(account.associatedBranches || []).includes(branch)}
+                                                                            onChange={(e) => {
+                                                                                const currentBranches = account.associatedBranches || [];
+                                                                                const newBranches = e.target.checked
+                                                                                    ? [...currentBranches, branch]
+                                                                                    : currentBranches.filter(b => b !== branch);
+                                                                                handleBankChange(account.id, 'associatedBranches', newBranches);
+                                                                            }}
+                                                                        />
+                                                                        <span className="text-sm text-gray-700">{branch}</span>
+                                                                    </label>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {/* Display Field */}
+                                                <div>
+                                                    <div className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm text-gray-700 min-h-[38px]">
+                                                        {(account.associatedBranches || []).length > 0 ? (
+                                                            <div className="space-y-1">
+                                                                {(account.associatedBranches || []).map((branch, idx) => (
+                                                                    <div key={idx} className="flex items-center justify-between group hover:bg-gray-100 px-2 py-1 rounded transition-colors">
+                                                                        <span className="text-sm">{branch}</span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const newBranches = (account.associatedBranches || []).filter(b => b !== branch);
+                                                                                handleBankChange(account.id, 'associatedBranches', newBranches);
+                                                                            }}
+                                                                            className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all ml-2"
+                                                                            title="Remove branch"
+                                                                        >
+                                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                                            </svg>
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-gray-400">Selected branches will appear here</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -4618,7 +4929,7 @@ const SalesContent: React.FC = () => {
                                         {customer.days0to45 > 0 ? formatCurrency(customer.days0to45) : '-'}
                                     </td>
                                     <td
-                                              className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100">
+                                        className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100">
                                         {customer.days45to90 > 0 ? formatCurrency(customer.days45to90) : '-'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 border-r border-gray-100">

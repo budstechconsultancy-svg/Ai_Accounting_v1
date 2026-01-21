@@ -25,6 +25,7 @@ interface PayRun {
     id: number;
     pay_run_code: string;
     pay_period: string;
+    tenant_id?: string;
     start_date: string;
     end_date: string;
     total_employees: number;
@@ -328,6 +329,7 @@ const EmployeesContent: React.FC<{ employees: Employee[]; onRefresh: () => void 
 const AddEmployeeModal: React.FC<{ onClose: () => void; onSuccess: () => void }> = ({ onClose, onSuccess }) => {
     const [activeTab, setActiveTab] = useState<'basic' | 'employment' | 'salary' | 'statutory' | 'bank'>('basic');
     const [formData, setFormData] = useState({
+        tenant_id: '',
         employee_name: '',
         employee_code: `EMP-${Date.now().toString().slice(-6)}`,
         email: '',
@@ -349,15 +351,53 @@ const AddEmployeeModal: React.FC<{ onClose: () => void; onSuccess: () => void }>
         bank_name: ''
     });
 
+    // Effect to auto-populate tenant_id from localStorage
+    useEffect(() => {
+        const storedTenantId = localStorage.getItem('tenantId');
+        if (storedTenantId) {
+            setFormData(prev => ({ ...prev, tenant_id: storedTenantId }));
+        }
+    }, []);
+
     const handleSubmit = async () => {
         try {
-            await httpClient.post('/api/payroll/employees/', formData);
+            // Validate required fields
+            if (!formData.employee_name || !formData.email) {
+                alert('Please fill in all required fields (Employee Name and Email)');
+                return;
+            }
+
+            // Format the data properly for backend
+            const payload = {
+                tenant_id: formData.tenant_id || localStorage.getItem('tenantId'),
+                employee_name: formData.employee_name,
+                employee_code: formData.employee_code,
+                email: formData.email,
+                phone: formData.phone || '',
+                date_of_birth: formData.date_of_birth || null,
+                gender: formData.gender || '',
+                address: formData.address || '',
+                department: formData.department || '',
+                designation: formData.designation || '',
+                date_of_joining: formData.date_of_joining || null,
+                employment_type: formData.employment_type,
+                basic_salary: formData.basic_salary ? parseFloat(formData.basic_salary) : 0,
+                hra: formData.hra ? parseFloat(formData.hra) : 0,
+                pan_number: formData.pan_number || '',
+                uan_number: formData.uan_number || '',
+                esi_number: formData.esi_number || '',
+                account_number: formData.account_number || '',
+                ifsc_code: formData.ifsc_code || '',
+                bank_name: formData.bank_name || ''
+            };
+
+            await httpClient.post('/api/payroll/employees/', payload);
             alert('Employee added successfully!');
             onSuccess();
             onClose();
         } catch (error) {
             console.error('Error adding employee:', error);
-            alert('Failed to add employee');
+            alert('Failed to add employee. Please check the form data.');
         }
     };
 
@@ -421,6 +461,7 @@ const AddEmployeeModal: React.FC<{ onClose: () => void; onSuccess: () => void }>
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                                 />
                             </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Email <span className="text-red-500">*</span>
@@ -608,16 +649,49 @@ const AddEmployeeModal: React.FC<{ onClose: () => void; onSuccess: () => void }>
                     )}
                 </div>
 
-                <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3 sticky bottom-0 bg-white">
-                    <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">
-                        CANCEL
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium"
-                    >
-                        ADD EMPLOYEE
-                    </button>
+                <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between sticky bottom-0 bg-white">
+                    <div>
+                        {activeTab !== 'basic' && (
+                            <button
+                                onClick={() => {
+                                    const tabs: Array<'basic' | 'employment' | 'salary' | 'statutory' | 'bank'> = ['basic', 'employment', 'salary', 'statutory', 'bank'];
+                                    const currentIndex = tabs.indexOf(activeTab);
+                                    if (currentIndex > 0) {
+                                        setActiveTab(tabs[currentIndex - 1]);
+                                    }
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-md"
+                            >
+                                BACK
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">
+                            CANCEL
+                        </button>
+                        {activeTab === 'bank' ? (
+                            <button
+                                onClick={handleSubmit}
+                                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium"
+                            >
+                                ADD EMPLOYEE
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => {
+                                    const tabs: Array<'basic' | 'employment' | 'salary' | 'statutory' | 'bank'> = ['basic', 'employment', 'salary', 'statutory', 'bank'];
+                                    const currentIndex = tabs.indexOf(activeTab);
+                                    if (currentIndex < tabs.length - 1) {
+                                        setActiveTab(tabs[currentIndex + 1]);
+                                    }
+                                }}
+                                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium"
+                            >
+                                NEXT
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -630,6 +704,7 @@ const ProcessPayRunModal: React.FC<{ onClose: () => void; onSuccess: () => void 
         pay_period: '',
         start_date: '',
         end_date: '',
+        tenant_id: localStorage.getItem('tenantId') || '',
     });
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -645,7 +720,8 @@ const ProcessPayRunModal: React.FC<{ onClose: () => void; onSuccess: () => void 
             const payRun = await httpClient.post<PayRun>('/api/payroll/pay-runs/', formData);
 
             // Process it immediately
-            await httpClient.post(`/api/payroll/pay-runs/${payRun.id}/process/`);
+            const tenantId = payRun.tenant_id || localStorage.getItem('tenantId');
+            await httpClient.post(`/api/payroll/pay-runs/${payRun.id}/process/?tenant_id=${tenantId}`);
 
             alert('Pay run created and processed successfully!');
             onSuccess();
@@ -864,7 +940,8 @@ const SalaryTemplatesContent: React.FC = () => {
 
     const fetchTemplates = async () => {
         try {
-            const response = await httpClient.get('/api/payroll/salary-templates/');
+            const tenantId = localStorage.getItem('tenantId');
+            const response = await httpClient.get(`/api/payroll/salary-templates/?tenant_id=${tenantId}`);
             setTemplates(response);
         } catch (error) {
             console.error('Error fetching templates:', error);
@@ -922,7 +999,8 @@ const SalaryTemplatesContent: React.FC = () => {
 const CreateTemplateModal: React.FC<{ onClose: () => void; onSuccess: () => void }> = ({ onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
         template_name: '',
-        description: ''
+        description: '',
+        tenant_id: localStorage.getItem('tenantId') || ''
     });
 
     const handleSubmit = async () => {

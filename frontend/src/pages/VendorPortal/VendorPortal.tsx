@@ -55,7 +55,11 @@ interface VendorBasicDetail {
     updated_at: string;
 }
 
-const VendorPortalPage: React.FC = () => {
+interface VendorPortalProps {
+    onLogout?: () => void;
+}
+
+const VendorPortalPage: React.FC<VendorPortalProps> = ({ onLogout }) => {
     // GST Details Interfaces (Defined inside to avoid placement issues, or better moved out if stable)
     // Actually, moving them here
     interface PlaceOfBusiness {
@@ -98,6 +102,7 @@ const VendorPortalPage: React.FC = () => {
     const [parentCategoryPath, setParentCategoryPath] = useState<string>('');
     const [categoryDescription, setCategoryDescription] = useState('');
     const [categorySearchQuery, setCategorySearchQuery] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // PO Settings State
     const [poSeriesList, setPoSeriesList] = useState<POSeries[]>([]);
@@ -179,7 +184,7 @@ const VendorPortalPage: React.FC = () => {
         {
             id: '1',
             gstin: '',
-            registrationType: 'Regular',
+            registrationType: 'regular',
             placesOfBusiness: [],
             isExpanded: true
         }
@@ -191,7 +196,7 @@ const VendorPortalPage: React.FC = () => {
         setGstRecords([...gstRecords, {
             id: Date.now().toString(),
             gstin: '',
-            registrationType: 'Regular',
+            registrationType: 'regular',
             placesOfBusiness: [],
             isExpanded: true
         }]);
@@ -206,7 +211,7 @@ const VendorPortalPage: React.FC = () => {
     const handleGstChange = (id: string, field: keyof GSTRecord, value: any) => {
         setGstRecords(gstRecords.map(record => {
             if (record.id === id) {
-                if (field === 'registrationType' && value === 'Unregistered') {
+                if (field === 'registrationType' && value === 'unregistered') {
                     return { ...record, [field]: value, gstin: '', placesOfBusiness: [] };
                 }
                 return { ...record, [field]: value };
@@ -846,57 +851,15 @@ const VendorPortalPage: React.FC = () => {
     const [contactNo, setContactNo] = useState('');
     const [isAlsoCustomer, setIsAlsoCustomer] = useState(false);
 
-    // Handle Basic Details Form Submit
-    const handleBasicDetailsSubmit = async (e: React.FormEvent) => {
+    // Handle Basic Details Form Submit (Navigation Only)
+    const handleBasicDetailsSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-
-        console.log('=== Basic Details Form Submit ===');
-        console.log('Vendor Name:', vendorName);
-        console.log('Email:', vendorEmail);
-        console.log('Contact No:', contactNo);
-
-        // Validation
+        console.log('Refactored: Basic Details -> Next');
         if (!vendorName || !vendorEmail || !contactNo) {
             alert('Please fill in all required fields (Vendor Name, Email, Contact No)');
             return;
         }
-
-        const payload = {
-            vendor_code: vendorCode || undefined, // Optional, will be auto-generated if empty
-            vendor_name: vendorName,
-            pan_no: panNo || undefined,
-            contact_person: contactPerson || undefined,
-            email: vendorEmail,
-            contact_no: contactNo,
-            is_also_customer: isAlsoCustomer
-        };
-
-        console.log('Payload:', payload);
-
-        try {
-            const response: VendorBasicDetail = await httpClient.post('/api/vendors/basic-details/', payload);
-            console.log('✅ Vendor created successfully:', response);
-
-            setCreatedVendorId(response.id); // Save ID for next steps
-            alert(`Vendor created successfully! Vendor Code: ${response.vendor_code}\nNow please fill GST Details.`);
-
-            // Switch to GST Details tab automatically
-            setActiveMasterSubTab('GST Details');
-
-            // Reset form
-            setVendorCode('');
-            setVendorName('');
-            setPanNo('');
-            setContactPerson('');
-            setVendorEmail('');
-            setContactNo('');
-            setIsAlsoCustomer(false);
-
-        } catch (error: any) {
-            console.error('❌ Error creating vendor:', error);
-            const errorMessage = error.response?.data?.error || error.message || 'Error creating vendor';
-            alert(errorMessage);
-        }
+        setActiveMasterSubTab('GST Details');
     };
 
 
@@ -946,85 +909,20 @@ const VendorPortalPage: React.FC = () => {
         }
     };
 
-    // Handle TDS Details Form Submit
-    const handleTDSDetailsSubmit = async (e: React.FormEvent) => {
+    // Handle TDS Details Form Submit (Navigation Only)
+    const handleTDSDetailsSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-
-        console.log('=== TDS Details Form Submit ===');
-
-        if (!createdVendorId) {
-            alert('Please complete Basic Details first to create the vendor.');
-            return;
-        }
-
-        const payload = {
-            vendor_basic_detail: createdVendorId,
-            tds_section_applicable: tdsSectionApplicable || undefined,
-            enable_automatic_tds_posting: enableAutomaticTdsPosting,
-            msme_udyam_no: msmeUdyamNo || undefined,
-            fssai_license_no: fssaiLicenseNo || undefined,
-            import_export_code: importExportCode || undefined,
-            eou_status: eouStatus || undefined
-        };
-
-        console.log('TDS Payload:', payload);
-
-        try {
-            const response = await httpClient.post('/api/vendors/tds-details/', payload);
-            console.log('✅ TDS details saved:', response);
-            alert('TDS Details saved successfully!');
-
-            // Move to next tab or reset
-            setMsmeUdyamNo('');
-            setFssaiLicenseNo('');
-            setImportExportCode('');
-            setEouStatus('');
-            setTdsSectionApplicable('');
-            setEnableAutomaticTdsPosting(false);
-
-            // Move to next tab
-            setActiveMasterSubTab('Banking Info');
-
-        } catch (error: any) {
-            console.error('❌ Error saving TDS details:', error);
-            const errorMessage = error.response?.data?.error || error.message || 'Error saving TDS details';
-            alert(errorMessage);
-        }
+        console.log('Refactored: TDS -> Next');
+        setActiveMasterSubTab('Banking Info');
     };
 
 
     // Handle Banking Details Submit
-    const handleBankingDetailsSubmit = async (e: React.FormEvent) => {
+    // Handle Banking Details Submit (Navigation Only)
+    const handleBankingDetailsSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('=== Banking Details Submit ===');
-
-        if (!createdVendorId) {
-            alert('Please complete Basic Details first to create the vendor.');
-            return;
-        }
-
-        const payload = bankAccounts.map(bank => ({
-            vendor_basic_detail: createdVendorId,
-            bank_account_no: bank.accountNumber,
-            bank_name: bank.bankName,
-            ifsc_code: bank.ifscCode,
-            branch_name: bank.branchName,
-            swift_code: bank.swiftCode,
-            vendor_branch: bank.vendorBranch,
-            account_type: bank.accountType.toLowerCase().replace(' ', '_'),
-            is_active: true
-        }));
-
-        try {
-            const response = await httpClient.post('/api/vendors/banking-details/', payload);
-            console.log('✅ Banking details saved:', response);
-            alert('Banking Details saved successfully!');
-            setActiveMasterSubTab('Terms & Conditions');
-        } catch (error: any) {
-            console.error('❌ Error saving Banking details:', error);
-            const errorMessage = error.response?.data?.error || error.message || 'Error saving Banking details';
-            alert(errorMessage);
-        }
+        console.log('Refactored: Banking -> Next');
+        setActiveMasterSubTab('Terms & Conditions');
     };
 
     // Terms & Conditions State
@@ -1037,54 +935,133 @@ const VendorPortalPage: React.FC = () => {
     const [forceMajeure, setForceMajeure] = useState('');
     const [disputeRedressalTerms, setDisputeRedressalTerms] = useState('');
 
-    // Handle Terms & Conditions Submit
-    const handleTermsSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        console.log('=== Terms & Conditions Submit ===');
+    // Handle Finish (Total Save)
+    const handleFinish = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        console.log('=== Finishing and Saving All Vendor Data ===');
 
-        if (!createdVendorId) {
-            alert('Please complete Basic Details first to create the vendor.');
+        if (!vendorName) {
+            alert('Vendor Name is required in Basic Details');
+            setActiveMasterSubTab('Basic Details');
             return;
         }
 
-        const payload = {
-            vendor_basic_detail: createdVendorId,
-            credit_limit: creditLimit ? parseFloat(creditLimit) : undefined,
-            credit_period: creditPeriod || undefined,
-            credit_terms: creditTerms || undefined,
-            penalty_terms: penaltyTerms || undefined,
-            delivery_terms: deliveryTerms || undefined,
-            warranty_guarantee_details: warrantyGuaranteeDetails || undefined,
-            force_majeure: forceMajeure || undefined,
-            dispute_redressal_terms: disputeRedressalTerms || undefined
-        };
-
+        if (isSubmitting) return;
+        setIsSubmitting(true);
         try {
-            const response = await httpClient.post('/api/vendors/terms/', payload);
-            console.log('✅ Terms & Conditions saved:', response);
-            alert('Vendor onboarded successfully! All details have been saved.');
+            // 1. Basic Details
+            const basicPayload = {
+                vendor_code: vendorCode || undefined,
+                vendor_name: vendorName,
+                pan_no: panNo || undefined,
+                contact_person: contactPerson || undefined,
+                email: vendorEmail,
+                contact_no: contactNo,
+                is_also_customer: isAlsoCustomer
+            };
+            const basicRes: any = await httpClient.post('/api/vendors/basic-details/', basicPayload);
+            const newId = basicRes.id;
+            console.log('✅ Basic Details Saved, ID:', newId);
 
-            // Reset form
-            setCreditLimit('');
-            setCreditPeriod('');
-            setCreditTerms('');
-            setPenaltyTerms('');
-            setDeliveryTerms('');
-            setWarrantyGuaranteeDetails('');
-            setForceMajeure('');
-            setDisputeRedressalTerms('');
+            // 2. GST Details
+            for (const gst of gstRecords) {
+                if (!gst.gstin) continue;
+                const firstBranch = (gst.placesOfBusiness && gst.placesOfBusiness[0]) || {};
 
-            // Clear vendor ID from localStorage
-            localStorage.removeItem('currentVendorId');
+                const gstPayload = {
+                    vendor_basic_detail: newId,
+                    gstin: gst.gstin,
+                    gst_registration_type: gst.registrationType,
+                    legal_name: gst.legalName || 'N/A',
+                    trade_name: gst.tradeName || gst.legalName || 'N/A',
+                    reference_name: firstBranch.referenceName || '',
+                    branch_address: firstBranch.address || '',
+                    branch_contact_person: firstBranch.contactPerson || '',
+                    branch_email: firstBranch.email || '',
+                    branch_contact_no: firstBranch.contactNumber || ''
+                };
+                await httpClient.post('/api/vendors/gst-details/', gstPayload);
+            }
+            console.log('✅ GST Details Saved');
+
+            // 3. Products/Services
+            const prodPayload = items.filter(i => i.itemName && i.itemName.trim() !== '').map(item => ({
+                vendor_basic_detail: newId,
+                hsn_sac_code: item.hsnSacCode,
+                item_code: item.itemCode,
+                item_name: item.itemName,
+                supplier_item_code: item.supplierItemCode,
+                supplier_item_name: item.supplierItemName,
+                is_active: true
+            }));
+            if (prodPayload.length > 0) {
+                await httpClient.post('/api/vendors/product-services/', prodPayload);
+                console.log('✅ Products Saved');
+            }
+
+            // 4. TDS
+            const tdsFormData = new FormData();
+            tdsFormData.append('vendor_basic_detail', newId.toString());
+            if (tdsSectionApplicable) tdsFormData.append('tds_section_applicable', tdsSectionApplicable);
+            tdsFormData.append('enable_automatic_tds_posting', enableAutomaticTdsPosting ? 'true' : 'false');
+            if (msmeUdyamNo) tdsFormData.append('msme_udyam_no', msmeUdyamNo);
+            if (fssaiLicenseNo) tdsFormData.append('fssai_license_no', fssaiLicenseNo);
+            if (importExportCode) tdsFormData.append('import_export_code', importExportCode);
+            if (eouStatus) tdsFormData.append('eou_status', eouStatus);
+
+            // Append Files
+            if (uploadedFiles.msmeFile) tdsFormData.append('msme_file', uploadedFiles.msmeFile);
+            if (uploadedFiles.fssaiFile) tdsFormData.append('fssai_file', uploadedFiles.fssaiFile);
+            if (uploadedFiles.iecFile) tdsFormData.append('import_export_file', uploadedFiles.iecFile);
+            if (uploadedFiles.eouFile) tdsFormData.append('eou_file', uploadedFiles.eouFile);
+
+            // Use postFormData which handles multipart automatically
+            await httpClient.postFormData('/api/vendors/tds-details/', tdsFormData);
+            console.log('✅ TDS Saved');
+
+            // 5. Banking
+            const bankPayload = bankAccounts.filter(b => b.accountNumber).map(bank => ({
+                vendor_basic_detail: newId,
+                bank_account_no: bank.accountNumber,
+                bank_name: bank.bankName,
+                ifsc_code: bank.ifscCode,
+                branch_name: bank.branchName,
+                swift_code: bank.swiftCode,
+                vendor_branch: bank.vendorBranch,
+                account_type: bank.accountType ? bank.accountType.toLowerCase().replace(' ', '_') : 'savings',
+                is_active: true
+            }));
+            if (bankPayload.length > 0) {
+                await httpClient.post('/api/vendors/banking-details/', bankPayload);
+                console.log('✅ Banking Saved');
+            }
+
+            // 6. Terms
+            const termsPayload = {
+                vendor_basic_detail: newId,
+                credit_limit: creditLimit ? parseFloat(creditLimit) : undefined,
+                credit_period: creditPeriod || undefined,
+                credit_terms: creditTerms || undefined,
+                penalty_terms: penaltyTerms || undefined,
+                delivery_terms: deliveryTerms || undefined,
+                warranty_guarantee_details: warrantyGuaranteeDetails || undefined,
+                force_majeure: forceMajeure || undefined,
+                dispute_redressal_terms: disputeRedressalTerms || undefined
+            };
+            await httpClient.post('/api/vendors/terms/', termsPayload);
+            console.log('✅ Terms Saved');
+
+            alert('Vendor Onboarded Successfully!');
+            // Reset and Redirect
             setCreatedVendorId(null);
-
-            // Optionally redirect to vendor list or reset to Basic Details tab
-            setActiveMasterSubTab('Basic Details');
+            localStorage.removeItem('currentVendorId');
+            window.location.reload();
 
         } catch (error: any) {
-            console.error('❌ Error saving Terms & Conditions:', error);
-            const errorMessage = error.response?.data?.error || error.message || 'Error saving Terms & Conditions';
-            alert(errorMessage);
+            console.error('❌ Error saving vendor:', error);
+            alert('Error saving vendor: ' + (error.response?.data?.error || error.message));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -1132,97 +1109,22 @@ const VendorPortalPage: React.FC = () => {
         // For now we rely on the user completing the flow sequentially
     }, []);
 
-    // Handle GST Details Form Submit
-    const handleGSTDetailsSubmit = async (e: React.FormEvent) => {
+    // Handle GST Details Form Submit (Navigation Only)
+    const handleGSTDetailsSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-
-        console.log('=== GST Details Form Submit ===');
-
-        if (!gstin) {
-            alert('GSTIN is required');
-            return;
-        }
-
-        // Basic validation logic... we'll assume we have the vendor ID from previous step
-        // For this demo, we'll need to know which vendor we're attaching this to.
-        // In a real flow, the basic details response would provide the ID.
-
-        // Since we don't have the vendor ID stored in a convenient way yet, let's assume 
-        // we're attaching to the most recently created one or fail gracefully.
-        // For now, let's just create the record without a link if ID is missing (for testing)
-        // or prompt the user.
-
-        // However, the backend requires a vendor_basic_detail link (optional in generic create but logic might require it)
-        // Let's rely on the user having just created a vendor.
-
-        const payload = {
-            vendor_basic_detail: createdVendorId, // Might be null if refreshed
-            gstin: gstin,
-            gst_registration_type: gstRegistrationType,
-            legal_name: legalName,
-            trade_name: tradeName
-        };
-
-        try {
-            const response = await httpClient.post('/api/vendors/gst-details/', payload);
-            console.log('✅ GST details saved:', response);
-            alert('GST Details saved successfully!');
-
-            // Move to next tab or reset
-            setGstin('');
-            setLegalName('');
-            setTradeName('');
-            setGstRegistrationType('regular');
-
-        } catch (error: any) {
-            console.error('❌ Error saving GST details:', error);
-            const errorMessage = error.response?.data?.error || error.message || 'Error saving GST details';
-            alert(errorMessage);
-        }
+        console.log('Refactored: GST Details -> Next');
+        // Add basic validation if needed using gstRecords
+        setActiveMasterSubTab('Products/Services');
     };
 
-    // Handle Product Services Submit
-    const handleProductServicesSubmit = async () => {
-        console.log('=== Product Services Submit ===');
-
-        if (!createdVendorId) {
-            alert('Please complete Basic Details first to create the vendor.');
-            return;
-        }
-
+    // Handle Product Services Submit (Navigation Only)
+    const handleProductServicesSubmit = () => {
+        console.log('Refactored: Product Services -> Next');
         if (items.length === 0) {
             alert('Please add at least one item.');
             return;
         }
-
-        // Validate items
-        const invalidItems = items.filter(item => !item.itemName || !item.itemName.trim());
-        if (invalidItems.length > 0) {
-            alert('Item Name is required for all items.');
-            return;
-        }
-
-        // Prepare payload
-        const payload = items.map(item => ({
-            vendor_basic_detail: createdVendorId,
-            hsn_sac_code: item.hsnSacCode,
-            item_code: item.itemCode,
-            item_name: item.itemName,
-            supplier_item_code: item.supplierItemCode,
-            supplier_item_name: item.supplierItemName,
-            is_active: true
-        }));
-
-        try {
-            const response = await httpClient.post('/api/vendors/product-services/', payload);
-            console.log('✅ Product Services saved:', response);
-            alert('Product/Services saved successfully!');
-            setActiveMasterSubTab('Banking Info'); // Move to next tab
-        } catch (error: any) {
-            console.error('❌ Error saving Product Services:', error);
-            const errorMessage = error.response?.data?.error || error.message || 'Error saving Product Services';
-            alert(errorMessage);
-        }
+        setActiveMasterSubTab('TDS & Other Statutory'); // Correct next tab
     };
 
 
@@ -1846,13 +1748,13 @@ const VendorPortalPage: React.FC = () => {
                                             <div className="flex justify-between pt-4">
                                                 <button
                                                     type="button"
+                                                    onClick={() => setActiveMasterSubTab('Vendor Creation')}
                                                     className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                                                 >
-                                                    Cancel
+                                                    Back
                                                 </button>
                                                 <button
-                                                    type="button"
-                                                    onClick={handleNextVendorTab}
+                                                    type="submit"
                                                     className="px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
                                                 >
                                                     Next
@@ -1884,7 +1786,7 @@ const VendorPortalPage: React.FC = () => {
                                             </button>
                                         </div>
 
-                                        <form className="space-y-8" onSubmit={handleSubmitGST}>
+                                        <form className="space-y-8" onSubmit={handleGSTDetailsSubmit}>
                                             {gstRecords.map((record, index) => (
                                                 <div key={record.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                                                     {/* GSTIN Accordion Header */}
@@ -1921,12 +1823,12 @@ const VendorPortalPage: React.FC = () => {
                                                                             onChange={(e) => handleGstChange(record.id, 'gstin', e.target.value)}
                                                                             className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100"
                                                                             placeholder="22AAAAA0000A1Z5"
-                                                                            disabled={record.registrationType === 'Unregistered'}
+                                                                            disabled={record.registrationType === 'unregistered'}
                                                                         />
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => handleFetchGstDetails(record.id)}
-                                                                            disabled={record.registrationType === 'Unregistered' || loadingGstFetch || !record.gstin}
+                                                                            disabled={record.registrationType === 'unregistered' || loadingGstFetch || !record.gstin}
                                                                             className="px-4 py-2 border border-teal-500 text-teal-600 rounded-md hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                                                                         >
                                                                             {loadingGstFetch ? 'Fetching...' : 'Fetch Branch Details'}
@@ -1941,14 +1843,17 @@ const VendorPortalPage: React.FC = () => {
                                                                         onChange={(e) => handleGstChange(record.id, 'registrationType', e.target.value)}
                                                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                                                     >
-                                                                        <option value="Regular">Regular</option>
-                                                                        <option value="Composition">Composition</option>
-                                                                        <option value="SEZ">SEZ</option>
-                                                                        <option value="Unregistered">Unregistered</option>
+                                                                        <option value="regular">Regular</option>
+                                                                        <option value="composition">Composition</option>
+                                                                        <option value="consumer">Consumer</option>
+                                                                        <option value="unregistered">Unregistered</option>
+                                                                        <option value="overseas">Overseas</option>
+                                                                        <option value="special_economic_zone">Special Economic Zone (SEZ)</option>
+                                                                        <option value="deemed_export">Deemed Export</option>
                                                                     </select>
                                                                 </div>
 
-                                                                {record.registrationType !== 'Unregistered' && (
+                                                                {record.registrationType !== 'unregistered' && (
                                                                     <>
                                                                         <div>
                                                                             <label className="block text-sm font-medium text-gray-700 mb-2">Legal Name</label>
@@ -2019,7 +1924,7 @@ const VendorPortalPage: React.FC = () => {
                                                                                                 rows={2}
                                                                                                 value={pob.address}
                                                                                                 onChange={(e) => updatePobField(record.id, pob.id, 'address', e.target.value)}
-                                                                                                className={`w-full px-3 py-1.5 border border-gray-300 rounded text-sm ${record.registrationType !== 'Unregistered' && pob.address && pob.referenceName !== '' ? 'bg-gray-50' : ''}`}
+                                                                                                className={`w-full px-3 py-1.5 border border-gray-300 rounded text-sm ${record.registrationType !== 'unregistered' && pob.address && pob.referenceName !== '' ? 'bg-gray-50' : ''}`}
                                                                                                 placeholder="Enter address"
                                                                                             />
                                                                                         </div>
@@ -2042,7 +1947,7 @@ const VendorPortalPage: React.FC = () => {
                                                                     </div>
                                                                 ) : (
                                                                     <div className="p-4 bg-gray-50 border border-gray-200 rounded text-sm text-gray-500 text-center">
-                                                                        {record.registrationType === 'Unregistered' ?
+                                                                        {record.registrationType === 'unregistered' ?
                                                                             'Add a branch manually to continue.' :
                                                                             'No places of business found. Fetch via GSTIN or add manually.'
                                                                         }
@@ -2057,13 +1962,13 @@ const VendorPortalPage: React.FC = () => {
                                             <div className="flex justify-between pt-4">
                                                 <button
                                                     type="button"
+                                                    onClick={() => setActiveMasterSubTab('Basic Details')}
                                                     className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                                                 >
-                                                    Cancel
+                                                    Back
                                                 </button>
                                                 <button
-                                                    type="button"
-                                                    onClick={handleNextVendorTab}
+                                                    type="submit"
                                                     className="px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
                                                 >
                                                     Next
@@ -2309,22 +2214,13 @@ const VendorPortalPage: React.FC = () => {
                                             <div className="flex justify-between pt-4">
                                                 <button
                                                     type="button"
-                                                    onClick={() => {
-                                                        // Reset form
-                                                        setMsmeUdyamNo('');
-                                                        setFssaiLicenseNo('');
-                                                        setImportExportCode('');
-                                                        setEouStatus('');
-                                                        setTdsSectionApplicable('');
-                                                        setEnableAutomaticTdsPosting(false);
-                                                    }}
+                                                    onClick={() => setActiveMasterSubTab('Products/Services')}
                                                     className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                                                 >
-                                                    Cancel
+                                                    Back
                                                 </button>
                                                 <button
-                                                    type="button"
-                                                    onClick={handleNextVendorTab}
+                                                    type="submit"
                                                     className="px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
                                                 >
                                                     Next
@@ -2486,13 +2382,14 @@ const VendorPortalPage: React.FC = () => {
                                             <div className="flex justify-between pt-4">
                                                 <button
                                                     type="button"
+                                                    onClick={() => setActiveMasterSubTab('GST Details')}
                                                     className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                                                 >
-                                                    Cancel
+                                                    Back
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={handleNextVendorTab}
+                                                    onClick={handleProductServicesSubmit}
                                                     className="px-8 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
                                                 >
                                                     Next
@@ -2640,13 +2537,13 @@ const VendorPortalPage: React.FC = () => {
                                             <div className="flex justify-between pt-4">
                                                 <button
                                                     type="button"
+                                                    onClick={() => setActiveMasterSubTab('TDS & Other Statutory')}
                                                     className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                                                 >
-                                                    Cancel
+                                                    Back
                                                 </button>
                                                 <button
-                                                    type="button"
-                                                    onClick={handleNextVendorTab}
+                                                    type="submit"
                                                     className="px-8 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
                                                 >
                                                     Next
@@ -2668,7 +2565,7 @@ const VendorPortalPage: React.FC = () => {
                                             </button>
                                             <h3 className="text-lg font-semibold text-gray-800">Terms & Conditions</h3>
                                         </div>
-                                        <form onSubmit={handleTermsSubmit} className="space-y-6">
+                                        <form onSubmit={handleFinish} className="space-y-6">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                                     Credit Limit
@@ -2777,27 +2674,19 @@ const VendorPortalPage: React.FC = () => {
                                             <div className="flex justify-between pt-4">
                                                 <button
                                                     type="button"
-                                                    onClick={() => {
-                                                        // Reset form
-                                                        setCreditLimit('');
-                                                        setCreditPeriod('');
-                                                        setCreditTerms('');
-                                                        setPenaltyTerms('');
-                                                        setDeliveryTerms('');
-                                                        setWarrantyGuaranteeDetails('');
-                                                        setForceMajeure('');
-                                                        setDisputeRedressalTerms('');
-                                                    }}
+                                                    onClick={() => setActiveMasterSubTab('Banking Info')}
                                                     className="px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                                                 >
-                                                    Cancel
+                                                    Back
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={handleNextVendorTab}
-                                                    className="px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none"
+                                                    onClick={() => handleFinish()}
+                                                    disabled={isSubmitting}
+                                                    className={`px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none ${isSubmitting ? 'bg-teal-400 cursor-not-allowed' : 'bg-teal-600 hover:bg-teal-700'
+                                                        }`}
                                                 >
-                                                    Finish
+                                                    {isSubmitting ? 'Saving...' : 'Finish (Save)'}
                                                 </button>
                                             </div>
                                         </form>
@@ -4387,3 +4276,4 @@ const VendorPortalPage: React.FC = () => {
 };
 
 export default VendorPortalPage;
+

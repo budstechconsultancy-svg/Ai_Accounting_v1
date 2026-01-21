@@ -2,30 +2,47 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Sum, Count
+from django.db import transaction
 from datetime import datetime, timedelta
 from decimal import Decimal
 
 from .models import (
-    Employee, SalaryComponent, SalaryTemplate, SalaryTemplateComponent,
-    EmployeeSalaryStructure, PayRun, PayRunDetail, StatutoryConfiguration,
+    Employee, EmployeeBasicDetails, EmployeeEmployment, EmployeeSalary,
+    EmployeeStatutory, EmployeeBankDetails, SalaryComponent, SalaryTemplate,
+    SalaryTemplateComponent, PayRun, PayRunDetail, StatutoryConfiguration,
     Attendance, LeaveApplication
 )
 from .serializers import (
-    EmployeeSerializer, SalaryComponentSerializer, SalaryTemplateSerializer,
-    EmployeeSalaryStructureSerializer, PayRunSerializer, PayRunDetailSerializer,
-    StatutoryConfigurationSerializer, AttendanceSerializer, LeaveApplicationSerializer
+    EmployeeSerializer, EmployeeCompleteSerializer, SalaryComponentSerializer,
+    SalaryTemplateSerializer, PayRunSerializer,
+    PayRunDetailSerializer, StatutoryConfigurationSerializer, AttendanceSerializer,
+    LeaveApplicationSerializer
 )
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):
-    serializer_class = EmployeeSerializer
+    serializer_class = EmployeeCompleteSerializer
     
     def get_queryset(self):
         tenant_id = self.request.session.get('tenant_id')
-        return Employee.objects.filter(tenant_id=tenant_id).order_by('-created_at')
+        return EmployeeBasicDetails.objects.filter(tenant_id=tenant_id).select_related(
+            'employment', 'salary', 'statutory', 'bank_details'
+        ).order_by('-created_at')
     
+    @transaction.atomic
     def perform_create(self, serializer):
-        tenant_id = self.request.session.get('tenant_id')
+        # Prioritize tenant_id from the payload (validated_data)
+        # If not present, try session, then fallback to 'default-tenant'
+        tenant_id = serializer.validated_data.get('tenant_id')
+        
+        if not tenant_id:
+            tenant_id = self.request.session.get('tenant_id')
+            
+        if not tenant_id:
+            # Fallback only if absolutely no ID is found
+            tenant_id = 'default-tenant'
+        
+        # The serializer's create method will handle splitting the flat data into 5 tables
         serializer.save(tenant_id=tenant_id)
     
     @action(detail=False, methods=['get'])
@@ -33,8 +50,11 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         """Get employee statistics"""
         tenant_id = request.session.get('tenant_id')
         
-        total_employees = Employee.objects.filter(tenant_id=tenant_id, status='Active').count()
-        total_departments = Employee.objects.filter(tenant_id=tenant_id, status='Active').values('department').distinct().count()
+        total_employees = EmployeeBasicDetails.objects.filter(tenant_id=tenant_id, status='Active').count()
+        total_departments = EmployeeEmployment.objects.filter(
+            employee_basic__tenant_id=tenant_id,
+            employee_basic__status='Active'
+        ).values('department').distinct().count()
         
         return Response({
             'total_employees': total_employees,
@@ -60,24 +80,17 @@ class SalaryTemplateViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         tenant_id = self.request.session.get('tenant_id')
+        if not tenant_id:
+            tenant_id = self.request.query_params.get('tenant_id')
         return SalaryTemplate.objects.filter(tenant_id=tenant_id, is_active=True).order_by('-created_at')
     
     def perform_create(self, serializer):
-        tenant_id = self.request.session.get('tenant_id')
+        tenant_id = serializer.validated_data.get('tenant_id')
+        if not tenant_id:
+            tenant_id = self.request.session.get('tenant_id')
+        if not tenant_id:
+            tenant_id = 'default-tenant'
         serializer.save(tenant_id=tenant_id)
-
-
-class EmployeeSalaryStructureViewSet(viewsets.ModelViewSet):
-    serializer_class = EmployeeSalaryStructureSerializer
-    
-    def get_queryset(self):
-        employee_id = self.request.query_params.get('employee_id')
-        queryset = EmployeeSalaryStructure.objects.filter(is_active=True)
-        
-        if employee_id:
-            queryset = queryset.filter(employee_id=employee_id)
-        
-        return queryset.order_by('component__component_type', 'component__component_name')
 
 
 class PayRunViewSet(viewsets.ModelViewSet):
@@ -85,10 +98,19 @@ class PayRunViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         tenant_id = self.request.session.get('tenant_id')
+        if not tenant_id:
+            tenant_id = self.request.query_params.get('tenant_id')
         return PayRun.objects.filter(tenant_id=tenant_id).order_by('-start_date')
     
     def perform_create(self, serializer):
-        tenant_id = self.request.session.get('tenant_id')
+        # Prioritize tenant_id from the payload (validated_data)
+        tenant_id = serializer.validated_data.get('tenant_id')
+        
+        if not tenant_id:
+            tenant_id = self.request.session.get('tenant_id')
+            
+        if not tenant_id:
+             tenant_id = 'default-tenant'
         
         # Generate pay run code
         current_month = datetime.now().strftime('%Y%m')

@@ -255,7 +255,7 @@ def process_ai_request(request_data: dict) -> dict:
 def execute_with_retry(model, prompt: str, request_data: dict, api_key: str) -> str:
     """Execute AI request with exponential backoff, retry-after respect, and model fallback"""
     max_attempts = 5
-    base_delay = 1
+    base_delay = 5
     api_key_used = api_key
     
     # List of models to try in order of preference
@@ -279,7 +279,7 @@ def execute_with_retry(model, prompt: str, request_data: dict, api_key: str) -> 
             genai.configure(api_key=api_key_used)
             
             # Try each model in the list until one works or we run out
-            last_error = None
+            last_resource_exhausted_error = None
             for model_name in candidate_models:
                 try:
                     logger.info(f"Attempting with model: {model_name} (Key: {api_key_used[:4]}...)")
@@ -294,12 +294,19 @@ def execute_with_retry(model, prompt: str, request_data: dict, api_key: str) -> 
                          logger.warning(f"Model {model_name} doesn't support this request, trying next...")
                          continue
                      raise e
+                except exceptions.ResourceExhausted as e:
+                    logger.warning(f"Model {model_name} quota exhausted (or limit 0), trying next model...")
+                    last_resource_exhausted_error = e
+                    continue
                 except Exception as e:
-                    # Let other exceptions (like Quota) bubble up to the outer loop logic
+                    # Let other exceptions bubble up
                     raise e
             
-            # If we get here, all models failed with NotFound or InvalidArgument
-            raise Exception("All available Gemini models failed (404 Not Found)")
+            # If we get here, all models failed
+            if last_resource_exhausted_error:
+                raise last_resource_exhausted_error
+            
+            raise Exception("All available Gemini models failed (404/Invalid)")
 
         except exceptions.ResourceExhausted as e:
             logger.warning(f"Resource exhausted on attempt {attempt + 1}")
