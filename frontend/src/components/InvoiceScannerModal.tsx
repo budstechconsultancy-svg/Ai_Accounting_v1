@@ -57,7 +57,11 @@ const InvoiceScannerModal: React.FC<InvoiceScannerModalProps> = ({ onClose }) =>
         'TCS - Section', 'TCS - Description', 'TCS - Assessable Value',
         'Exemption from TCS for Buyer-Deductible TDS', 'TCS Party Details - Collectee Type',
         'Bank - A/c No.', 'Bank - Bank Name', 'Bank - Branch', 'Bank - IFS Code',
-        'Payment Details (if any already paid)'
+        'Payment Details (if any already paid)',
+        'Party Type', 'Party Name', 'Party ID', 'Paid Amount', 'Paid Date',
+        'Payment Mode', 'Payment Reference No',
+        'e-Way Bill No.', 'Motor Vehicle No.',
+        'State', 'Email'
     ];
 
     const handleDownloadExcel = () => {
@@ -142,7 +146,24 @@ const InvoiceScannerModal: React.FC<InvoiceScannerModalProps> = ({ onClose }) =>
                     throw err; // Propagate error to main handler
                 }
             }
-            setExtractedData(allResults);
+
+            // Ensure new columns exist in the data so they show up in the table
+            const enhancedResults = allResults.map(item => ({
+                ...item,
+                'Party Type': item['Party Type'] || '',
+                'Party Name': item['Party Name'] || '',
+                'Party ID': item['Party ID'] || '',
+                'Paid Amount': item['Paid Amount'] || '',
+                'Paid Date': item['Paid Date'] || '',
+                'Payment Mode': item['Payment Mode'] || '',
+                'Payment Reference No': item['Payment Reference No'] || '',
+                'e-Way Bill No.': item['e-Way Bill No.'] || '',
+                'Motor Vehicle No.': item['Motor Vehicle No.'] || '',
+                'State': item['State'] || '',
+                'Email': item['Email'] || ''
+            }));
+
+            setExtractedData(enhancedResults);
         } catch (error) {
             console.error('OCR Global Error:', error);
             // alert('❌ OCR Failed: ' + (error as Error).message); // Use a more user-friendly message or keep detailed if needed for debug

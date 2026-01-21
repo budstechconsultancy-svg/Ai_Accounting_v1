@@ -110,6 +110,17 @@ def create_invoice_processing_request(image_file: UploadedFile, mime_type='image
         "Bank - A/c No."
         "Bank - IFS Code"
         "Bank - Branch"
+        "Party Type" (Deduce if 'Vendor' or 'Customer' based on the document)
+        "Party Name" (Same as Supplier Name for purchases, or Buyer Name for sales)
+        "Party ID" (Extract if available)
+        "Paid Amount" (If payment proof is visible)
+        "Paid Date" (If payment proof is visible, YYYY-MM-DD)
+        "Payment Mode" (e.g. Cash, Bank, UPI etc. if visible)
+        "Payment Reference No" (e.g. UTR number if visible)
+        "e-Way Bill No." (If visible)
+        "Motor Vehicle No." (If visible)
+        "State" (Place of Supply)
+        "Email" (Contact Email)
 
         IMPORTANT: Return a JSON array with exactly ONE object per invoice. Do not duplicate the invoice data.
         Example format: [{"Invoice Number": "INV001", "Supplier Name": "ABC Corp", ...}]

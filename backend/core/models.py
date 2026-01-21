@@ -241,3 +241,24 @@ class CompanyFullInfo(BaseModel):
 
 
 
+
+# ============================================================================
+# NEW: User Activity Log
+# ============================================================================
+class UserActivityLog(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    username = models.CharField(max_length=150, blank=True, null=True) # redundantly store in case user is deleted
+    action = models.CharField(max_length=255) # e.g. "Create Voucher", "Login", "GET /api/vouchers/"
+    method = models.CharField(max_length=10, blank=True, null=True) # GET, POST, etc
+    path = models.CharField(max_length=255, blank=True, null=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    details = models.TextField(blank=True, null=True) # JSON string of additional info or request body
+    timestamp = models.DateTimeField(auto_now_add=True)
+    tenant_id = models.CharField(max_length=36, blank=True, null=True)
+
+    class Meta:
+        db_table = 'user_activity_logs'
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.username} - {self.action} - {self.timestamp}"

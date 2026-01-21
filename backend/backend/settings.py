@@ -52,6 +52,7 @@ MIDDLEWARE = [
     'core.middleware.TenantMiddleware',
     'core.middleware.PermissionMiddleware',
     'core.middleware.ActivityTrackingMiddleware',
+    'core.middleware.DetailedActivityLogMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
