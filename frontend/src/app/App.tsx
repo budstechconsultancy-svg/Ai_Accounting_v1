@@ -1056,6 +1056,7 @@ const App: React.FC = () => {
         onDone={() => { setCurrentPage('Vouchers'); setMassUploadResult(null); }}
         onUpdateVoucher={handleUpdateVoucher}
         ledgers={ledgers}
+        stockItems={stockItems}
         companyDetails={companyDetails}
       />;
       default: return <div>Page not found</div>;
@@ -1107,13 +1108,11 @@ const App: React.FC = () => {
       {/* Floating AI Agent Button */}
       <button
         onClick={() => setIsAgentOpen(true)}
-        className="fixed bottom-6 right-6 p-4 bg-blue-600 rounded-full text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 z-50 flex items-center justify-center group"
+        className="fixed bottom-6 right-6 w-16 h-16 bg-white rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 z-50 flex items-center justify-center group overflow-hidden border border-gray-200"
         title="Chat with AI Agent"
       >
-        <div className="absolute inset-0 bg-white rounded-full opacity-0 group-hover:opacity-20 transition-opacity" />
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-        </svg>
+        <div className="absolute inset-0 bg-gray-50 opacity-0 group-hover:opacity-20 transition-opacity" />
+        <img src="/src/assets/fox_agent.png" alt="AI Agent" className="w-full h-full object-contain p-2" />
       </button>
 
       <AIAgent
