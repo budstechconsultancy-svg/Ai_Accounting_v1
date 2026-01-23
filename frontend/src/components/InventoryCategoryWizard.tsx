@@ -30,6 +30,7 @@ interface InventoryCategoryWizardProps {
         subgroup: string | null;
     }) => Promise<void>;
     apiEndpoint?: string; // Optional API endpoint, defaults to inventory
+    allowCreateGroup?: boolean;
 }
 
 // Hardcoded base categories (System Categories) - Default
@@ -57,7 +58,8 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
     onCreateCategory,
     apiEndpoint = '/api/inventory/master-categories/',
     systemCategories = DEFAULT_SYSTEM_CATEGORIES,
-    defaultGroups = DEFAULT_GROUPS_DATA
+    defaultGroups = DEFAULT_GROUPS_DATA,
+    allowCreateGroup = true
 }) => {
     const [loading, setLoading] = useState(false);
     const [treeData, setTreeData] = useState<TreeNode[]>([]);
@@ -439,67 +441,71 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
                                 </div>
 
                                 {/* 2. Group Input/Display */}
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                                        GROUP
-                                    </label>
+                                {(allowCreateGroup || (selectedNode && selectedNode.level >= 1)) && (
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                            GROUP
+                                        </label>
 
-                                    {selectedNode && selectedNode.level === 0 ? (
-                                        // If Root selected, allow typing Group
-                                        <input
-                                            type="text"
-                                            name="group"
-                                            value={formData.group}
-                                            onChange={handleInputChange}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder-gray-400 bg-white text-gray-800 text-sm"
-                                            placeholder="Enter Group Name"
-                                            autoFocus
-                                        />
-                                    ) : selectedNode && selectedNode.level === 1 && selectedNode.data.group && !selectedNode.data.subgroup ? (
-                                        // If GROUP (not subgroup) selected at level 1, display it
-                                        <div className="text-gray-900 font-semibold text-base">
-                                            {selectedNode.name}
-                                        </div>
-                                    ) : (
-                                        <input
-                                            type="text"
-                                            value={formData.group}
-                                            disabled
-                                            className="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 text-gray-400 text-sm cursor-not-allowed"
-                                            placeholder="Enter Group Name"
-                                            readOnly
-                                        />
-                                    )}
-                                </div>
+                                        {selectedNode && selectedNode.level === 0 ? (
+                                            // If Root selected, allow typing Group
+                                            <input
+                                                type="text"
+                                                name="group"
+                                                value={formData.group}
+                                                onChange={handleInputChange}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder-gray-400 bg-white text-gray-800 text-sm"
+                                                placeholder="Enter Group Name"
+                                                autoFocus
+                                            />
+                                        ) : selectedNode && selectedNode.level === 1 && selectedNode.data.group && !selectedNode.data.subgroup ? (
+                                            // If GROUP (not subgroup) selected at level 1, display it
+                                            <div className="text-gray-900 font-semibold text-base">
+                                                {selectedNode.name}
+                                            </div>
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                value={formData.group}
+                                                disabled
+                                                className="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 text-gray-400 text-sm cursor-not-allowed"
+                                                placeholder="Enter Group Name"
+                                                readOnly
+                                            />
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* 3. Subgroup Input */}
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                                        SUBGROUP
-                                    </label>
-                                    {selectedNode && selectedNode.level === 1 && !selectedNode.data.group && selectedNode.data.subgroup ? (
-                                        <div className="text-gray-900 font-semibold text-base">
-                                            {selectedNode.name}
-                                        </div>
-                                    ) : selectedNode && selectedNode.level === 2 ? (
-                                        <div className="text-gray-900 font-semibold text-base">
-                                            {selectedNode.name}
-                                        </div>
-                                    ) : (
-                                        <input
-                                            type="text"
-                                            name="subgroup"
-                                            value={formData.subgroup}
-                                            onChange={handleInputChange}
-                                            disabled={!selectedNode || selectedNode.level > 1}
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder-gray-400 text-sm ${!selectedNode || selectedNode.level > 1
-                                                ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                                                : 'bg-white text-gray-800'
-                                                }`}
-                                            placeholder="Enter Subgroup Name (Optional - Create Group First)"
-                                        />
-                                    )}
-                                </div>
+                                {(allowCreateGroup || (selectedNode && selectedNode.level >= 1)) && (
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                            SUBGROUP
+                                        </label>
+                                        {selectedNode && selectedNode.level === 1 && !selectedNode.data.group && selectedNode.data.subgroup ? (
+                                            <div className="text-gray-900 font-semibold text-base">
+                                                {selectedNode.name}
+                                            </div>
+                                        ) : selectedNode && selectedNode.level === 2 ? (
+                                            <div className="text-gray-900 font-semibold text-base">
+                                                {selectedNode.name}
+                                            </div>
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                name="subgroup"
+                                                value={formData.subgroup}
+                                                onChange={handleInputChange}
+                                                disabled={!selectedNode || selectedNode.level > 1}
+                                                className={`w-full px-3 py-2 border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder-gray-400 text-sm ${!selectedNode || selectedNode.level > 1
+                                                    ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                                                    : 'bg-white text-gray-800'
+                                                    }`}
+                                                placeholder="Enter Subgroup Name (Optional - Create Group First)"
+                                            />
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="pt-4">
