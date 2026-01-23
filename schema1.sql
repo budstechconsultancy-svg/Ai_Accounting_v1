@@ -1,9 +1,14 @@
--- ============================================================================
--- AI Accounting Database Schema - Current Database Structure
--- Total Tables: 37
--- ============================================================================
+create database ai_accounting;
 
-
+-- Table: tenants
+--------------------------------------------------------------------------------
+CREATE TABLE `tenants` (
+  `id` char(36) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 -- Table: amount_transactions
 --------------------------------------------------------------------------------
 CREATE TABLE `amount_transactions` (
@@ -83,75 +88,6 @@ CREATE TABLE `company_informations` (
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
--- Table: customer_addresses
---------------------------------------------------------------------------------
-CREATE TABLE `customer_addresses` (
-  `address_id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `customer_id` bigint NOT NULL,
-  `address_type` enum('billing','shipping') DEFAULT NULL,
-  `address_line1` text NOT NULL,
-  `city` varchar(100) DEFAULT NULL,
-  `state` varchar(100) DEFAULT NULL,
-  `country` varchar(100) DEFAULT NULL,
-  `pincode` varchar(20) DEFAULT NULL,
-  PRIMARY KEY (`address_id`),
-  KEY `idx_cust_addr_tenant` (`tenant_id`),
-  KEY `customer_id` (`customer_id`),
-  CONSTRAINT `customer_addresses_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`customer_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: customer_portal_users
---------------------------------------------------------------------------------
-CREATE TABLE `customer_portal_users` (
-  `user_id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `customer_id` bigint NOT NULL,
-  `username` varchar(100) NOT NULL,
-  `password_hash` text NOT NULL,
-  `role` enum('owner','staff','viewer') DEFAULT NULL,
-  `last_login` timestamp NULL DEFAULT NULL,
-  `status` enum('active','blocked') DEFAULT 'active',
-  PRIMARY KEY (`user_id`),
-  UNIQUE KEY `uq_customer_user` (`tenant_id`,`username`),
-  KEY `idx_cpu_tenant` (`tenant_id`),
-  KEY `customer_id` (`customer_id`),
-  CONSTRAINT `customer_portal_users_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`customer_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: customers
---------------------------------------------------------------------------------
-CREATE TABLE `customers` (
-  `customer_id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `customer_code` varchar(50) NOT NULL,
-  `customer_name` varchar(255) NOT NULL,
-  `customer_type` enum('individual','company') DEFAULT NULL,
-  `email` varchar(255) DEFAULT NULL,
-  `mobile_no` varchar(20) DEFAULT NULL,
-  `ledger_id` bigint NOT NULL,
-  `credit_limit` decimal(15,2) DEFAULT NULL,
-  `credit_days` int DEFAULT NULL,
-  `opening_balance` decimal(15,2) DEFAULT NULL,
-  `opening_balance_type` enum('debit','credit') DEFAULT NULL,
-  `is_active` tinyint(1) DEFAULT '1',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`customer_id`),
-  UNIQUE KEY `uq_customer_tenant_code` (`tenant_id`,`customer_code`),
-  KEY `idx_customer_tenant` (`tenant_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -216,172 +152,6 @@ CREATE TABLE `master_ledgers` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1004 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
--- Table: payment_voucher_entries
---------------------------------------------------------------------------------
-CREATE TABLE `payment_voucher_entries` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `payment_voucher_id` bigint NOT NULL,
-  `ledger_id` bigint NOT NULL,
-  `amount` decimal(15,2) NOT NULL,
-  `narration` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `payment_voucher_id` (`payment_voucher_id`),
-  KEY `idx_payment_entries_tenant` (`tenant_id`),
-  CONSTRAINT `payment_voucher_entries_ibfk_1` FOREIGN KEY (`payment_voucher_id`) REFERENCES `payment_voucher_master` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: payment_voucher_master
---------------------------------------------------------------------------------
-CREATE TABLE `payment_voucher_master` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `voucher_no` varchar(50) NOT NULL,
-  `voucher_date` date NOT NULL,
-  `paid_to_ledger_id` bigint NOT NULL,
-  `cash_bank_ledger_id` bigint NOT NULL,
-  `reference_no` varchar(100) DEFAULT NULL,
-  `reference_date` date DEFAULT NULL,
-  `narration` text,
-  `total_amount` decimal(15,2) NOT NULL,
-  `created_by` bigint DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_payment_voucher` (`tenant_id`,`voucher_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: purchase_items
---------------------------------------------------------------------------------
-CREATE TABLE `purchase_items` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `purchase_id` bigint NOT NULL,
-  `product_id` bigint DEFAULT NULL,
-  `product_name` varchar(255) DEFAULT NULL,
-  `hsn_code` varchar(20) DEFAULT NULL,
-  `batch_no` varchar(50) DEFAULT NULL,
-  `expiry_date` date DEFAULT NULL,
-  `uom` varchar(50) DEFAULT NULL,
-  `quantity` decimal(10,2) DEFAULT '0.00',
-  `rate` decimal(15,2) DEFAULT '0.00',
-  `discount_percent` decimal(5,2) DEFAULT '0.00',
-  `discount_amount` decimal(15,2) DEFAULT '0.00',
-  `taxable_value` decimal(15,2) DEFAULT '0.00',
-  `cgst_percent` decimal(5,2) DEFAULT '0.00',
-  `cgst_amount` decimal(15,2) DEFAULT '0.00',
-  `sgst_percent` decimal(5,2) DEFAULT '0.00',
-  `sgst_amount` decimal(15,2) DEFAULT '0.00',
-  `igst_percent` decimal(5,2) DEFAULT '0.00',
-  `igst_amount` decimal(15,2) DEFAULT '0.00',
-  `cess_percent` decimal(5,2) DEFAULT '0.00',
-  `cess_amount` decimal(15,2) DEFAULT '0.00',
-  `total_amount` decimal(15,2) DEFAULT '0.00',
-  PRIMARY KEY (`id`),
-  KEY `purchase_id` (`purchase_id`),
-  CONSTRAINT `purchase_items_ibfk_1` FOREIGN KEY (`purchase_id`) REFERENCES `purchase_master` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: purchase_master
---------------------------------------------------------------------------------
-CREATE TABLE `purchase_master` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `purchase_invoice_no` varchar(50) NOT NULL,
-  `purchase_date` date NOT NULL,
-  `supplier_id` bigint DEFAULT NULL,
-  `supplier_name` varchar(255) DEFAULT NULL,
-  `supplier_gstin` varchar(20) DEFAULT NULL,
-  `ledger_name` varchar(255) DEFAULT NULL,
-  `ledger_code` varchar(50) DEFAULT NULL,
-  `billing_address` text,
-  `place_of_supply` varchar(100) DEFAULT NULL,
-  `state_code` varchar(10) DEFAULT NULL,
-  `purchase_type` enum('LOCAL','INTERSTATE','IMPORT') DEFAULT 'LOCAL',
-  `reverse_charge` tinyint(1) DEFAULT '0',
-  `payment_terms` varchar(100) DEFAULT NULL,
-  `due_date` date DEFAULT NULL,
-  `subtotal_amount` decimal(15,2) DEFAULT '0.00',
-  `discount_amount` decimal(15,2) DEFAULT '0.00',
-  `taxable_amount` decimal(15,2) DEFAULT '0.00',
-  `cgst_amount` decimal(15,2) DEFAULT '0.00',
-  `sgst_amount` decimal(15,2) DEFAULT '0.00',
-  `igst_amount` decimal(15,2) DEFAULT '0.00',
-  `cess_amount` decimal(15,2) DEFAULT '0.00',
-  `total_tax_amount` decimal(15,2) DEFAULT '0.00',
-  `round_off` decimal(15,2) DEFAULT '0.00',
-  `grand_total` decimal(15,2) DEFAULT '0.00',
-  `payment_status` enum('PENDING','PARTIAL','PAID') DEFAULT 'PENDING',
-  `created_by` bigint DEFAULT NULL,
-  `approved_by` bigint DEFAULT NULL,
-  `status` enum('DRAFT','APPROVED','CANCELLED') DEFAULT 'DRAFT',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `ux_purchase_invoice` (`tenant_id`,`purchase_invoice_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: purchase_payment
---------------------------------------------------------------------------------
-CREATE TABLE `purchase_payment` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `purchase_id` bigint NOT NULL,
-  `payment_date` date DEFAULT NULL,
-  `payment_mode` enum('CASH','BANK','UPI','CHEQUE','CARD') DEFAULT 'CASH',
-  `reference_no` varchar(100) DEFAULT NULL,
-  `paid_amount` decimal(15,2) DEFAULT '0.00',
-  `balance_amount` decimal(15,2) DEFAULT '0.00',
-  `bank_id` bigint DEFAULT NULL,
-  `status` enum('PAID','CANCELLED') DEFAULT 'PAID',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `purchase_id` (`purchase_id`),
-  CONSTRAINT `purchase_payment_ibfk_1` FOREIGN KEY (`purchase_id`) REFERENCES `purchase_master` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: purchase_return_items
---------------------------------------------------------------------------------
-CREATE TABLE `purchase_return_items` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `purchase_return_id` bigint NOT NULL,
-  `product_id` bigint DEFAULT NULL,
-  `quantity` decimal(10,2) DEFAULT '0.00',
-  `rate` decimal(15,2) DEFAULT '0.00',
-  `taxable_value` decimal(15,2) DEFAULT '0.00',
-  `tax_amount` decimal(15,2) DEFAULT '0.00',
-  `total_amount` decimal(15,2) DEFAULT '0.00',
-  PRIMARY KEY (`id`),
-  KEY `purchase_return_id` (`purchase_return_id`),
-  CONSTRAINT `purchase_return_items_ibfk_1` FOREIGN KEY (`purchase_return_id`) REFERENCES `purchase_returns` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: purchase_returns
---------------------------------------------------------------------------------
-CREATE TABLE `purchase_returns` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `original_purchase_id` bigint NOT NULL,
-  `return_invoice_no` varchar(50) NOT NULL,
-  `return_date` date DEFAULT NULL,
-  `supplier_id` bigint DEFAULT NULL,
-  `reason` varchar(255) DEFAULT NULL,
-  `subtotal_amount` decimal(15,2) DEFAULT '0.00',
-  `tax_amount` decimal(15,2) DEFAULT '0.00',
-  `total_amount` decimal(15,2) DEFAULT '0.00',
-  `status` enum('DRAFT','APPROVED','CANCELLED') DEFAULT 'DRAFT',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `original_purchase_id` (`original_purchase_id`),
-  CONSTRAINT `purchase_returns_ibfk_1` FOREIGN KEY (`original_purchase_id`) REFERENCES `purchase_master` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 
 -- Table: questions
 --------------------------------------------------------------------------------
@@ -397,184 +167,7 @@ CREATE TABLE `questions` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1071 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
--- Table: receipt_voucher_entries
---------------------------------------------------------------------------------
-CREATE TABLE `receipt_voucher_entries` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `receipt_voucher_id` bigint NOT NULL,
-  `ledger_id` bigint NOT NULL,
-  `amount` decimal(15,2) NOT NULL,
-  `narration` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `receipt_voucher_id` (`receipt_voucher_id`),
-  KEY `idx_receipt_entries_tenant` (`tenant_id`),
-  CONSTRAINT `receipt_voucher_entries_ibfk_1` FOREIGN KEY (`receipt_voucher_id`) REFERENCES `receipt_voucher_master` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-
--- Table: receipt_voucher_master
---------------------------------------------------------------------------------
-CREATE TABLE `receipt_voucher_master` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `voucher_no` varchar(50) NOT NULL,
-  `voucher_date` date NOT NULL,
-  `received_from_ledger_id` bigint NOT NULL,
-  `cash_bank_ledger_id` bigint NOT NULL,
-  `reference_no` varchar(100) DEFAULT NULL,
-  `reference_date` date DEFAULT NULL,
-  `narration` text,
-  `total_amount` decimal(15,2) NOT NULL,
-  `created_by` bigint DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_receipt_voucher` (`tenant_id`,`voucher_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: sales_items
---------------------------------------------------------------------------------
-CREATE TABLE `sales_items` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `sales_id` bigint NOT NULL,
-  `product_id` bigint DEFAULT NULL,
-  `product_name` varchar(255) DEFAULT NULL,
-  `hsn_code` varchar(20) DEFAULT NULL,
-  `batch_no` varchar(50) DEFAULT NULL,
-  `expiry_date` date DEFAULT NULL,
-  `uom` varchar(50) DEFAULT NULL,
-  `quantity` decimal(10,2) DEFAULT '0.00',
-  `rate` decimal(15,2) DEFAULT '0.00',
-  `discount_percent` decimal(5,2) DEFAULT '0.00',
-  `discount_amount` decimal(15,2) DEFAULT '0.00',
-  `taxable_value` decimal(15,2) DEFAULT '0.00',
-  `cgst_percent` decimal(5,2) DEFAULT '0.00',
-  `cgst_amount` decimal(15,2) DEFAULT '0.00',
-  `sgst_percent` decimal(5,2) DEFAULT '0.00',
-  `sgst_amount` decimal(15,2) DEFAULT '0.00',
-  `igst_percent` decimal(5,2) DEFAULT '0.00',
-  `igst_amount` decimal(15,2) DEFAULT '0.00',
-  `cess_percent` decimal(5,2) DEFAULT '0.00',
-  `cess_amount` decimal(15,2) DEFAULT '0.00',
-  `total_amount` decimal(15,2) DEFAULT '0.00',
-  PRIMARY KEY (`id`),
-  KEY `sales_id` (`sales_id`),
-  CONSTRAINT `sales_items_ibfk_1` FOREIGN KEY (`sales_id`) REFERENCES `sales_master` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: sales_master
---------------------------------------------------------------------------------
-CREATE TABLE `sales_master` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `invoice_no` varchar(50) NOT NULL,
-  `invoice_date` date NOT NULL,
-  `customer_id` bigint DEFAULT NULL,
-  `customer_name` varchar(255) DEFAULT NULL,
-  `customer_gstin` varchar(20) DEFAULT NULL,
-  `ledger_name` varchar(255) DEFAULT NULL,
-  `ledger_code` varchar(50) DEFAULT NULL,
-  `billing_address` text,
-  `shipping_address` text,
-  `place_of_supply` varchar(100) DEFAULT NULL,
-  `state_code` varchar(10) DEFAULT NULL,
-  `sales_type` enum('LOCAL','INTERSTATE','EXPORT') DEFAULT 'LOCAL',
-  `reverse_charge` tinyint(1) DEFAULT '0',
-  `payment_terms` varchar(100) DEFAULT NULL,
-  `due_date` date DEFAULT NULL,
-  `subtotal_amount` decimal(15,2) DEFAULT '0.00',
-  `discount_amount` decimal(15,2) DEFAULT '0.00',
-  `taxable_amount` decimal(15,2) DEFAULT '0.00',
-  `cgst_amount` decimal(15,2) DEFAULT '0.00',
-  `sgst_amount` decimal(15,2) DEFAULT '0.00',
-  `igst_amount` decimal(15,2) DEFAULT '0.00',
-  `cess_amount` decimal(15,2) DEFAULT '0.00',
-  `total_tax_amount` decimal(15,2) DEFAULT '0.00',
-  `round_off` decimal(15,2) DEFAULT '0.00',
-  `grand_total` decimal(15,2) DEFAULT '0.00',
-  `payment_status` enum('PENDING','PARTIAL','PAID') DEFAULT 'PENDING',
-  `created_by` bigint DEFAULT NULL,
-  `approved_by` bigint DEFAULT NULL,
-  `status` enum('DRAFT','APPROVED','CANCELLED') DEFAULT 'DRAFT',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `ux_sales_invoice` (`tenant_id`,`invoice_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: sales_payment
---------------------------------------------------------------------------------
-CREATE TABLE `sales_payment` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `sales_id` bigint NOT NULL,
-  `payment_date` date DEFAULT NULL,
-  `payment_mode` enum('CASH','BANK','UPI','CHEQUE','CARD') DEFAULT 'CASH',
-  `reference_no` varchar(100) DEFAULT NULL,
-  `paid_amount` decimal(15,2) DEFAULT '0.00',
-  `balance_amount` decimal(15,2) DEFAULT '0.00',
-  `bank_id` bigint DEFAULT NULL,
-  `status` enum('RECEIVED','BOUNCED','CANCELLED') DEFAULT 'RECEIVED',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `sales_id` (`sales_id`),
-  CONSTRAINT `sales_payment_ibfk_1` FOREIGN KEY (`sales_id`) REFERENCES `sales_master` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: sales_return_items
---------------------------------------------------------------------------------
-CREATE TABLE `sales_return_items` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `sales_return_id` bigint NOT NULL,
-  `product_id` bigint DEFAULT NULL,
-  `quantity` decimal(10,2) DEFAULT '0.00',
-  `rate` decimal(15,2) DEFAULT '0.00',
-  `taxable_value` decimal(15,2) DEFAULT '0.00',
-  `tax_amount` decimal(15,2) DEFAULT '0.00',
-  `total_amount` decimal(15,2) DEFAULT '0.00',
-  PRIMARY KEY (`id`),
-  KEY `sales_return_id` (`sales_return_id`),
-  CONSTRAINT `sales_return_items_ibfk_1` FOREIGN KEY (`sales_return_id`) REFERENCES `sales_returns` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Table: sales_returns
---------------------------------------------------------------------------------
-CREATE TABLE `sales_returns` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `original_sales_id` bigint NOT NULL,
-  `return_invoice_no` varchar(50) NOT NULL,
-  `return_date` date DEFAULT NULL,
-  `customer_id` bigint DEFAULT NULL,
-  `reason` varchar(255) DEFAULT NULL,
-  `subtotal_amount` decimal(15,2) DEFAULT '0.00',
-  `tax_amount` decimal(15,2) DEFAULT '0.00',
-  `total_amount` decimal(15,2) DEFAULT '0.00',
-  `status` enum('DRAFT','APPROVED','CANCELLED') DEFAULT 'DRAFT',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `original_sales_id` (`original_sales_id`),
-  CONSTRAINT `sales_returns_ibfk_1` FOREIGN KEY (`original_sales_id`) REFERENCES `sales_master` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
-
--- Table: tenants
---------------------------------------------------------------------------------
-CREATE TABLE `tenants` (
-  `id` char(36) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
 -- Table: transcaction_file
@@ -673,68 +266,64 @@ CREATE TABLE `users` (
 
 
 
-
--- Table: inventory_master_category
---------------------------------------------------------------------------------
-CREATE TABLE `inventory_master_category` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) NOT NULL,
-  `category` varchar(255) NOT NULL,
-  `group` varchar(255) DEFAULT NULL,
-  `subgroup` varchar(255) DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `inventory_master_category_uniq` (`tenant_id`,`category`,`group`,`subgroup`),
-  KEY `inventory_master_category_tenant_id_idx` (`tenant_id`),
-  KEY `inventory_master_category_is_active_idx` (`tenant_id`, `is_active`),
-  KEY `inventory_master_category_category_idx` (`category`),
-  CONSTRAINT `inventory_master_category_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
 -- Table: vendor_master_category
 --------------------------------------------------------------------------------
 CREATE TABLE `vendor_master_category` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
-  `category` varchar(255) NOT NULL COMMENT 'Top-level category (e.g., RAW MATERIAL, Stores and Spares, Packing Material)',
-  `group` varchar(255) DEFAULT NULL COMMENT 'Group under category (optional)',
-  `subgroup` varchar(255) DEFAULT NULL COMMENT 'Subgroup under group (optional)',
-  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this category is active',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` VARCHAR(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+  `category` VARCHAR(255) NOT NULL COMMENT 'Top-level category',
+  `group` VARCHAR(255) DEFAULT NULL COMMENT 'Group under category',
+  `subgroup` VARCHAR(255) DEFAULT NULL COMMENT 'Subgroup under group',
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether this category is active',
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+     ON UPDATE CURRENT_TIMESTAMP(6),
+
   PRIMARY KEY (`id`),
-  UNIQUE KEY `vendor_category_tenant_unique` (`tenant_id`,`category`,`group`,`subgroup`),
+
+  UNIQUE KEY `vendor_category_tenant_unique`
+  (
+    `tenant_id`,
+    `category`(100),
+    `group`(100),
+    `subgroup`(100)
+  ),
+
   KEY `vendor_category_tenant_id_idx` (`tenant_id`),
   KEY `vendor_category_is_active_idx` (`tenant_id`, `is_active`),
-  KEY `vendor_category_category_idx` (`category`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Master Category - Stores vendor category hierarchy';
+  KEY `vendor_category_category_idx` (`category`(100))
+)
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_0900_ai_ci
+COMMENT='Vendor Master Category - Stores vendor category hierarchy';
 
 
 -- Table: vendor_master_posettings
+
 --------------------------------------------------------------------------------
-CREATE TABLE `vendor_master_posettings` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
-  `name` varchar(200) NOT NULL COMMENT 'Name of PO Series',
-  `category_id` bigint DEFAULT NULL COMMENT 'Foreign key to inventory_master_category',
-  `prefix` varchar(50) DEFAULT NULL COMMENT 'Prefix for PO number (e.g., PO/)',
-  `suffix` varchar(50) DEFAULT NULL COMMENT 'Suffix for PO number (e.g., /26)',
-  `digits` int NOT NULL DEFAULT '4' COMMENT 'Number of digits for sequence padding',
-  `auto_year` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'Auto-include financial year in PO number',
-  `current_number` int NOT NULL DEFAULT '1' COMMENT 'Current/next number in the sequence',
-  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this PO setting is active',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+CREATE TABLE IF NOT EXISTS `vendor_master_posettings` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` VARCHAR(36) NOT NULL,
+  `name` VARCHAR(200) NOT NULL,
+  `category_id` BIGINT DEFAULT NULL,
+  `prefix` VARCHAR(50) DEFAULT NULL,
+  `suffix` VARCHAR(50) DEFAULT NULL,
+  `digits` INT NOT NULL DEFAULT 4,
+  `auto_year` TINYINT(1) NOT NULL DEFAULT 0,
+  `current_number` INT NOT NULL DEFAULT 1,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+    ON UPDATE CURRENT_TIMESTAMP(6),
+
   PRIMARY KEY (`id`),
   UNIQUE KEY `vendor_posettings_tenant_name_unique` (`tenant_id`,`name`),
-  KEY `vendor_posettings_tenant_id_idx` (`tenant_id`),
-  KEY `vendor_posettings_category_id_idx` (`category_id`),
-  KEY `vendor_posettings_is_active_idx` (`is_active`),
-  CONSTRAINT `vendor_posettings_category_fk` FOREIGN KEY (`category_id`) REFERENCES `inventory_master_category` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor PO Settings for purchase order numbering configuration';
+  KEY `vendor_posettings_tenant_id_idx` (`tenant_id`)
+)
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_0900_ai_ci;
 
 
 -- Table: vendor_master_basicdetail
@@ -839,38 +428,129 @@ CREATE TABLE `vendor_master_tds` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Master TDS & Other Statutory Details';
 
 
-
--- Table: warehouses
---------------------------------------------------------------------------------
-CREATE TABLE `warehouses` (
-  `warehouse_id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint NOT NULL,
-  `warehouse_code` varchar(50) NOT NULL,
-  `warehouse_name` varchar(255) NOT NULL,
-  PRIMARY KEY (`warehouse_id`),
-  UNIQUE KEY `uq_wh_tenant_code` (`tenant_id`,`warehouse_code`),
-  KEY `idx_wh_tenant` (`tenant_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
 -- Table: inventory_master_category
 --------------------------------------------------------------------------------
 CREATE TABLE `inventory_master_category` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) NOT NULL,
-  `category` varchar(255) NOT NULL,
-  `group` varchar(255) DEFAULT NULL,
-  `subgroup` varchar(255) DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` CHAR(36) NOT NULL,
+  `category` VARCHAR(255) NOT NULL,
+  `group` VARCHAR(255) DEFAULT NULL,
+  `subgroup` VARCHAR(255) DEFAULT NULL,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+     ON UPDATE CURRENT_TIMESTAMP(6),
+
   PRIMARY KEY (`id`),
-  UNIQUE KEY `inventory_master_category_uniq` (`tenant_id`,`category`,`group`,`subgroup`),
+
+  UNIQUE KEY `inventory_master_category_uniq`
+  (
+    `tenant_id`,
+    `category`(100),
+    `group`(100),
+    `subgroup`(100)
+  ),
+
   KEY `inventory_master_category_tenant_id_idx` (`tenant_id`),
   KEY `inventory_master_category_is_active_idx` (`tenant_id`, `is_active`),
-  KEY `inventory_master_category_category_idx` (`category`),
-  CONSTRAINT `inventory_master_category_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  KEY `inventory_master_category_category_idx` (`category`(100)),
+
+  CONSTRAINT `inventory_master_category_tenant_id_fk`
+    FOREIGN KEY (`tenant_id`)
+    REFERENCES `tenants` (`id`)
+    ON DELETE CASCADE
+)
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_0900_ai_ci;
+
+-- Table: inventory_master_location
+--------------------------------------------------------------------------------
+CREATE TABLE `inventory_master_location` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` CHAR(36) NOT NULL,
+  `name` VARCHAR(255) NOT NULL COMMENT 'Location name',
+  `location_type` VARCHAR(50) NOT NULL COMMENT 'Type of location (predefined or custom)',
+  `address_line1` VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'Address Line 1 (Required)',
+  `address_line2` VARCHAR(255) DEFAULT NULL COMMENT 'Address Line 2 (Optional)',
+  `address_line3` VARCHAR(255) DEFAULT NULL COMMENT 'Address Line 3 (Optional)',
+  `city` VARCHAR(100) NOT NULL DEFAULT '' COMMENT 'City',
+  `state` VARCHAR(100) NOT NULL DEFAULT '' COMMENT 'State',
+  `country` VARCHAR(100) NOT NULL DEFAULT 'India' COMMENT 'Country',
+  `pincode` VARCHAR(20) NOT NULL DEFAULT '' COMMENT 'Pincode/Zip Code',
+  `vendor_name` VARCHAR(255) DEFAULT NULL COMMENT 'Vendor/Agent Name',
+  `customer_name` VARCHAR(255) DEFAULT NULL COMMENT 'Customer Name',
+  `gstin` VARCHAR(15) DEFAULT NULL COMMENT 'GSTIN (Optional)',
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+     ON UPDATE CURRENT_TIMESTAMP(6),
+
+  PRIMARY KEY (`id`),
+
+  KEY `inventory_master_location_tenant_id_idx` (`tenant_id`),
+  KEY `inventory_master_location_name_idx` (`tenant_id`, `name`),
+
+  CONSTRAINT `inventory_master_location_tenant_id_fk`
+    FOREIGN KEY (`tenant_id`)
+    REFERENCES `tenants` (`id`)
+    ON DELETE CASCADE
+)
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_0900_ai_ci
+COMMENT='Inventory Master Location - Stores warehouse/storage locations';
+
+-- Table: inventory_master_inventoryitems
+--------------------------------------------------------------------------------
+CREATE TABLE `inventory_master_inventoryitems` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` CHAR(36) NOT NULL,
+  
+  `item_code` VARCHAR(100) NOT NULL COMMENT 'Item Code',
+  `item_name` VARCHAR(255) NOT NULL COMMENT 'Item Name',
+  `description` TEXT DEFAULT NULL COMMENT 'Item Description',
+  
+  `category_id` BIGINT DEFAULT NULL COMMENT 'Foreign key to inventory_master_category',
+  `category_path` VARCHAR(500) DEFAULT NULL COMMENT 'Full category path string',
+  `subgroup_id` BIGINT DEFAULT NULL COMMENT 'Foreign key to inventory_master_category (Subgroup)',
+  
+  `is_vendor_specific` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Is Vendor Specific Item Code',
+  `vendor_specific_name` VARCHAR(255) DEFAULT NULL,
+  `vendor_specific_suffix` VARCHAR(50) DEFAULT NULL,
+  
+  `uom` VARCHAR(50) NOT NULL COMMENT 'Unit of Measure',
+  `alternate_uom` VARCHAR(50) DEFAULT NULL COMMENT 'Alternate Unit',
+  `conversion_factor` DECIMAL(15,4) DEFAULT NULL COMMENT 'Conversion factor to alternate unit',
+  
+  `rate` DECIMAL(15,2) NOT NULL DEFAULT 0.00 COMMENT 'Rate',
+  `rate_unit` VARCHAR(50) DEFAULT NULL COMMENT 'Rate per Unit',
+  
+  `hsn_code` VARCHAR(20) DEFAULT NULL,
+  `gst_rate` DECIMAL(5,2) DEFAULT NULL,
+  
+  `reorder_level` VARCHAR(255) DEFAULT NULL COMMENT 'Reorder Level Information',
+  `is_saleable` TINYINT(1) NOT NULL DEFAULT 0,
+  
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+     ON UPDATE CURRENT_TIMESTAMP(6),
+
+  PRIMARY KEY (`id`),
+
+  KEY `inv_items_tenant_id_idx` (`tenant_id`),
+  KEY `inv_items_category_id_idx` (`category_id`),
+  KEY `inv_items_item_code_idx` (`item_code`),
+
+  CONSTRAINT `inv_items_tenant_id_fk`
+    FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `inv_items_category_fk`
+    FOREIGN KEY (`category_id`) REFERENCES `inventory_master_category` (`id`) ON DELETE SET NULL
+)
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_0900_ai_ci
+COMMENT='Inventory Master Items';
 
 
 --
@@ -897,9 +577,14 @@ CREATE TABLE IF NOT EXISTS `vendor_master_banking` (
   KEY `vendor_banking_tenant_id_idx` (`tenant_id`),
   KEY `vendor_banking_vendor_basic_detail_id_idx` (`vendor_basic_detail_id`),
   KEY `vendor_banking_bank_account_no_idx` (`bank_account_no`),
-  CONSTRAINT `vendor_banking_vendor_fk` FOREIGN KEY (`vendor_basic_detail_id`) REFERENCES `vendor_master_basicdetail` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Master Banking Information';  CONSTRAINT `vendor_banking_vendor_fk` FOREIGN KEY (`vendor_basic_detail_id`) REFERENCES `vendor_master_basicdetail` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Master Banking Information';
+  CONSTRAINT `vendor_banking_vendor_fk`
+    FOREIGN KEY (`vendor_basic_detail_id`)
+    REFERENCES `vendor_master_basicdetail` (`id`)
+    ON DELETE CASCADE
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_0900_ai_ci
+COMMENT='Vendor Master Banking Information';
 
 
 --
@@ -972,6 +657,28 @@ CREATE TABLE IF NOT EXISTS `vendor_transaction_po` (
   CONSTRAINT `vendor_po_vendor_fk` FOREIGN KEY (`vendor_basic_detail_id`) REFERENCES `vendor_master_basicdetail` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Vendor Purchase Order Transactions';
 
+CREATE TABLE `vendor_transaction_po_items` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` VARCHAR(36) NOT NULL,
+  `item_code` VARCHAR(50) NOT NULL,
+  `item_name` VARCHAR(200) NOT NULL,
+  `supplier_item_code` VARCHAR(50) DEFAULT NULL,
+  `quantity` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  `uom` VARCHAR(20) NOT NULL,
+  `negotiated_rate` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  `final_rate` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  `taxable_value` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  `gst_rate` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+  `gst_amount` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  `invoice_value` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `po_id` BIGINT NOT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_vendor_po_items_tenant` (`tenant_id`),
+  INDEX `idx_vendor_po_items_po` (`po_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Separate Master Tables for Each Voucher Type
@@ -1252,78 +959,23 @@ CREATE TABLE `customer_master_category` (
   `subgroup` varchar(255) DEFAULT NULL COMMENT 'Subgroup under group',
   `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this category is active',
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+    ON UPDATE CURRENT_TIMESTAMP(6),
+
   PRIMARY KEY (`id`),
-  UNIQUE KEY `customer_category_tenant_unique` (`tenant_id`,`category`,`group`,`subgroup`),
+
+  UNIQUE KEY `customer_category_tenant_unique`
+    (`tenant_id`, `category`(100), `group`(100), `subgroup`(100)),
+
   KEY `customer_category_tenant_id_idx` (`tenant_id`),
   KEY `customer_category_is_active_idx` (`tenant_id`, `is_active`),
-  KEY `customer_category_category_idx` (`category`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Customer Master Category Hierarchy';
+  KEY `customer_category_category_idx` (`category`(100))
+)
+ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_0900_ai_ci
+COMMENT='Customer Master Category Hierarchy';
 
-
--- Table: customer_master_customer_basicdetail
---------------------------------------------------------------------------------
-CREATE TABLE `customer_master_customer_basicdetail` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID',
-  `customer_name` varchar(255) NOT NULL,
-  `customer_code` varchar(50) NOT NULL COMMENT 'Customer code',
-  `customer_category` bigint DEFAULT NULL COMMENT 'Link to CustomerMasterCategory',
-  `pan_number` varchar(10) DEFAULT NULL,
-  `contact_person` varchar(255) DEFAULT NULL,
-  `email_address` varchar(255) DEFAULT NULL,
-  `contact_number` varchar(15) DEFAULT NULL,
-  `is_also_vendor` tinyint(1) NOT NULL DEFAULT 0,
-  `gst_details` json DEFAULT NULL,
-  `products_services` json DEFAULT NULL,
-  `msme_no` varchar(50) DEFAULT NULL,
-  `fssai_no` varchar(50) DEFAULT NULL,
-  `iec_code` varchar(50) DEFAULT NULL,
-  `eou_status` varchar(100) DEFAULT NULL,
-  `tcs_section` varchar(50) DEFAULT NULL,
-  `tcs_enabled` tinyint(1) NOT NULL DEFAULT 0,
-  `tds_section` varchar(50) DEFAULT NULL,
-  `tds_enabled` tinyint(1) NOT NULL DEFAULT 0,
-  `banking_info` json DEFAULT NULL,
-  `credit_period` int DEFAULT NULL,
-  `credit_terms` longtext DEFAULT NULL,
-  `penalty_terms` longtext DEFAULT NULL,
-  `delivery_terms` longtext DEFAULT NULL,
-  `warranty_details` longtext DEFAULT NULL,
-  `force_majeure` longtext DEFAULT NULL,
-  `dispute_terms` longtext DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  `created_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `customer_basicdetail_tenant_code_unique` (`tenant_id`,`customer_code`),
-  KEY `customer_basicdetail_tenant_id_idx` (`tenant_id`),
-  KEY `customer_basicdetail_customer_category_idx` (`customer_category`),
-  KEY `customer_basicdetail_is_deleted_idx` (`tenant_id`, `is_deleted`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Customer Master Basic Details';
-
--- Table: customer_master_customer_productservice
---------------------------------------------------------------------------------
-CREATE TABLE `customer_master_customer_productservice` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
-  `customer_basic_detail_id` bigint DEFAULT NULL COMMENT 'Foreign key to customer_master_customer_basicdetail',
-  `item_code` varchar(50) DEFAULT NULL COMMENT 'Item Code',
-  `item_name` varchar(200) DEFAULT NULL COMMENT 'Item Name',
-  `customer_item_code` varchar(50) DEFAULT NULL COMMENT 'Customer Item Code',
-  `customer_item_name` varchar(200) DEFAULT NULL COMMENT 'Customer Item Name',
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  `created_by` varchar(100) DEFAULT NULL,
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `cust_prodserv_tenant_id_idx` (`tenant_id`),
-  KEY `cust_prodserv_cust_id_idx` (`customer_basic_detail_id`),
-  CONSTRAINT `cust_prodserv_cust_fk` FOREIGN KEY (`customer_basic_detail_id`) REFERENCES `customer_master_customer_basicdetail` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Customer Master Products/Services';
 
 
 -- Table: customer_master_longtermcontracts_basicdetails
@@ -1404,215 +1056,6 @@ CREATE TABLE `customer_master_longtermcontracts_termscondition` (
   CONSTRAINT `cust_ltc_terms_contract_fk` FOREIGN KEY (`contract_basic_detail_id`) REFERENCES `customer_master_longtermcontracts_basicdetails` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Customer Master Long-term Contract Terms & Conditions';
 
-
-
---
--- Table: customer_masters_salesquotation
---
-CREATE TABLE IF NOT EXISTS `customer_masters_salesquotation` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
-  `series_name` varchar(100) NOT NULL COMMENT 'Name of the sales quotation series',
-  `customer_category` varchar(100) DEFAULT NULL COMMENT 'Customer category (Retail, Wholesale, Corporate, etc.)',
-  `prefix` varchar(20) DEFAULT 'SQ/' COMMENT 'Prefix for quotation number (e.g., SQ/)',
-  `suffix` varchar(20) DEFAULT '/24-25' COMMENT 'Suffix for quotation number (e.g., /24-25)',
-  `required_digits` int DEFAULT 4 COMMENT 'Number of digits for sequence padding',
-  `current_number` int DEFAULT 0 COMMENT 'Current number in the sequence',
-  `auto_year` tinyint(1) DEFAULT 0 COMMENT 'Auto-include year in quotation number',
-  `is_active` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Whether this series is active',
-  `is_deleted` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Soft delete flag',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  `created_by` varchar(100) DEFAULT NULL COMMENT 'Created by user',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `customer_sq_tenant_series_unique` (`tenant_id`,`series_name`),
-  KEY `customer_sq_tenant_id_idx` (`tenant_id`),
-  KEY `customer_sq_category_idx` (`customer_category`),
-  KEY `customer_sq_is_active_idx` (`is_active`),
-  KEY `customer_sq_is_deleted_idx` (`is_deleted`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Customer Portal - Sales Quotation Series Configuration';
-
-
--- Table: customer_master_category
---------------------------------------------------------------------------------
-CREATE TABLE `customer_master_category` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
-  `category` varchar(255) NOT NULL COMMENT 'Top-level category',
-  `group` varchar(255) DEFAULT NULL COMMENT 'Group under category',
-  `subgroup` varchar(255) DEFAULT NULL COMMENT 'Subgroup under group',
-  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Whether this category is active',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `customer_category_tenant_unique` (`tenant_id`,`category`,`group`,`subgroup`),
-  KEY `customer_category_tenant_id_idx` (`tenant_id`),
-  KEY `customer_category_is_active_idx` (`tenant_id`, `is_active`),
-  KEY `customer_category_category_idx` (`category`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Customer Master Category Hierarchy';
-
-
--- Table: customer_master_customer_basicdetail
---------------------------------------------------------------------------------
-CREATE TABLE `customer_master_customer_basicdetail` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID',
-  `customer_name` varchar(255) NOT NULL,
-  `customer_code` varchar(50) NOT NULL COMMENT 'Customer code',
-  `customer_category` bigint DEFAULT NULL COMMENT 'Link to CustomerMasterCategory',
-  `pan_number` varchar(10) DEFAULT NULL,
-  `contact_person` varchar(255) DEFAULT NULL,
-  `email_address` varchar(255) DEFAULT NULL,
-  `contact_number` varchar(15) DEFAULT NULL,
-  `is_also_vendor` tinyint(1) NOT NULL DEFAULT 0,
-  `gst_details` json DEFAULT NULL,
-  `products_services` json DEFAULT NULL,
-  `msme_no` varchar(50) DEFAULT NULL,
-  `fssai_no` varchar(50) DEFAULT NULL,
-  `iec_code` varchar(50) DEFAULT NULL,
-  `eou_status` varchar(100) DEFAULT NULL,
-  `tcs_section` varchar(50) DEFAULT NULL,
-  `tcs_enabled` tinyint(1) NOT NULL DEFAULT 0,
-  `tds_section` varchar(50) DEFAULT NULL,
-  `tds_enabled` tinyint(1) NOT NULL DEFAULT 0,
-  `banking_info` json DEFAULT NULL,
-  `credit_period` int DEFAULT NULL,
-  `credit_terms` longtext DEFAULT NULL,
-  `penalty_terms` longtext DEFAULT NULL,
-  `delivery_terms` longtext DEFAULT NULL,
-  `warranty_details` longtext DEFAULT NULL,
-  `force_majeure` longtext DEFAULT NULL,
-  `dispute_terms` longtext DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  `created_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `customer_basic_detail_tenant_code_unique` (`tenant_id`,`customer_code`),
-  KEY `customer_basic_detail_tenant_id_idx` (`tenant_id`),
-  KEY `customer_basic_detail_customer_category_idx` (`customer_category`),
-  KEY `customer_basic_detail_is_deleted_idx` (`tenant_id`, `is_deleted`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Customer Master Basic Details';
-
--- Table: customer_master_customer_productservice
---------------------------------------------------------------------------------
-CREATE TABLE `customer_master_customer_productservice` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
-  `customer_basic_detail_id` bigint DEFAULT NULL COMMENT 'Foreign key to customer_master_customer_basicdetail',
-  `item_code` varchar(50) DEFAULT NULL COMMENT 'Item Code',
-  `item_name` varchar(200) DEFAULT NULL COMMENT 'Item Name',
-  `customer_item_code` varchar(50) DEFAULT NULL COMMENT 'Customer Item Code',
-  `customer_item_name` varchar(200) DEFAULT NULL COMMENT 'Customer Item Name',
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  `created_by` varchar(100) DEFAULT NULL,
-  `updated_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `cust_prodserv_tenant_id_idx` (`tenant_id`),
-  KEY `cust_prodserv_cust_id_idx` (`customer_basic_detail_id`),
-  CONSTRAINT `cust_prodserv_cust_fk` FOREIGN KEY (`customer_basic_detail_id`) REFERENCES `customer_master_customer_basicdetail` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Customer Master Products/Services';
-
-
--- Table: customer_master_longtermcontracts_basicdetails
---------------------------------------------------------------------------------
-CREATE TABLE `customer_master_longtermcontracts_basicdetails` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
-  `contract_number` varchar(50) NOT NULL,
-  `customer_id` int NOT NULL COMMENT 'Reference to customer',
-  `customer_name` varchar(255) NOT NULL COMMENT 'Customer name for display',
-  `branch_id` int DEFAULT NULL COMMENT 'Reference to branch',
-  `contract_type` varchar(50) NOT NULL,
-  `contract_validity_from` date NOT NULL,
-  `contract_validity_to` date NOT NULL,
-  `contract_document` varchar(500) DEFAULT NULL COMMENT 'File path to uploaded contract document',
-  `automate_billing` tinyint(1) NOT NULL DEFAULT 0,
-  `bill_start_date` date DEFAULT NULL,
-  `billing_frequency` varchar(20) DEFAULT NULL,
-  `voucher_name` varchar(100) DEFAULT NULL,
-  `bill_period_from` date DEFAULT NULL,
-  `bill_period_to` date DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  `created_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `cust_ltc_basic_tenant_contract_unique` (`tenant_id`,`contract_number`),
-  KEY `cust_ltc_basic_tenant_id_idx` (`tenant_id`),
-  KEY `cust_ltc_basic_customer_id_idx` (`tenant_id`, `customer_id`),
-  KEY `cust_ltc_basic_validity_idx` (`contract_validity_from`, `contract_validity_to`),
-  KEY `cust_ltc_basic_is_deleted_idx` (`tenant_id`, `is_deleted`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Customer Master Long-term Contract Basic Details';
-
-
--- Table: customer_master_longtermcontracts_productservices
---------------------------------------------------------------------------------
-CREATE TABLE `customer_master_longtermcontracts_productservices` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
-  `contract_basic_detail_id` int NOT NULL COMMENT 'Foreign key to customer_master_longtermcontracts_basicdetails',
-  `item_code` varchar(50) NOT NULL COMMENT 'Our item code',
-  `item_name` varchar(200) NOT NULL COMMENT 'Our item name',
-  `customer_item_name` varchar(200) DEFAULT NULL COMMENT 'Customer''s item name',
-  `qty_min` decimal(15,2) DEFAULT NULL COMMENT 'Minimum quantity',
-  `qty_max` decimal(15,2) DEFAULT NULL COMMENT 'Maximum quantity',
-  `price_min` decimal(15,2) DEFAULT NULL COMMENT 'Minimum price',
-  `price_max` decimal(15,2) DEFAULT NULL COMMENT 'Maximum price',
-  `acceptable_price_deviation` varchar(50) DEFAULT NULL COMMENT 'e.g., ±5%',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  `created_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `cust_ltc_prod_tenant_item_idx` (`tenant_id`, `item_code`),
-  KEY `cust_ltc_prod_contract_idx` (`contract_basic_detail_id`),
-  CONSTRAINT `cust_ltc_prod_contract_fk` FOREIGN KEY (`contract_basic_detail_id`) REFERENCES `customer_master_longtermcontracts_basicdetails` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Customer Master Long-term Contract Products/Services';
-
-
--- Table: customer_master_longtermcontracts_termscondition
---------------------------------------------------------------------------------
-CREATE TABLE `customer_master_longtermcontracts_termscondition` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` varchar(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
-  `contract_basic_detail_id` int NOT NULL COMMENT 'Foreign key to customer_master_longtermcontracts_basicdetails',
-  `payment_terms` longtext DEFAULT NULL,
-  `penalty_terms` longtext DEFAULT NULL,
-  `force_majeure` longtext DEFAULT NULL,
-  `termination_clause` longtext DEFAULT NULL,
-  `dispute_terms` longtext DEFAULT NULL COMMENT 'Dispute & Redressal Terms',
-  `others` longtext DEFAULT NULL COMMENT 'Other terms',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  `created_by` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `cust_ltc_terms_contract_unique` (`contract_basic_detail_id`),
-  KEY `cust_ltc_terms_tenant_idx` (`tenant_id`),
-  CONSTRAINT `cust_ltc_terms_contract_fk` FOREIGN KEY (`contract_basic_detail_id`) REFERENCES `customer_master_longtermcontracts_basicdetails` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Customer Master Long-term Contract Terms & Conditions';
-
-
-
-
--- Table: customer_master_category
-CREATE TABLE `customer_master_category` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `tenant_id` varchar(36) NOT NULL,
-  `category` varchar(100) NOT NULL,
-  `group` varchar(100) DEFAULT NULL,
-  `subgroup` varchar(100) DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
-  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_cust_cat` (`tenant_id`, `category`, `group`, `subgroup`),
-  KEY `idx_cust_cat_tenant_active` (`tenant_id`, `is_active`),
-  KEY `idx_cust_cat_category` (`category`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Table: customer_master_customer_basicdetails
 CREATE TABLE `customer_master_customer_basicdetails` (
@@ -2071,14 +1514,46 @@ CREATE TABLE `payroll_salary_template` (
   KEY `payroll_salary_template_tenant_id_27fcb732` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- ============================================================================
--- END OF PAYROLL TABLES
--- ============================================================================
+CREATE TABLE IF NOT EXISTS service_list (
+    id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Unique Service ID',
+    tenant_id VARCHAR(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+    service_code VARCHAR(50) NOT NULL UNIQUE COMMENT 'Service Code (Required)',
+    service_name VARCHAR(255) NOT NULL COMMENT 'Service Name (Required)',
+    service_group VARCHAR(100) NOT NULL COMMENT 'Service Group (Required)',
+    sac_code VARCHAR(20) NOT NULL COMMENT 'SAC Code (Required)',
+    gst_rate DECIMAL(5, 2) NOT NULL DEFAULT 18 COMMENT 'GST Rate (Required)',
+    uom VARCHAR(50) COMMENT 'Unit of Measurement (Optional)',
+    description TEXT COMMENT 'Description (Optional)',
+    expense_ledger VARCHAR(255) NOT NULL COMMENT 'Expense Ledger (Required)',
+    is_active BOOLEAN DEFAULT 1 COMMENT 'Status: 1=Active, 0=Inactive',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Record Created Date',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Record Last Updated Date',
+    
+    -- Indexes for better query performance
+    INDEX idx_tenant_id (tenant_id),
+    INDEX idx_service_code (service_code),
+    INDEX idx_service_group (service_group),
+    INDEX idx_is_active (is_active),
+    INDEX idx_created_at (created_at),
+    INDEX idx_tenant_service (tenant_id, service_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Service List Master Table';
 
--- IMPORTANT NOTES:
--- 1. All tables include tenant_id for multi-tenancy support
--- 2. The tenant_id column was added to fix the OperationalError
--- 3. Foreign keys properly reference payroll_employee_basic_details
--- 4. Indexes added for performance on tenant_id columns
--- 5. This schema matches the Django models in backend/payroll/models.py
--- 6. Use CREATE TABLE IF NOT EXISTS if you want to avoid errors on re-run
+-- Create Service Groups Table
+CREATE TABLE IF NOT EXISTS service_groups (
+    id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Unique Service Group ID',
+    tenant_id VARCHAR(36) NOT NULL COMMENT 'Tenant ID for multi-tenancy',
+    category VARCHAR(100) NOT NULL COMMENT 'Category (e.g., Professional Services, Technical Support)',
+    group_name VARCHAR(255) NOT NULL COMMENT 'Group Name (Required)',
+    under_subgroup VARCHAR(255) DEFAULT NULL COMMENT 'Subgroup Name / Under (Optional)',
+    is_active BOOLEAN DEFAULT 1 COMMENT 'Status: 1=Active, 0=Inactive',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Record Created Date',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Record Last Updated Date',
+    
+    -- Indexes for better query performance
+    INDEX idx_tenant_id (tenant_id),
+    INDEX idx_category (category),
+    INDEX idx_group_name (group_name),
+    INDEX idx_is_active (is_active),
+    INDEX idx_tenant_category (tenant_id, category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Service Groups Table';
+   

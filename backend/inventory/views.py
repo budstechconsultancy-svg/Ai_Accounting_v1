@@ -2,37 +2,153 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from .models import InventoryMasterCategory
-from .serializers import InventoryMasterCategorySerializer
+from .models import (
+    InventoryMasterCategory, InventoryLocation, InventoryItem, InventoryUnit,
+    InventoryMasterGRN, InventoryMasterIssueSlip
+)
+from .serializers import (
+    InventoryMasterCategorySerializer, 
+    InventoryLocationSerializer, 
+    InventoryItemSerializer,
+    InventoryUnitSerializer,
+    InventoryMasterGRNSerializer,
+    InventoryMasterIssueSlipSerializer
+)
 from core.tenant import get_tenant_from_request
-
 
 class InventoryMasterCategoryViewSet(viewsets.ModelViewSet):
     """
     API endpoint for Inventory Master Category
-    
-    GET /api/inventory/master-categories/ - List all master categories
-    POST /api/inventory/master-categories/ - Create new master category
-    GET /api/inventory/master-categories/{id}/ - Get master category details
-    PUT /api/inventory/master-categories/{id}/ - Update master category
-    DELETE /api/inventory/master-categories/{id}/ - Delete master category
     """
     serializer_class = InventoryMasterCategorySerializer
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
         tenant_id = get_tenant_from_request(self.request)
-        return InventoryMasterCategory.objects.filter(
-            tenant_id=tenant_id,
-            is_active=True
-        )
+        return InventoryMasterCategory.objects.filter(tenant_id=tenant_id, is_active=True)
     
     def perform_create(self, serializer):
         tenant_id = get_tenant_from_request(self.request)
         serializer.save(tenant_id=tenant_id)
-    
+
     def destroy(self, request, *args, **kwargs):
-        """Soft delete master category"""
+        """Soft delete"""
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class InventoryLocationViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for Inventory Location
+    """
+    serializer_class = InventoryLocationSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        tenant_id = get_tenant_from_request(self.request)
+        return InventoryLocation.objects.filter(tenant_id=tenant_id)
+    
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)
+
+
+class InventoryItemViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for Inventory Items
+    """
+    serializer_class = InventoryItemSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        tenant_id = get_tenant_from_request(self.request)
+        return InventoryItem.objects.filter(tenant_id=tenant_id, is_active=True)
+    
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)
+
+    def destroy(self, request, *args, **kwargs):
+        """Soft delete"""
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class InventoryUnitViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for Inventory Units
+    """
+    serializer_class = InventoryUnitSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Units might be global or tenant specific. Assuming tenant specific for now or global if no tenant_id
+        # Actually InventoryUnit model doesn't have tenant_id in the simple version I saw, but BaseModel has.
+        # Let's assume BaseModel usage.
+        tenant_id = get_tenant_from_request(self.request)
+        if tenant_id:
+            return InventoryUnit.objects.filter(tenant_id=tenant_id, is_active=True)
+        return InventoryUnit.objects.filter(is_active=True)
+
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        if tenant_id:
+            serializer.save(tenant_id=tenant_id)
+        else:
+             serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        """Soft delete"""
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class InventoryMasterGRNViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for Inventory Master GRN
+    """
+    serializer_class = InventoryMasterGRNSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        tenant_id = get_tenant_from_request(self.request)
+        return InventoryMasterGRN.objects.filter(tenant_id=tenant_id, is_active=True)
+
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)
+
+    def destroy(self, request, *args, **kwargs):
+        """Soft delete"""
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class InventoryMasterIssueSlipViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for Inventory Master Issue Slip
+    """
+    serializer_class = InventoryMasterIssueSlipSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        tenant_id = get_tenant_from_request(self.request)
+        return InventoryMasterIssueSlip.objects.filter(tenant_id=tenant_id, is_active=True)
+
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)
+
+    def destroy(self, request, *args, **kwargs):
+        """Soft delete"""
         instance = self.get_object()
         instance.is_active = False
         instance.save()

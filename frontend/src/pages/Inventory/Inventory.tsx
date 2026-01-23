@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { httpClient } from '../../services/httpClient';
+import { apiService } from '../../services/api';
 import { InventoryCategoryWizard } from '../../components/InventoryCategoryWizard';
 import CategoryHierarchicalDropdown from '../../components/CategoryHierarchicalDropdown';
 
@@ -120,14 +121,66 @@ const InventoryPage: React.FC = () => {
   const [selectedIssueSlipSeries, setSelectedIssueSlipSeries] = useState<any>(null);
   const [loadingIssueSlipSeries, setLoadingIssueSlipSeries] = useState(false);
 
+  // --- API Functions for Series ---
+  const fetchGrnSeries = async () => {
+    try {
+      setLoadingGrnSeries(true);
+      const response = await apiService.getGRNSeries();
+      const mapped = Array.isArray(response) ? response.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        grnType: item.grn_type,
+        prefix: item.prefix,
+        suffix: item.suffix,
+        year: item.year,
+        requiredDigits: item.required_digits,
+        preview: item.preview,
+        original: item
+      })) : [];
+      setGrnSeriesList(mapped);
+    } catch (error) {
+      console.error('Error fetching GRN series:', error);
+    } finally {
+      setLoadingGrnSeries(false);
+    }
+  };
+
+  const fetchIssueSlipSeries = async () => {
+    try {
+      setLoadingIssueSlipSeries(true);
+      const response = await apiService.getIssueSlipSeries();
+      const mapped = Array.isArray(response) ? response.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        issueSlipType: item.issue_slip_type,
+        prefix: item.prefix,
+        suffix: item.suffix,
+        year: item.year,
+        requiredDigits: item.required_digits,
+        preview: item.preview,
+        original: item
+      })) : [];
+      setIssueSlipSeriesList(mapped);
+    } catch (error) {
+      console.error('Error fetching Issue Slip series:', error);
+    } finally {
+      setLoadingIssueSlipSeries(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'Master') {
+      if (activeMasterSubTab === 'GRN & Issue Slip') {
+        if (activeGRNIssueSlipSubTab === 'GRN') fetchGrnSeries();
+        if (activeGRNIssueSlipSubTab === 'Issue Slip') fetchIssueSlipSeries();
+      }
+    }
+  }, [activeTab, activeMasterSubTab, activeGRNIssueSlipSubTab]);
+
   // --- Inventory Items State ---
   const [selectedItemDetail, setSelectedItemDetail] = useState<any>(null);
   const [itemSearchQuery2, setItemSearchQuery2] = useState('');
-  const [inventoryItems, setInventoryItems] = useState<any[]>([
-    { id: 1, itemCode: 'IT001', itemName: 'Product A', category: 'Electronics', hsnCode: '8471', gstRate: '18%', uom: 'Nos', rate: 1500 },
-    { id: 2, itemCode: 'IT002', itemName: 'Product B', category: 'Furniture', hsnCode: '9403', gstRate: '18%', uom: 'Nos', rate: 5000 },
-    { id: 3, itemCode: 'IT003', itemName: 'Product C', category: 'Textiles', hsnCode: '6204', gstRate: '5%', uom: 'Mtr', rate: 250 },
-  ]);
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [editFormData, setEditFormData] = useState<any>(null);
   const [isVendorSpecificItemCode, setIsVendorSpecificItemCode] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
@@ -288,7 +341,9 @@ const InventoryPage: React.FC = () => {
         state: locState,
         pincode: locPincode,
         country: 'India',
-        gstin: locationGstin || null
+        gstin: locationGstin || null,
+        vendor_name: vendorName || null,
+        customer_name: customerName || null
       };
 
       if (isEditModeLocation && selectedLocation) {
@@ -362,6 +417,34 @@ const InventoryPage: React.FC = () => {
     setSelectedLocation(null);
   };
 
+  const fetchInventoryItems = async () => {
+    try {
+      const response = await httpClient.get('/api/inventory/items/');
+      // Map API response to frontend format if needed
+      if (Array.isArray(response)) {
+        const mappedItems = response.map((item: any) => ({
+          ...item,
+          itemCode: item.item_code,
+          itemName: item.item_name,
+          category: item.category_path || item.category, // Display path if avaiable
+          categoryPath: item.category_path,
+          categoryId: item.category,
+          hsnCode: item.hsn_code,
+          gstRate: item.gst_rate,
+          uom: item.uom,
+          rate: item.rate
+        }));
+        setInventoryItems(mappedItems);
+      }
+    } catch (error) {
+      console.error('Error fetching inventory items:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchInventoryItems();
+  }, []);
+
   // Handlers - Items
   const handleItemSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -415,36 +498,81 @@ const InventoryPage: React.FC = () => {
     setIsEditModeItem(true);
   };
 
-  const handleDeleteItem = (itemId: number) => {
+  const handleDeleteItem = async (itemId: number) => {
     if (window.confirm('Are you sure you want to delete this item?')) {
-      setInventoryItems(inventoryItems.filter(item => item.id !== itemId));
-      if (selectedItemDetail?.id === itemId) {
-        setSelectedItemDetail(null);
+      try {
+        await httpClient.delete(`/api/inventory/items/${itemId}/`);
+        fetchInventoryItems();
+        if (selectedItemDetail?.id === itemId) {
+          setSelectedItemDetail(null);
+        }
+      } catch (error) {
+        console.error('Error deleting item:', error);
+        alert('Error deleting item');
       }
     }
   };
 
   const handleEditItemOpen = (item: any) => {
-    setEditFormData({ ...item, isEditMode: true });
+    // Ensure all fields are mapped correctly for editing
+    setEditFormData({
+      ...item,
+      isEditMode: true,
+      category: item.categoryId || item.category, // Ensure ID is used
+      altUnit: item.alternate_uom || item.altUnit,
+      conversionFactor: item.conversion_factor || item.conversionFactor,
+      reorderLevel: item.reorder_level || item.reorderLevel,
+      isSaleable: item.is_saleable || item.isSaleable,
+      vendorName: item.vendor_specific_name || item.vendorName,
+      vendorSuffix: item.vendor_specific_suffix || item.vendorSuffix
+    });
     setSelectedItemDetail({ ...item, isEditMode: true });
+    setIsVendorSpecificItemCode(item.is_vendor_specific || false);
   };
 
-  const handleSaveItem = () => {
-    if (editFormData?.id) {
-      // Update existing item
-      setInventoryItems(inventoryItems.map(item =>
-        item.id === editFormData.id ? { ...editFormData } : item
-      ));
-    } else {
-      // Create new item
-      const newItem = {
-        ...editFormData,
-        id: Math.max(...inventoryItems.map(i => i.id), 0) + 1
+  const handleSaveItem = async () => {
+    try {
+      const data = {
+        item_code: editFormData.itemCode,
+        item_name: editFormData.itemName,
+        description: editFormData.description,
+        category: editFormData.category,
+        category_path: editFormData.categoryPath,
+        subgroup: editFormData.subgroup || null,
+
+        is_vendor_specific: isVendorSpecificItemCode,
+        vendor_specific_name: isVendorSpecificItemCode ? editFormData.vendorName : null,
+        vendor_specific_suffix: isVendorSpecificItemCode ? editFormData.vendorSuffix : null,
+
+        uom: editFormData.uom,
+        alternate_uom: editFormData.altUnit || null,
+        conversion_factor: editFormData.conversionFactor || null,
+
+        rate: editFormData.rate || 0,
+        rate_unit: editFormData.uom,
+
+        hsn_code: editFormData.hsnCode,
+        gst_rate: editFormData.gstRate,
+
+        reorder_level: editFormData.reorderLevel || null,
+        is_saleable: editFormData.isSaleable || false
       };
-      setInventoryItems([...inventoryItems, newItem]);
+
+      if (editFormData.id) {
+        await httpClient.put(`/api/inventory/items/${editFormData.id}/`, data);
+      } else {
+        await httpClient.post('/api/inventory/items/', data);
+      }
+
+      await fetchInventoryItems();
+      setSelectedItemDetail(null);
+      setEditFormData(null);
+      setIsVendorSpecificItemCode(false);
+    } catch (error: any) {
+      console.error('Error saving item:', error);
+      const errorMsg = error.response?.data ? JSON.stringify(error.response.data) : 'Error saving item';
+      alert(errorMsg);
     }
-    setSelectedItemDetail(null);
-    setEditFormData(null);
   };
 
   const handleFormChange = (field: string, value: any) => {
@@ -1959,6 +2087,8 @@ const InventoryPage: React.FC = () => {
                       <input
                         type="text"
                         placeholder="Enter vendor name"
+                        value={editFormData?.vendorName || ''}
+                        onChange={(e) => handleFormChange('vendorName', e.target.value)}
                         readOnly={!selectedItemDetail.isNew && !selectedItemDetail.isEditMode}
                         className="w-full px-4 py-2 border-2 border-teal-400 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
@@ -1968,6 +2098,8 @@ const InventoryPage: React.FC = () => {
                       <input
                         type="text"
                         placeholder="Enter suffix"
+                        value={editFormData?.vendorSuffix || ''}
+                        onChange={(e) => handleFormChange('vendorSuffix', e.target.value)}
                         readOnly={!selectedItemDetail.isNew && !selectedItemDetail.isEditMode}
                         className="w-full px-4 py-2 border-2 border-teal-400 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
@@ -1998,6 +2130,8 @@ const InventoryPage: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Alternate Unit</label>
                     <select
+                      value={editFormData?.altUnit || ''}
+                      onChange={(e) => handleFormChange('altUnit', e.target.value)}
                       placeholder="Enter alternate unit"
                       disabled={!editFormData?.isNew && !editFormData?.isEditMode}
                       className="w-full px-4 py-2 border-2 border-teal-400 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -2017,13 +2151,17 @@ const InventoryPage: React.FC = () => {
                     <input
                       type="text"
                       placeholder="1 UOM"
+                      value="1"
+                      readOnly
                       disabled={!editFormData?.isNew && !editFormData?.isEditMode}
-                      className="flex-1 px-4 py-2 border-2 border-teal-400 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="flex-1 px-4 py-2 border-2 border-teal-400 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed bg-gray-50"
                     />
                     <span className="text-xl font-bold text-gray-700">=</span>
                     <input
                       type="text"
                       placeholder="? Alternate Unit"
+                      value={editFormData?.conversionFactor || ''}
+                      onChange={(e) => handleFormChange('conversionFactor', e.target.value)}
                       disabled={!editFormData?.isNew && !editFormData?.isEditMode}
                       className="flex-1 px-4 py-2 border-2 border-teal-400 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
@@ -2081,12 +2219,19 @@ const InventoryPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Reorder Level</label>
                   <input
                     type="text"
+                    value={editFormData?.reorderLevel || ''}
+                    onChange={(e) => handleFormChange('reorderLevel', e.target.value)}
                     placeholder="For Raw Material, Stock-in-trade, Stores & Spares, Packing Material"
                     className="w-full px-4 py-2 border-2 border-teal-400 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
                 <label className="flex items-center">
-                  <input type="checkbox" className="h-4 w-4 text-teal-600 rounded" />
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 text-teal-600 rounded"
+                    checked={editFormData?.isSaleable || false}
+                    onChange={(e) => handleFormChange('isSaleable', e.target.checked)}
+                  />
                   <span className="ml-2 text-sm font-medium text-gray-700">Saleable Item → for Work-in-Progress</span>
                 </label>
               </div>
@@ -2126,41 +2271,35 @@ const InventoryPage: React.FC = () => {
     }
 
     try {
+      if (parseInt(grnRequiredDigits) > 20) {
+        alert('Required digits cannot exceed 20');
+        return;
+      }
+
       // Generate preview
       const paddedNumber = '0001'.padStart(parseInt(grnRequiredDigits), '0');
-      const preview = grnPrefix + paddedNumber + grnSuffix;
+      const preview = (grnPrefix || '') + paddedNumber + (grnSuffix || '');
+
+      if (preview.length > 255) {
+        alert('Generated preview exceeds maximum length of 255 characters. Please shorten prefix, suffix or digits.');
+        return;
+      }
+
+      const data = {
+        name: grnSeriesName,
+        grn_type: grnType,
+        prefix: grnPrefix,
+        suffix: grnSuffix,
+        year: grnYear,
+        required_digits: parseInt(grnRequiredDigits),
+        preview: preview
+      };
 
       if (isEditModeGRNSeries && selectedGrnSeries) {
-        // Update existing series
-        setGrnSeriesList(grnSeriesList.map(s =>
-          s.id === selectedGrnSeries.id
-            ? {
-              ...s,
-              name: grnSeriesName,
-              grnType: grnType,
-              prefix: grnPrefix,
-              suffix: grnSuffix,
-              year: grnYear,
-              requiredDigits: grnRequiredDigits,
-              preview: preview
-            }
-            : s
-        ));
+        await apiService.saveGRNSeries({ ...data, id: selectedGrnSeries.id });
         alert('GRN Series updated successfully!');
       } else {
-        // Create new series
-        const newSeries = {
-          id: Date.now(),
-          name: grnSeriesName,
-          grnType: grnType,
-          prefix: grnPrefix,
-          suffix: grnSuffix,
-          year: grnYear,
-          requiredDigits: grnRequiredDigits,
-          preview: preview
-        };
-
-        setGrnSeriesList([...grnSeriesList, newSeries]);
+        await apiService.saveGRNSeries(data);
         alert('GRN Series created successfully!');
       }
 
@@ -2174,9 +2313,11 @@ const InventoryPage: React.FC = () => {
       setGrnPreview('');
       setIsEditModeGRNSeries(false);
       setSelectedGrnSeries(null);
-    } catch (error) {
+      fetchGrnSeries();
+    } catch (error: any) {
       console.error('Error saving GRN Series:', error);
-      alert('Error saving GRN Series');
+      const errorMsg = error.response?.data?.preview ? `Preview Error: ${error.response.data.preview[0]}` : 'Error saving GRN Series';
+      alert(errorMsg);
     }
   };
 
@@ -2343,18 +2484,16 @@ const InventoryPage: React.FC = () => {
                             ✎ Edit
                           </button>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               if (window.confirm('Are you sure you want to delete this GRN Series?')) {
-                                setGrnSeriesList(grnSeriesList.filter(s => s.id !== series.id));
-                                setSelectedGrnSeries(null);
-                                setGrnSeriesName('');
-                                setGrnType('');
-                                setGrnPrefix('');
-                                setGrnSuffix('');
-                                setGrnYear('');
-                                setGrnRequiredDigits('');
-                                setIsEditModeGRNSeries(false);
-                                alert('GRN Series deleted successfully!');
+                                try {
+                                  await apiService.deleteGRNSeries(series.id);
+                                  alert('GRN Series deleted successfully!');
+                                  fetchGrnSeries();
+                                } catch (error) {
+                                  console.error('Error deleting GRN series:', error);
+                                  alert('Error deleting GRN series');
+                                }
                               }
                             }}
                             className="text-white bg-red-600 px-3 py-1 rounded text-xs hover:bg-red-700"
@@ -2383,41 +2522,35 @@ const InventoryPage: React.FC = () => {
     }
 
     try {
+      if (parseInt(issueSlipRequiredDigits) > 20) {
+        alert('Required digits cannot exceed 20');
+        return;
+      }
+
       // Generate preview
       const paddedNumber = '0001'.padStart(parseInt(issueSlipRequiredDigits), '0');
-      const preview = issueSlipPrefix + paddedNumber + issueSlipSuffix;
+      const preview = (issueSlipPrefix || '') + paddedNumber + (issueSlipSuffix || '');
+
+      if (preview.length > 255) {
+        alert('Generated preview exceeds maximum length of 255 characters. Please shorten prefix, suffix or digits.');
+        return;
+      }
+
+      const data = {
+        name: issueSlipSeriesName,
+        issue_slip_type: issueSlipType,
+        prefix: issueSlipPrefix,
+        suffix: issueSlipSuffix,
+        year: issueSlipYear,
+        required_digits: parseInt(issueSlipRequiredDigits),
+        preview: preview
+      };
 
       if (isEditModeIssueSlipSeries && selectedIssueSlipSeries) {
-        // Update existing series
-        setIssueSlipSeriesList(issueSlipSeriesList.map(s =>
-          s.id === selectedIssueSlipSeries.id
-            ? {
-              ...s,
-              name: issueSlipSeriesName,
-              issueSlipType: issueSlipType,
-              prefix: issueSlipPrefix,
-              suffix: issueSlipSuffix,
-              year: issueSlipYear,
-              requiredDigits: issueSlipRequiredDigits,
-              preview: preview
-            }
-            : s
-        ));
+        await apiService.saveIssueSlipSeries({ ...data, id: selectedIssueSlipSeries.id });
         alert('Issue Slip Series updated successfully!');
       } else {
-        // Create new series
-        const newSeries = {
-          id: Date.now(),
-          name: issueSlipSeriesName,
-          issueSlipType: issueSlipType,
-          prefix: issueSlipPrefix,
-          suffix: issueSlipSuffix,
-          year: issueSlipYear,
-          requiredDigits: issueSlipRequiredDigits,
-          preview: preview
-        };
-
-        setIssueSlipSeriesList([...issueSlipSeriesList, newSeries]);
+        await apiService.saveIssueSlipSeries(data);
         alert('Issue Slip Series created successfully!');
       }
 
@@ -2431,9 +2564,11 @@ const InventoryPage: React.FC = () => {
       setIssueSlipPreview('');
       setIsEditModeIssueSlipSeries(false);
       setSelectedIssueSlipSeries(null);
-    } catch (error) {
+      fetchIssueSlipSeries();
+    } catch (error: any) {
       console.error('Error saving Issue Slip Series:', error);
-      alert('Error saving Issue Slip Series');
+      const errorMsg = error.response?.data?.preview ? `Preview Error: ${error.response.data.preview[0]}` : 'Error saving Issue Slip Series';
+      alert(errorMsg);
     }
   };
 
@@ -2600,18 +2735,16 @@ const InventoryPage: React.FC = () => {
                             ✎ Edit
                           </button>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               if (window.confirm('Are you sure you want to delete this Issue Slip Series?')) {
-                                setIssueSlipSeriesList(issueSlipSeriesList.filter(s => s.id !== series.id));
-                                setSelectedIssueSlipSeries(null);
-                                setIssueSlipSeriesName('');
-                                setIssueSlipType('');
-                                setIssueSlipPrefix('');
-                                setIssueSlipSuffix('');
-                                setIssueSlipYear('');
-                                setIssueSlipRequiredDigits('');
-                                setIsEditModeIssueSlipSeries(false);
-                                alert('Issue Slip Series deleted successfully!');
+                                try {
+                                  await apiService.deleteIssueSlipSeries(series.id);
+                                  alert('Issue Slip Series deleted successfully!');
+                                  fetchIssueSlipSeries();
+                                } catch (error) {
+                                  console.error('Error deleting Issue Slip series:', error);
+                                  alert('Error deleting Issue Slip series');
+                                }
                               }
                             }}
                             className="text-white bg-red-600 px-3 py-1 rounded text-xs hover:bg-red-700"
