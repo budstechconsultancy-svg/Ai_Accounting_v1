@@ -16,6 +16,7 @@ interface DropdownProps {
     excludeId?: number;
     placeholder?: string;
     className?: string;
+    onlyRoots?: boolean;
 }
 
 const CategoryHierarchicalDropdown: React.FC<DropdownProps> = ({
@@ -23,7 +24,8 @@ const CategoryHierarchicalDropdown: React.FC<DropdownProps> = ({
     value = '',
     excludeId,
     placeholder = 'Select Category',
-    className = ''
+    className = '',
+    onlyRoots = false
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -44,16 +46,41 @@ const CategoryHierarchicalDropdown: React.FC<DropdownProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Default system categories to ensure they always appear
+    const DEFAULT_CATS = [
+        'Raw Material', 'Work in Progress', 'Finished Goods',
+        'Stores and Spares', 'Packing Material', 'Stock in Trade',
+        'By-product', 'Scrap'
+    ];
+
     const fetchCategories = async () => {
         try {
             setLoading(true);
             const data = await httpClient.get<Category[]>('/api/inventory/master-categories/');
-            // Process data to add full_path if missing
-            const processed = data.map(c => ({
+
+            // 1. Process API data
+            let processed = data.map(c => ({
                 ...c,
                 full_path: [c.category, c.group, c.subgroup].filter(Boolean).join(' > ')
             }));
-            setCategories(processed);
+
+            // 2. Ensure Default Categories exist (if missing from API)
+            // This mirrors the InventoryCategoryWizard logic
+            const existingNames = new Set(processed.map(c => c.category)); // Check top-level names
+
+            let idCounter = 10000; // Temp IDs for defaults
+            const missingDefaults = DEFAULT_CATS.filter(name => !existingNames.has(name)).map(name => ({
+                id: idCounter++,
+                category: name,
+                group: null,
+                subgroup: null,
+                is_active: true,
+                full_path: name
+            }));
+
+            // 3. Combine API data + Missing Defaults
+            setCategories([...missingDefaults, ...processed]);
+
         } catch (error) {
             console.error('Error fetching categories:', error);
             // Fallback mock data
@@ -64,6 +91,8 @@ const CategoryHierarchicalDropdown: React.FC<DropdownProps> = ({
                 { id: 4, category: 'Stores and Spares', is_active: true, group: null, subgroup: null, full_path: 'Stores and Spares' },
                 { id: 5, category: 'Packing Material', is_active: true, group: null, subgroup: null, full_path: 'Packing Material' },
                 { id: 6, category: 'Stock in Trade', is_active: true, group: null, subgroup: null, full_path: 'Stock in Trade' },
+                { id: 7, category: 'By-product', is_active: true, group: null, subgroup: null, full_path: 'By-product' },
+                { id: 8, category: 'Scrap', is_active: true, group: null, subgroup: null, full_path: 'Scrap' },
             ];
             setCategories(mockCategories);
         } finally {
@@ -74,6 +103,9 @@ const CategoryHierarchicalDropdown: React.FC<DropdownProps> = ({
     const filteredCategories = categories.filter(cat => {
         // Exclude specific ID if needed (for editing parent)
         if (excludeId && cat.id === excludeId) return false;
+
+        // NEW: Filter for only roots (top-level categories) if requested
+        if (onlyRoots && cat.group) return false;
 
         // Search filter
         if (searchQuery) {

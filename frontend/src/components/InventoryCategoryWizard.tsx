@@ -39,7 +39,9 @@ const DEFAULT_SYSTEM_CATEGORIES = [
     'Finished Goods',
     'Stores and Spares',
     'Packing Material',
-    'Stock in Trade'
+    'Stock in Trade',
+    'By-product',
+    'Scrap'
 ];
 
 const DEFAULT_GROUPS_DATA = [
@@ -121,49 +123,52 @@ export const InventoryCategoryWizard: React.FC<InventoryCategoryWizardProps> = (
             };
 
             // Add default groups and subgroups to each system category
-            defaultGroups.forEach(groupData => {
-                const groupNode: TreeNode = {
-                    id: `group-${catName}-${groupData.name}`,
-                    name: groupData.name,
-                    children: [],
-                    level: 1,
-                    isSystem: true,
-                    data: { category: catName, group: groupData.name, subgroup: null }
-                };
+            // EXCEPTION: 'By-product' and 'Scrap' should NOT have default groups
+            if (catName !== 'By-product' && catName !== 'Scrap') {
+                defaultGroups.forEach(groupData => {
+                    const groupNode: TreeNode = {
+                        id: `group-${catName}-${groupData.name}`,
+                        name: groupData.name,
+                        children: [],
+                        level: 1,
+                        isSystem: true,
+                        data: { category: catName, group: groupData.name, subgroup: null }
+                    };
 
-                // Logic for adding subgroups
-                // If this is the specific 'Inventory' case with 'Stores and Spares', keep original logic
-                if (catName === 'Stores and Spares' && defaultGroups === DEFAULT_GROUPS_DATA) {
-                    groupData.subgroups.forEach(subgroupName => {
-                        const subgroupNode: TreeNode = {
-                            id: `sub-${catName}-${groupData.name}-${subgroupName}`,
-                            name: subgroupName,
-                            children: [],
-                            level: 2,
-                            isSystem: true,
-                            data: { category: catName, group: groupData.name, subgroup: subgroupName }
-                        };
-                        groupNode.children.push(subgroupNode);
-                    });
-                }
-                // If custom groups are provided (not the default inventory ones), we apply subgroups to ALL categories
-                // This allows other modules (like Customer) to have subgroups for all their categories if defined
-                else if (defaultGroups !== DEFAULT_GROUPS_DATA && groupData.subgroups && groupData.subgroups.length > 0) {
-                    groupData.subgroups.forEach(subgroupName => {
-                        const subgroupNode: TreeNode = {
-                            id: `sub-${catName}-${groupData.name}-${subgroupName}`,
-                            name: subgroupName,
-                            children: [],
-                            level: 2,
-                            isSystem: true,
-                            data: { category: catName, group: groupData.name, subgroup: subgroupName }
-                        };
-                        groupNode.children.push(subgroupNode);
-                    });
-                }
+                    // Logic for adding subgroups
+                    // If this is the specific 'Inventory' case with 'Stores and Spares', keep original logic
+                    if (catName === 'Stores and Spares' && defaultGroups === DEFAULT_GROUPS_DATA) {
+                        groupData.subgroups.forEach(subgroupName => {
+                            const subgroupNode: TreeNode = {
+                                id: `sub-${catName}-${groupData.name}-${subgroupName}`,
+                                name: subgroupName,
+                                children: [],
+                                level: 2,
+                                isSystem: true,
+                                data: { category: catName, group: groupData.name, subgroup: subgroupName }
+                            };
+                            groupNode.children.push(subgroupNode);
+                        });
+                    }
+                    // If custom groups are provided (not the default inventory ones), we apply subgroups to ALL categories
+                    // This allows other modules (like Customer) to have subgroups for all their categories if defined
+                    else if (defaultGroups !== DEFAULT_GROUPS_DATA && groupData.subgroups && groupData.subgroups.length > 0) {
+                        groupData.subgroups.forEach(subgroupName => {
+                            const subgroupNode: TreeNode = {
+                                id: `sub-${catName}-${groupData.name}-${subgroupName}`,
+                                name: subgroupName,
+                                children: [],
+                                level: 2,
+                                isSystem: true,
+                                data: { category: catName, group: groupData.name, subgroup: subgroupName }
+                            };
+                            groupNode.children.push(subgroupNode);
+                        });
+                    }
 
-                categoryNode.children.push(groupNode);
-            });
+                    categoryNode.children.push(groupNode);
+                });
+            }
 
             rootMap.set(catName, categoryNode);
         });
