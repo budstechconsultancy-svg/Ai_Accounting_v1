@@ -1,17 +1,15 @@
 from django.db import models
-from django.utils import timezone
 from core.models import BaseModel
-
 
 class InventoryMasterCategory(BaseModel):
     """
     Inventory Master Category Model
     Stores the master category hierarchy (Category -> Group -> Subgroup)
-    This is a flat lookup table for category definitions
     """
     category = models.CharField(
         max_length=255, 
-        help_text="Top-level category (e.g., RAW MATERIAL, Finished goods)"
+        help_text="Top-level category (e.g., RAW MATERIAL, Finished goods)",
+        default="General"
     )
     group = models.CharField(
         max_length=255,
@@ -43,11 +41,6 @@ class InventoryMasterCategory(BaseModel):
         if self.subgroup:
             parts.append(self.subgroup)
         return " > ".join(parts)
-    
-    @property
-    def full_path(self):
-        """Get full category path"""
-        return str(self)
 
 
 class InventoryLocation(BaseModel):
@@ -55,19 +48,11 @@ class InventoryLocation(BaseModel):
     Inventory Location Model
     Stores warehouse/storage locations
     """
-    LOCATION_TYPES = [
-        ('warehouse', 'Warehouse'),
-        ('store', 'Store'),
-        ('godown', 'Godown'),
-        ('factory', 'Factory'),
-        ('office', 'Office'),
-        ('other', 'Other'),
-    ]
-    
-    name = models.CharField(max_length=255, help_text="Location name")
+    name = models.CharField(max_length=255, help_text="Location name", default="Main Location")
     location_type = models.CharField(
         max_length=50,
-        help_text="Type of location (predefined or custom)"
+        help_text="Type of location (predefined or custom)",
+        default='warehouse'
     )
     
     # Detailed Address Fields
@@ -79,27 +64,77 @@ class InventoryLocation(BaseModel):
     country = models.CharField(max_length=100, default='India', help_text="Country")
     pincode = models.CharField(max_length=20, default='', help_text="Pincode/Zip Code")
     
+    vendor_name = models.CharField(max_length=255, null=True, blank=True, help_text="Vendor/Agent Name")
+    customer_name = models.CharField(max_length=255, null=True, blank=True, help_text="Customer Name")
+    
     gstin = models.CharField(
         max_length=15,
         null=True,
         blank=True,
         help_text="GSTIN"
     )
+    
+    class Meta:
+        db_table = 'inventory_master_location'
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['tenant_id', 'name']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} ({self.location_type})"
 
-class InventoryStockGroup(BaseModel):
-    name = models.CharField(max_length=255)
-    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='children')
+
+class InventoryItem(BaseModel):
+    """
+    Inventory Item Model
+    Stores individual inventory items/products
+    """
+    item_code = models.CharField(max_length=100, help_text="Item Code", default="ITEM000")
+    item_name = models.CharField(max_length=255, help_text="Item Name", default="New Item")
+    description = models.TextField(null=True, blank=True, help_text="Item Description")
+    
+    # Category Links
+    category = models.ForeignKey(InventoryMasterCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='items')
+    category_path = models.CharField(max_length=500, null=True, blank=True, help_text="Full category path display")
+    subgroup = models.ForeignKey(InventoryMasterCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='subgroup_items')
+    
+    # Vendor Specific
+    is_vendor_specific = models.BooleanField(default=False)
+    vendor_specific_name = models.CharField(max_length=255, null=True, blank=True)
+    vendor_specific_suffix = models.CharField(max_length=50, null=True, blank=True)
+    
+    # Units
+    uom = models.CharField(max_length=50, help_text="Unit of Measure", default="nos")
+    alternate_uom = models.CharField(max_length=50, null=True, blank=True)
+    conversion_factor = models.DecimalField(max_digits=15, decimal_places=4, null=True, blank=True)
+    
+    # Pricing & Tax
+    rate = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    rate_unit = models.CharField(max_length=50, null=True, blank=True)
+    hsn_code = models.CharField(max_length=20, null=True, blank=True)
+    gst_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    
+    # Other
+    reorder_level = models.CharField(max_length=255, null=True, blank=True)
+    is_saleable = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        db_table = 'inventory_stock_group'
+        db_table = 'inventory_master_inventoryitems'
+        ordering = ['item_name']
+        indexes = [
+            models.Index(fields=['tenant_id', 'item_code']),
+            models.Index(fields=['category']),
+        ]
 
     def __str__(self):
-        return self.name
+        return f"{self.item_code} - {self.item_name}"
+
 
 class InventoryUnit(BaseModel):
-    name = models.CharField(max_length=100)  # e.g. Kilogram
-    symbol = models.CharField(max_length=50) # e.g. kg
+    name = models.CharField(max_length=100, default="Number")  # e.g. Kilogram
+    symbol = models.CharField(max_length=50, default="nos") # e.g. kg
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -108,47 +143,46 @@ class InventoryUnit(BaseModel):
     def __str__(self):
         return f"{self.name} ({self.symbol})"
 
-class InventoryStockItem(BaseModel):
-    name = models.CharField(max_length=255)
-    group = models.ForeignKey(InventoryStockGroup, on_delete=models.PROTECT, related_name='items', null=True, blank=True)
-    unit = models.ForeignKey(InventoryUnit, on_delete=models.PROTECT, related_name='items', null=True, blank=True)
-    
-    # Pricing
-    standard_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0) # Purchase Rate
-    standard_price = models.DecimalField(max_digits=12, decimal_places=2, default=0) # Selling Rate
-    
-    # Taxation
-    hsn_code = models.CharField(max_length=20, blank=True, null=True)
-    gst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    
-    # Opening Balance
-    opening_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    opening_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    opening_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+class InventoryMasterGRN(BaseModel):
+    """
+    GRN (Goods Receipt Note) Master Configuration.
+    """
+    name = models.CharField(max_length=255, help_text="GRN Series Name", default="GRN Series")
+    grn_type = models.CharField(max_length=100, help_text="GRN Type (job_work, purchase, import, other)", default="other")
+    prefix = models.CharField(max_length=50, null=True, blank=True)
+    suffix = models.CharField(max_length=50, null=True, blank=True)
+    year = models.CharField(max_length=4, help_text="Year", default="2024")
+    required_digits = models.IntegerField(help_text="Required Digits", default=4)
+    preview = models.CharField(max_length=255, null=True, blank=True)
     
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        db_table = 'inventory_stock_item'
+        db_table = 'inventory_master_grn'
+        ordering = ['name']
 
     def __str__(self):
         return self.name
 
-class StockMovement(BaseModel):
-    item = models.ForeignKey(InventoryStockItem, on_delete=models.CASCADE, related_name='movements')
-    date = models.DateField(default=timezone.now)
+
+class InventoryMasterIssueSlip(BaseModel):
+    """
+    Issue Slip Master Configuration.
+    """
+    name = models.CharField(max_length=255, help_text="Issue Slip Series Name", default="Issue Slip Series")
+    issue_slip_type = models.CharField(max_length=100, help_text="Issue Slip Type (internal_transfer, customer_return, damage, other)", default="other")
+    prefix = models.CharField(max_length=50, null=True, blank=True)
+    suffix = models.CharField(max_length=50, null=True, blank=True)
+    year = models.CharField(max_length=4, help_text="Year", default="2024")
+    required_digits = models.IntegerField(help_text="Required Digits", default=4)
+    preview = models.CharField(max_length=255, null=True, blank=True)
     
-    voucher_type = models.CharField(max_length=50) # Sales, Purchase, etc.
-    voucher_id = models.CharField(max_length=100, blank=True, null=True) # ID of the source voucher
-    
-    quantity = models.DecimalField(max_digits=12, decimal_places=2)
-    rate = models.DecimalField(max_digits=12, decimal_places=2)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    
-    MOVEMENT_TYPES = [('IN', 'In'), ('OUT', 'Out')]
-    direction = models.CharField(max_length=10, choices=MOVEMENT_TYPES)
-    
-    narraration = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
-        db_table = 'inventory_stock_movement'
+        db_table = 'inventory_master_issueslip'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name

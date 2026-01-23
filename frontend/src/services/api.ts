@@ -137,9 +137,7 @@ class ApiService {
         return httpClient.put<{ success: boolean }>(`/api/masters/ledger-groups/${id}/`, data);
     }
 
-    async updateLedgerGroup(id: number, data: Partial<LedgerGroupMaster>) {
-        return httpClient.put<{ success: boolean }>(`/api/masters/ledger-groups/${id}/`, data);
-    }
+
 
     async deleteLedgerGroup(id: number) {
         return httpClient.delete<{ success: boolean }>(`/api/masters/ledger-groups/${id}/`);
@@ -179,6 +177,40 @@ class ApiService {
      */
     async getCashBankLedgers() {
         return httpClient.get<Ledger[]>('/api/masters/ledgers/cash-bank/');
+    }
+
+    // ============================================================================
+    // INVENTORY - VOUCHER SERIES (GRN & ISSUE SLIP)
+    // ============================================================================
+
+    async getGRNSeries() {
+        return httpClient.get<any[]>('/api/inventory/master-voucher-grn/');
+    }
+
+    async saveGRNSeries(data: any) {
+        if (data.id) {
+            return httpClient.put<any>(`/api/inventory/master-voucher-grn/${data.id}/`, data);
+        }
+        return httpClient.post<any>('/api/inventory/master-voucher-grn/', data);
+    }
+
+    async deleteGRNSeries(id: number) {
+        return httpClient.delete<any>(`/api/inventory/master-voucher-grn/${id}/`);
+    }
+
+    async getIssueSlipSeries() {
+        return httpClient.get<any[]>('/api/inventory/master-voucher-issue-slip/');
+    }
+
+    async saveIssueSlipSeries(data: any) {
+        if (data.id) {
+            return httpClient.put<any>(`/api/inventory/master-voucher-issue-slip/${data.id}/`, data);
+        }
+        return httpClient.post<any>('/api/inventory/master-voucher-issue-slip/', data);
+    }
+
+    async deleteIssueSlipSeries(id: number) {
+        return httpClient.delete<any>(`/api/inventory/master-voucher-issue-slip/${id}/`);
     }
 
     // ============================================================================

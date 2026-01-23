@@ -1,17 +1,21 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import InventoryMasterCategoryViewSet
-from .api import (
-    InventoryStockGroupViewSet, InventoryUnitViewSet,
-    InventoryStockItemViewSet, StockMovementViewSet
+from .views import (
+    InventoryMasterCategoryViewSet, 
+    InventoryLocationViewSet,
+    InventoryItemViewSet,
+    InventoryUnitViewSet,
+    InventoryMasterGRNViewSet,
+    InventoryMasterIssueSlipViewSet
 )
 
 router = DefaultRouter()
 router.register('master-categories', InventoryMasterCategoryViewSet, basename='inventory-master-category')
-router.register('stock-groups', InventoryStockGroupViewSet, basename='inventory-stock-group')
+router.register('locations', InventoryLocationViewSet, basename='inventory-location')
+router.register('items', InventoryItemViewSet, basename='inventory-item')
 router.register('units', InventoryUnitViewSet, basename='inventory-unit')
-router.register('stock-items', InventoryStockItemViewSet, basename='inventory-stock-item')
-router.register('stock-movements', StockMovementViewSet, basename='stock-movement')
+router.register('master-voucher-grn', InventoryMasterGRNViewSet, basename='inventory-master-grn')
+router.register('master-voucher-issue-slip', InventoryMasterIssueSlipViewSet, basename='inventory-master-issue-slip')
 
 urlpatterns = [
     path('', include(router.urls)),
