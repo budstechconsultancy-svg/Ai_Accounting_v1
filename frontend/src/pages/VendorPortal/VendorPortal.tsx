@@ -1350,6 +1350,8 @@ const VendorPortalPage: React.FC<VendorPortalProps> = ({ onLogout }) => {
                                 {activeMasterSubTab === 'Category' && (
                                     <InventoryCategoryWizard
                                         apiEndpoint="/api/vendors/categories/"
+                                        allowCreateGroup={false}
+                                        disableGroupCreation={true}
                                         onCreateCategory={async (data) => {
                                             try {
                                                 await httpClient.post('/api/vendors/categories/', {

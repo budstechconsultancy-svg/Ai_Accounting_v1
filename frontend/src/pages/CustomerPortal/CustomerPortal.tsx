@@ -375,6 +375,7 @@ const CategoryContent: React.FC = () => {
     return (
         <InventoryCategoryWizard
             apiEndpoint="/api/customerportal/categories/"
+            allowCreateGroup={false} // Hide Group/Subgroup creation fields at root level
             // Using default system categories and groups (Inventory/Vendor structure) as requested
             onCreateCategory={async (data) => {
                 try {
