@@ -65,6 +65,9 @@ urlpatterns = [
     # Payroll Management
     path('api/payroll/', include('payroll.urls')),
     
+    # Services Management
+    path('api/services/', include('services.urls')),
+    
     # Vouchers - NEW refactored module
     # path('api/', include('vouchers.urls')),  # Commented out - vouchers module being rebuilt
     
