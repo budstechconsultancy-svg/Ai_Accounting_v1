@@ -1352,6 +1352,14 @@ const VendorPortalPage: React.FC<VendorPortalProps> = ({ onLogout }) => {
                                         apiEndpoint="/api/vendors/categories/"
                                         allowCreateGroup={false}
                                         disableGroupCreation={true}
+                                        systemCategories={[
+                                            'Raw Material',
+                                            'Work in Progress',
+                                            'Finished Goods',
+                                            'Stores and Spares',
+                                            'Packing Material',
+                                            'Stock in Trade'
+                                        ]}
                                         onCreateCategory={async (data) => {
                                             try {
                                                 await httpClient.post('/api/vendors/categories/', {
