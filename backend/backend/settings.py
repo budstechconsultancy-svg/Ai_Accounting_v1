@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'vendors',  # Vendor Portal
     'customerportal',  # Customer Portal
     'payroll',  # Payroll Management
+    'services',  # Services Management
     'rest_framework_simplejwt',
     'reports',
 ]

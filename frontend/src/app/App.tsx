@@ -47,6 +47,7 @@ import UsersAndRolesPage from '../pages/UsersAndRoles';   // User management and
 import VendorPortalPage from '../pages/VendorPortal';     // Vendor management portal
 import CustomerPortalPage from '../pages/CustomerPortal'; // Customer management portal
 import PayrollPage from '../pages/Payroll';               // Employee payroll management
+import ServicePage from '../pages/Service';               // Service management page
 import LoginPage from '../pages/Login';                   // User login page
 import SignupPage from '../pages/Register';               // New user registration
 // Additional UI Components
@@ -1050,6 +1051,7 @@ const App: React.FC = () => {
       case 'Vendor Portal': return <VendorPortalPage onLogout={handleLogout} />;
       case 'Customer Portal': return <CustomerPortalPage />;
       case 'Payroll': return <PayrollPage />;
+      case 'Service': return <ServicePage />;
       case 'MassUploadResult': return <MassUploadResultPage
         results={massUploadResult || []}
         onDone={() => { setCurrentPage('Vouchers'); setMassUploadResult(null); }}

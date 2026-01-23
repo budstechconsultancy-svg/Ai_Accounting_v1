@@ -34,7 +34,7 @@
  * Page - Defines all possible pages/sections in the application
  * Used for routing and navigation
  */
-export type Page = 'Dashboard' | 'Masters' | 'Inventory' | 'Vouchers' | 'Reports' | 'Settings' | 'MassUploadResult' | 'Vendor Portal' | 'Customer Portal' | 'Payroll';
+export type Page = 'Dashboard' | 'Masters' | 'Inventory' | 'Vouchers' | 'Reports' | 'Settings' | 'MassUploadResult' | 'Vendor Portal' | 'Customer Portal' | 'Payroll' | 'Service';
 
 // ============================================================================
 // COMPANY & SETTINGS TYPES

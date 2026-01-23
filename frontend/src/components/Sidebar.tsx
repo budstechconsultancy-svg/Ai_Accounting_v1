@@ -67,6 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, onLogout, co
     { name: 'Vendor Portal', icon: <Icon name="users" /> },
     { name: 'Customer Portal', icon: <Icon name="users" /> },
     { name: 'Payroll', icon: <Icon name="users" /> },
+    { name: 'Service', icon: <Icon name="users" /> },
     { name: 'Reports', icon: <Icon name="reports" />, role: 'REPORTS' },
     { name: 'Settings', icon: <Icon name="settings" />, role: 'SETTINGS' },
   ];

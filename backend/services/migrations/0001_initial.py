@@ -1,0 +1,37 @@
+# Generated migration file for services app
+
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='Service',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('service_code', models.CharField(db_index=True, help_text='Unique service code identifier', max_length=50, unique=True)),
+                ('service_name', models.CharField(help_text='Service name', max_length=255)),
+                ('service_group', models.CharField(db_index=True, help_text='Service group/category', max_length=100)),
+                ('sac_code', models.CharField(help_text='SAC (Services Accounting Code)', max_length=20)),
+                ('gst_rate', models.DecimalField(decimal_places=2, default=18, help_text='GST rate percentage', max_digits=5)),
+                ('expense_ledger', models.CharField(help_text='Expense ledger account', max_length=255)),
+                ('uom', models.CharField(blank=True, help_text='Unit of Measurement', max_length=50, null=True)),
+                ('description', models.TextField(blank=True, help_text='Service description', null=True)),
+                ('is_active', models.BooleanField(db_index=True, default=True, help_text='Active status of the service')),
+                ('created_at', models.DateTimeField(auto_now_add=True, db_index=True, help_text='Record creation timestamp')),
+                ('updated_at', models.DateTimeField(auto_now=True, help_text='Record last update timestamp')),
+            ],
+            options={
+                'verbose_name': 'Service',
+                'verbose_name_plural': 'Services',
+                'db_table': 'services',
+                'ordering': ['-created_at'],
+            },
+        ),
+    ]
