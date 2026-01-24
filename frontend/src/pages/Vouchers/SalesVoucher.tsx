@@ -1,1398 +1,1792 @@
-import React, { useState, useEffect } from 'react';
-import Icon from '../../components/Icon';
-import { apiService } from '../../services';
+import React, { useState } from 'react';
 
-interface SalesVoucherProps {
-    onClose?: () => void;
-}
-
-interface ReceiptVoucherType {
+interface ItemRow {
     id: number;
-    name: string;
-    code: string;
-    prefix: string;
-    suffix: string;
-    current_number: number;
-    required_digits: number;
-    enable_auto_numbering: boolean;
-
+    itemCode: string;
+    itemName: string;
+    hsnSac: string;
+    qty: string;
+    uom: string;
+    itemRate: string;
+    taxableValue: string;
+    igst: string;
+    cgst: string;
+    cess: string;
+    invoiceValue: string;
+    salesLedger: string;
+    description: string;
 }
 
-interface Customer {
-    id: number;
-    name: string;
-    gstin: string;
-    state: string;
-}
+const SalesVoucher: React.FC = () => {
+    const [activeTab, setActiveTab] = useState('invoice');
 
-interface CustomerAddress {
-    bill_to_address: string;
-    bill_to_gstin: string;
-    bill_to_contact: string;
-    bill_to_state: string;
-    bill_to_country: string;
-    ship_to_address: string;
-    ship_to_state: string;
-    ship_to_country: string;
-}
+    // Invoice Details State
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [salesInvoiceNo, setSalesInvoiceNo] = useState('');
+    const [customerName, setCustomerName] = useState('');
+    const [billTo, setBillTo] = useState('');
+    const [shipTo, setShipTo] = useState('');
+    const [gstin, setGstin] = useState('');
+    const [contact, setContact] = useState('');
+    const [taxType, setTaxType] = useState('');
+    const [stateType, setStateType] = useState<'within' | 'other' | 'export'>('within');
+    const [supportingDocument, setSupportingDocument] = useState<File | null>(null);
 
-const getTodayDate = () => new Date().toISOString().split('T')[0];
-
-const SalesVoucher: React.FC<SalesVoucherProps> = ({ onClose }) => {
-    // Tab state
-    const [currentTab, setCurrentTab] = useState(1);
-
-    // Form state - Invoice Details Tab
-    const [date, setDate] = useState(getTodayDate());
-    const [voucherTypes, setVoucherTypes] = useState<ReceiptVoucherType[]>([]);
-    const [selectedVoucherType, setSelectedVoucherType] = useState<number | null>(null);
-    const [salesInvoiceNumber, setSalesInvoiceNumber] = useState('Auto-generated');
-    const [customers, setCustomers] = useState<Customer[]>([]);
-    const [selectedCustomer, setSelectedCustomer] = useState<number | null>(null);
-    const [customerAddress, setCustomerAddress] = useState<CustomerAddress | null>(null);
-    const [shipToAddress, setShipToAddress] = useState('');
-    const [taxType, setTaxType] = useState<'within_state' | 'other_state' | 'export'>('within_state');
-    const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-
-    // Loading states
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    // Fetch voucher types on mount
-    useEffect(() => {
-        fetchVoucherTypes();
-        fetchCustomers();
-    }, []);
-
-    const fetchVoucherTypes = async () => {
-        try {
-            const types = await apiService.getReceiptVoucherTypes('sales');
-            setVoucherTypes(types);
-
-            // Auto-select if only one type
-            if (types.length === 1) {
-                const firstType = types[0];
-                setSelectedVoucherType(firstType.id);
-
-                // Auto-set invoice number for single type
-                if (firstType.enable_auto_numbering) {
-                    const paddedNum = String(firstType.current_number).padStart(firstType.required_digits, '0');
-                    setSalesInvoiceNumber(`${firstType.prefix || ''}${paddedNum}${firstType.suffix || ''}`);
-                }
-            }
-        } catch (err) {
-            console.error('Error fetching voucher types:', err);
-            setError('Failed to load voucher types');
-        }
-    };
-
-    const fetchCustomers = async () => {
-        try {
-            const customerList = await apiService.getSalesCustomers();
-            setCustomers(customerList);
-        } catch (err) {
-            console.error('Error fetching customers:', err);
-            setError('Failed to load customers');
-        }
-    };
-
-    const handleCustomerChange = async (customerId: number) => {
-        setSelectedCustomer(customerId);
-
-        try {
-            // Fetch customer address
-            const address = await apiService.getCustomerAddress(customerId);
-            setCustomerAddress(address);
-            setShipToAddress(address.ship_to_address);
-
-            // Determine tax type
-            const taxTypeResult = await apiService.determineTaxType(
-                '', // User state will be fetched from company settings in API
-                address.bill_to_state,
-                address.bill_to_country
-            );
-            setTaxType(taxTypeResult.tax_type);
-        } catch (err) {
-            console.error('Error fetching customer address:', err);
-            setError('Failed to load customer address');
-        }
-    };
-
-    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const files = event.target.files;
-        if (!files) return;
-
-        const validFiles: File[] = [];
-        const invalidFiles: string[] = [];
-
-        Array.from(files).forEach((file: File) => {
-            const ext = file.name.split('.').pop()?.toLowerCase();
-            if (ext === 'jpg' || ext === 'jpeg' || ext === 'pdf') {
-                validFiles.push(file);
-            } else {
-                invalidFiles.push(file.name);
-            }
-        });
-
-        if (invalidFiles.length > 0) {
-            alert(`Invalid file types: ${invalidFiles.join(', ')}. Only JPG, JPEG, and PDF files are allowed.`);
-        }
-
-        setUploadedFiles(prev => [...prev, ...validFiles]);
-    };
-
-    const removeFile = (index: number) => {
-        setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const handleNext = () => {
-        // Validate current tab
-        if (currentTab === 1) {
-            if (!date) {
-                alert('Please select a date');
-                return;
-            }
-            if (!selectedVoucherType) {
-                alert('Please select a voucher type');
-                return;
-            }
-            if (!selectedCustomer) {
-                alert('Please select a customer');
-                return;
-            }
-        }
-
-        if (currentTab === 2) {
-            if (items.length === 0) {
-                alert('Please add at least one item');
-                return;
-            }
-            if (!salesLedger) {
-                alert('Please select a Sales Ledger');
-                return;
-            }
-            if (isDeleting || selectedItemIds.size > 0) {
-                alert('Please complete or cancel the delete action before proceeding');
-                return;
-            }
-        }
-
-        // Move to next tab
-        if (currentTab < 5) {
-            setCurrentTab(currentTab + 1);
-        }
-    };
-
-    const handlePrevious = () => {
-        if (currentTab > 1) {
-            setCurrentTab(currentTab - 1);
-        }
-    };
-
-    const renderTabButtons = () => {
-        const tabs = [
-            { id: 1, label: 'Invoice Details' },
-            { id: 2, label: 'Item & Tax Details' },
-            { id: 3, label: 'Payment Details' },
-            { id: 4, label: 'Dispatch Details' },
-            { id: 5, label: 'E-Invoice & E-way Bill Details' }
-        ];
-
-        return (
-            <div className="flex gap-2 mb-6 overflow-x-auto">
-                {tabs.map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setCurrentTab(tab.id)}
-                        className={`px-4 py-2 rounded-md whitespace-nowrap transition-colors ${currentTab === tab.id
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                            }`}
-                    >
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
-        );
-    };
-
-    const renderInvoiceDetailsTab = () => (
-        <div className="space-y-6">
-            {/* Row 1: Date, Voucher Name, Sales Invoice No */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                    <label className="form-label">Date *</label>
-                    <input
-                        type="date"
-                        value={date}
-                        max={getTodayDate()}
-                        onChange={e => setDate(e.target.value)}
-                        className="form-input"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Future dates not allowed</p>
-                </div>
-
-                <div>
-                    <label className="form-label">Voucher Name *</label>
-                    <select
-                        value={selectedVoucherType || ''}
-                        onChange={e => {
-                            const newId = Number(e.target.value);
-                            setSelectedVoucherType(newId);
-
-                            // Auto-generate invoice number based on selected type
-                            const selectedType = voucherTypes.find(t => t.id === newId);
-                            if (selectedType && selectedType.enable_auto_numbering) {
-                                const paddedNum = String(selectedType.current_number).padStart(selectedType.required_digits, '0');
-                                setSalesInvoiceNumber(`${selectedType.prefix || ''}${paddedNum}${selectedType.suffix || ''}`);
-                            } else {
-                                setSalesInvoiceNumber('Manual Input');
-                            }
-                        }}
-                        className="form-input"
-                        disabled={voucherTypes.length === 1}
-                    >
-                        <option value="">Select Voucher Type</option>
-                        {voucherTypes.map(type => (
-                            <option key={type.id} value={type.id}>
-                                {type.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div>
-                    <label className="form-label">Sales Invoice No.</label>
-                    <input
-                        type="text"
-                        value={salesInvoiceNumber}
-                        readOnly
-                        className="form-input bg-gray-100 cursor-not-allowed"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Auto-generated</p>
-                </div>
-            </div>
-
-            {/* Row 2: Customer Name */}
-            <div>
-                <label className="form-label">Customer Name *</label>
-                <div className="flex gap-2">
-                    <select
-                        value={selectedCustomer || ''}
-                        onChange={e => handleCustomerChange(Number(e.target.value))}
-                        className="form-input flex-1"
-                    >
-                        <option value="">Select Customer</option>
-                        {customers.map(customer => (
-                            <option key={customer.id} value={customer.id}>
-                                {customer.name}
-                            </option>
-                        ))}
-                    </select>
-                    <button
-                        type="button"
-                        className="btn-secondary whitespace-nowrap"
-                        onClick={() => alert('Add Customer functionality to be implemented')}
-                    >
-                        <Icon name="plus" className="w-4 h-4 mr-1" />
-                        Add Customer
-                    </button>
-                </div>
-            </div>
-
-            {/* Row 3: Upload Supporting Document */}
-            <div>
-                <label className="form-label">Upload Supporting Document</label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-                    <input
-                        type="file"
-                        multiple
-                        accept=".jpg,.jpeg,.pdf"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        id="file-upload"
-                    />
-                    <label
-                        htmlFor="file-upload"
-                        className="flex flex-col items-center cursor-pointer"
-                    >
-                        <Icon name="upload" className="w-12 h-12 text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-600">Click to upload or drag and drop</p>
-                        <p className="text-xs text-gray-500 mt-1">JPG, JPEG, PDF only</p>
-                    </label>
-
-                    {uploadedFiles.length > 0 && (
-                        <div className="mt-4 space-y-2">
-                            {uploadedFiles.map((file, index) => (
-                                <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                                    <span className="text-sm text-gray-700">{file.name}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => removeFile(index)}
-                                        className="text-red-500 hover:text-red-700"
-                                    >
-                                        <Icon name="trash" className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Row 4: Bill To and Ship To */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="form-label">Bill To (Full Address)</label>
-                    <textarea
-                        value={customerAddress?.bill_to_address || ''}
-                        readOnly
-                        className="form-input bg-gray-100 cursor-not-allowed h-32 resize-none"
-                        placeholder="Select a customer to view address"
-                    />
-                    {customerAddress && (
-                        <div className="mt-2 text-sm text-gray-600">
-                            <p>GSTIN: {customerAddress.bill_to_gstin || 'N/A'}</p>
-                            <p>Contact: {customerAddress.bill_to_contact || 'N/A'}</p>
-                        </div>
-                    )}
-                </div>
-
-                <div>
-                    <label className="form-label">Ship To Address</label>
-                    <textarea
-                        value={shipToAddress}
-                        onChange={e => setShipToAddress(e.target.value)}
-                        className="form-input h-32 resize-none"
-                        placeholder="Edit shipping address if different"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Editable, does not update customer master</p>
-                </div>
-            </div>
-
-            {/* Row 5: Tax Type */}
-            <div>
-                <label className="form-label">Tax Type</label>
-                <div className="flex gap-4">
-                    <div className={`flex-1 p-4 rounded-lg border-2 ${taxType === 'within_state' ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}>
-                        <div className="flex items-center">
-                            <input
-                                type="radio"
-                                checked={taxType === 'within_state'}
-                                readOnly
-                                className="mr-2"
-                            />
-                            <span className="font-medium">Within State</span>
-                        </div>
-                    </div>
-                    <div className={`flex-1 p-4 rounded-lg border-2 ${taxType === 'other_state' ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}>
-                        <div className="flex items-center">
-                            <input
-                                type="radio"
-                                checked={taxType === 'other_state'}
-                                readOnly
-                                className="mr-2"
-                            />
-                            <span className="font-medium">Other State</span>
-                        </div>
-                    </div>
-                    <div className={`flex-1 p-4 rounded-lg border-2 ${taxType === 'export' ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}>
-                        <div className="flex items-center">
-                            <input
-                                type="radio"
-                                checked={taxType === 'export'}
-                                readOnly
-                                className="mr-2"
-                            />
-                            <span className="font-medium">Export</span>
-                        </div>
-                    </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">Auto-determined based on customer address</p>
-            </div>
-        </div>
-    );
-
-    // Items & Tax Details Tab State
-    const [salesOrders, setSalesOrders] = useState<any[]>([]);
-    const [selectedSalesOrders, setSelectedSalesOrders] = useState<any[]>([]);
-    const [activeSalesOrderTab, setActiveSalesOrderTab] = useState<number | null>(null);
-    const [items, setItems] = useState<any[]>([]);
-    const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
-    const [salesLedger, setSalesLedger] = useState<string>('');
-    const [salesLedgers, setSalesLedgers] = useState<any[]>([]);
-    const [description, setDescription] = useState('');
-    const [isDeleting, setIsDeleting] = useState(false);
-
-    const handleSalesOrderSelect = (orderId: string) => {
-        const order = salesOrders.find(o => o.id === orderId);
-        if (order && !selectedSalesOrders.find(o => o.id === orderId)) {
-            const newSelectedOrders = [...selectedSalesOrders, order];
-            setSelectedSalesOrders(newSelectedOrders);
-            setActiveSalesOrderTab(order.id);
-            // Load items from this sales order
-            loadItemsFromSalesOrder(order);
-        }
-    };
-
-    const loadItemsFromSalesOrder = (order: any) => {
-        // Simulate loading items from sales order
-        const orderItems = order.items || [];
-        setItems(orderItems.map((item: any, index: number) => ({
-            id: Date.now() + index,
-            sNo: items.length + index + 1,
-            salesOrderNumber: order.number,
-            itemCode: item.itemCode,
-            itemName: item.itemName,
-            hsnSac: item.hsnSac,
-            uqc: item.uqc,
-            quantity: item.quantity,
-            maxQuantity: item.quantity, // Sales order quantity limit
-            itemRate: item.rate,
-            taxableValue: item.quantity * item.rate,
-            taxRate: item.taxRate || 18,
-            cgst: 0,
-            sgst: 0,
-            igst: 0,
-            cess: 0,
-            cessRate: item.cessRate || 0,
-            invoiceValue: 0,
-            isFromSalesOrder: true
-        })));
-    };
-
-    const calculateTaxes = (item: any) => {
-        const taxableValue = item.quantity * item.itemRate;
-        const taxAmount = (taxableValue * item.taxRate) / 100;
-
-        let cgst = 0, sgst = 0, igst = 0;
-
-        if (taxType === 'within_state') {
-            cgst = taxAmount / 2;
-            sgst = taxAmount / 2;
-        } else if (taxType === 'other_state' || taxType === 'export') {
-            igst = taxAmount;
-        }
-
-        const cess = (cgst + sgst + igst) * (item.cessRate / 100);
-        const invoiceValue = taxableValue + cgst + sgst + igst + cess;
-
-        return {
-            taxableValue,
-            cgst,
-            sgst,
-            igst,
-            cess,
-            invoiceValue
-        };
-    };
-
-    const handleQuantityChange = (itemId: number, newQuantity: number) => {
-        setItems(prevItems => prevItems.map(item => {
-            if (item.id === itemId) {
-                // Validate against sales order quantity
-                if (item.isFromSalesOrder && newQuantity > item.maxQuantity) {
-                    alert(`Quantity cannot exceed Sales Order quantity of ${item.maxQuantity}`);
-                    return item;
-                }
-
-                const taxes = calculateTaxes({ ...item, quantity: newQuantity });
-                return {
-                    ...item,
-                    quantity: newQuantity,
-                    ...taxes
-                };
-            }
-            return item;
-        }));
-    };
-
-    const handleItemSelect = (itemId: number) => {
-        setSelectedItemIds(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(itemId)) {
-                newSet.delete(itemId);
-            } else {
-                newSet.add(itemId);
-            }
-            return newSet;
-        });
-    };
-
-    const handleDeleteItems = () => {
-        if (selectedItemIds.size === 0) {
-            alert('Please select items to delete');
-            return;
-        }
-
-        setIsDeleting(true);
-        setItems(prevItems => {
-            const remainingItems = prevItems.filter(item => !selectedItemIds.has(item.id));
-            // Renumber S.No
-            return remainingItems.map((item, index) => ({
-                ...item,
-                sNo: index + 1
-            }));
-        });
-        setSelectedItemIds(new Set());
-        setIsDeleting(false);
-    };
-
-    const handleAddNewItem = () => {
-        const newItem = {
-            id: Date.now(),
-            sNo: items.length + 1,
-            salesOrderNumber: activeSalesOrderTab ? selectedSalesOrders.find(o => o.id === activeSalesOrderTab)?.number : '',
+    // Item & Tax Details State
+    const [salesOrderNo, setSalesOrderNo] = useState('');
+    const [itemRows, setItemRows] = useState<ItemRow[]>([
+        {
+            id: 1,
             itemCode: '',
             itemName: '',
             hsnSac: '',
-            uqc: '',
-            quantity: 1,
-            maxQuantity: 999999,
-            itemRate: 0,
-            taxableValue: 0,
-            taxRate: 18,
-            cgst: 0,
-            sgst: 0,
-            igst: 0,
-            cess: 0,
-            cessRate: 0,
-            invoiceValue: 0,
-            isFromSalesOrder: false
+            qty: '',
+            uom: '',
+            itemRate: '',
+            taxableValue: '',
+            igst: '',
+            cgst: '',
+            cess: '',
+            invoiceValue: '',
+            salesLedger: '',
+            description: ''
+        }
+    ]);
+
+    // Payment Details State
+    const [paymentTaxableValue, setPaymentTaxableValue] = useState('0.00');
+    const [paymentIgst, setPaymentIgst] = useState('0.00');
+    const [paymentCgst, setPaymentCgst] = useState('0.00');
+    const [paymentSgst, setPaymentSgst] = useState('0.00');
+    const [paymentCess, setPaymentCess] = useState('0.00');
+    const [paymentStateCess, setPaymentStateCess] = useState('0.00');
+    const [paymentInvoiceValue, setPaymentInvoiceValue] = useState('0.00');
+    const [paymentTds, setPaymentTds] = useState('0.00');
+    const [paymentTcs, setPaymentTcs] = useState('0.00');
+    const [paymentAdvance, setPaymentAdvance] = useState('0.00');
+    const [paymentPayable, setPaymentPayable] = useState('0.00');
+    const [paymentPostingNote, setPaymentPostingNote] = useState('');
+    const [advanceReferences, setAdvanceReferences] = useState<Array<{
+        id: number;
+        date: string;
+        refNo: string;
+        amount: string;
+        appliedNow: boolean;
+    }>>([]);
+    const [termsConditions, setTermsConditions] = useState('');
+
+    // Dispatch Details State
+    const [skipDispatch, setSkipDispatch] = useState(false);
+    const [dispatchFrom, setDispatchFrom] = useState('');
+    const [modeOfTransport, setModeOfTransport] = useState('Road');
+    const [dispatchDate, setDispatchDate] = useState('');
+    const [dispatchTime, setDispatchTime] = useState('');
+    const [deliveryType, setDeliveryType] = useState('');
+    const [selfThirdParty, setSelfThirdParty] = useState('');
+    const [transporterId, setTransporterId] = useState('');
+    const [transporterName, setTransporterName] = useState('');
+    const [vehicleNo, setVehicleNo] = useState('');
+    const [lrGrConsignment, setLrGrConsignment] = useState('');
+    const [dispatchDocument, setDispatchDocument] = useState<File | null>(null);
+
+    // Port Details (for Air/Sea transport)
+    const [uptoPortShippingBillNo, setUptoPortShippingBillNo] = useState('');
+    const [uptoPortShippingBillDate, setUptoPortShippingBillDate] = useState('');
+    const [uptoPortShipPortCode, setUptoPortShipPortCode] = useState('');
+    const [uptoPortOrigin, setUptoPortOrigin] = useState('');
+    const [beyondPortShippingBillNo, setBeyondPortShippingBillNo] = useState('');
+    const [beyondPortShippingBillDate, setBeyondPortShippingBillDate] = useState('');
+    const [beyondPortShipPortCode, setBeyondPortShipPortCode] = useState('');
+    const [beyondPortVesselFlightNo, setBeyondPortVesselFlightNo] = useState('');
+    const [beyondPortPortOfLoading, setBeyondPortPortOfLoading] = useState('');
+    const [beyondPortPortOfDischarge, setBeyondPortPortOfDischarge] = useState('');
+    const [beyondPortFinalDestination, setBeyondPortFinalDestination] = useState('');
+    const [beyondPortOriginCountry, setBeyondPortOriginCountry] = useState('');
+    const [beyondPortDestCountry, setBeyondPortDestCountry] = useState('');
+
+    // Rail Details (for Rail transport)
+    const [railUptoPortDeliveryType, setRailUptoPortDeliveryType] = useState('');
+    const [railUptoPortTransporterId, setRailUptoPortTransporterId] = useState('');
+    const [railUptoPortTransporterName, setRailUptoPortTransporterName] = useState('');
+    const [railBeyondPortRailwayReceiptNo, setRailBeyondPortRailwayReceiptNo] = useState('');
+    const [railBeyondPortRailwayReceiptDate, setRailBeyondPortRailwayReceiptDate] = useState('');
+    const [railBeyondPortOrigin, setRailBeyondPortOrigin] = useState('');
+    const [railBeyondPortOriginCountry, setRailBeyondPortOriginCountry] = useState('');
+    const [railBeyondPortRailNo, setRailBeyondPortRailNo] = useState('');
+    const [railBeyondPortStationOfLoading, setRailBeyondPortStationOfLoading] = useState('');
+    const [railBeyondPortStationOfDischarge, setRailBeyondPortStationOfDischarge] = useState('');
+    const [railBeyondPortFinalDestination, setRailBeyondPortFinalDestination] = useState('');
+    const [railBeyondPortDestCountry, setRailBeyondPortDestCountry] = useState('');
+
+    // E-Invoice & E-way Bill Details State
+    const [ewayBillAvailable, setEwayBillAvailable] = useState('Yes');
+    const [ewayBillNo, setEwayBillNo] = useState('');
+    const [ewayBillDate, setEwayBillDate] = useState('');
+    const [validityPeriod, setValidityPeriod] = useState('');
+    const [distance, setDistance] = useState('');
+
+    // Extended E-way Bill
+    const [extensionDate, setExtensionDate] = useState('');
+    const [extendedEwbNo, setExtendedEwbNo] = useState('');
+    const [extensionReason, setExtensionReason] = useState('');
+    const [fromPlace, setFromPlace] = useState('');
+    const [remainingDistance, setRemainingDistance] = useState('');
+    const [newValidity, setNewValidity] = useState('');
+    const [updatedVehicleNo, setUpdatedVehicleNo] = useState('');
+
+    // E-Invoice
+    const [irn, setIrn] = useState('');
+    const [ackNo, setAckNo] = useState('');
+
+    const tabs = [
+        { id: 'invoice', label: 'Invoice Details' },
+        { id: 'item_tax', label: 'Item & Tax Details' },
+        { id: 'payment', label: 'Payment Details' },
+        { id: 'dispatch', label: 'Dispatch Details' },
+        { id: 'einvoice', label: 'E-Invoice & E-way Bill Details' }
+    ];
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSupportingDocument(file);
+        }
+    };
+
+    // Item Row Handlers
+    const handleItemRowChange = (id: number, field: keyof ItemRow, value: string) => {
+        setItemRows(itemRows.map(row => {
+            if (row.id === id) {
+                const updatedRow = { ...row, [field]: value };
+
+                // Auto-calculate taxable value when qty or item rate changes
+                if (field === 'qty' || field === 'itemRate') {
+                    const qty = parseFloat(field === 'qty' ? value : updatedRow.qty) || 0;
+                    const rate = parseFloat(field === 'itemRate' ? value : updatedRow.itemRate) || 0;
+                    updatedRow.taxableValue = (qty * rate).toFixed(2);
+
+                    // Recalculate invoice value
+                    const taxableVal = parseFloat(updatedRow.taxableValue) || 0;
+                    const igst = parseFloat(updatedRow.igst) || 0;
+                    const cgst = parseFloat(updatedRow.cgst) || 0;
+                    const cess = parseFloat(updatedRow.cess) || 0;
+                    updatedRow.invoiceValue = (taxableVal + igst + cgst + cess).toFixed(2);
+                }
+
+                // Auto-calculate invoice value when tax fields change
+                if (field === 'igst' || field === 'cgst' || field === 'cess') {
+                    const taxableVal = parseFloat(updatedRow.taxableValue) || 0;
+                    const igst = parseFloat(updatedRow.igst) || 0;
+                    const cgst = parseFloat(updatedRow.cgst) || 0;
+                    const cess = parseFloat(updatedRow.cess) || 0;
+                    updatedRow.invoiceValue = (taxableVal + igst + cgst + cess).toFixed(2);
+                }
+
+                return updatedRow;
+            }
+            return row;
+        }));
+    };
+
+    const handleAddItemRow = () => {
+        const newRow: ItemRow = {
+            id: itemRows.length + 1,
+            itemCode: '',
+            itemName: '',
+            hsnSac: '',
+            qty: '',
+            uom: '',
+            itemRate: '',
+            taxableValue: '',
+            igst: '',
+            cgst: '',
+            cess: '',
+            invoiceValue: '',
+            salesLedger: '',
+            description: ''
         };
-        setItems([...items, newItem]);
+        setItemRows([...itemRows, newRow]);
+    };
+
+    const handleDeleteItemRow = (id: number) => {
+        if (itemRows.length > 1) {
+            setItemRows(itemRows.filter(row => row.id !== id));
+        }
+    };
+
+    const handleDeleteSelectedItems = () => {
+        // This would delete selected items based on checkboxes
+        // For now, we'll keep at least one row
+        if (itemRows.length > 1) {
+            setItemRows([itemRows[0]]);
+        }
     };
 
     const calculateTotals = () => {
-        return items.reduce((acc, item) => ({
-            taxableValue: acc.taxableValue + item.taxableValue,
-            cgst: acc.cgst + item.cgst,
-            sgst: acc.sgst + item.sgst,
-            igst: acc.igst + item.igst,
-            cess: acc.cess + item.cess,
-            invoiceValue: acc.invoiceValue + item.invoiceValue
-        }), {
-            taxableValue: 0,
-            cgst: 0,
-            sgst: 0,
-            igst: 0,
-            cess: 0,
-            invoiceValue: 0
-        });
+        const totals = itemRows.reduce((acc, row) => {
+            return {
+                taxableValue: acc.taxableValue + (parseFloat(row.taxableValue) || 0),
+                igst: acc.igst + (parseFloat(row.igst) || 0),
+                cgst: acc.cgst + (parseFloat(row.cgst) || 0),
+                cess: acc.cess + (parseFloat(row.cess) || 0),
+                invoiceValue: acc.invoiceValue + (parseFloat(row.invoiceValue) || 0)
+            };
+        }, { taxableValue: 0, igst: 0, cgst: 0, cess: 0, invoiceValue: 0 });
+
+        return totals;
     };
 
-    const totals = calculateTotals();
+    const handleNext = () => {
+        // Validation
+        if (!date || !salesInvoiceNo || !customerName) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        // Move to next tab
+        setActiveTab('item_tax');
+    };
 
-    const renderItemsTab = () => (
-        <div className="space-y-6">
-            {/* Sales Order / Quotation Selection */}
-            <div className="flex items-center gap-4">
-                <div className="flex-1">
-                    <label className="form-label">Sales Order / Quotation Number *</label>
-                    <select
-                        className="form-input"
-                        onChange={(e) => handleSalesOrderSelect(e.target.value)}
-                        value=""
-                    >
-                        <option value="">Select Sales Order / Quotation</option>
-                        {salesOrders.map(order => (
-                            <option key={order.id} value={order.id}>
-                                {order.number} - {order.customerName}
-                            </option>
-                        ))}
-                    </select>
+    return (
+        <div className="w-full">
+            {/* Tabs Section - Underline Style */}
+            <div className="border-b border-gray-200 mb-6">
+                <div className="flex flex-wrap gap-8">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`
+                                pb-3 text-sm font-medium transition-colors duration-200 relative
+                                ${activeTab === tab.id
+                                    ? 'text-teal-600 border-b-2 border-teal-600'
+                                    : 'text-gray-600 hover:text-gray-800'
+                                }
+                            `}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
-
-                {/* Horizontal Tabs for Selected Sales Orders */}
-                {selectedSalesOrders.length > 0 && (
-                    <div className="flex gap-2">
-                        {selectedSalesOrders.map(order => (
-                            <button
-                                key={order.id}
-                                onClick={() => setActiveSalesOrderTab(order.id)}
-                                className={`px-4 py-2 rounded-md border-2 transition-colors ${activeSalesOrderTab === order.id
-                                    ? 'bg-blue-500 text-white border-blue-500'
-                                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
-                                    }`}
-                            >
-                                {order.number}
-                            </button>
-                        ))}
-                    </div>
-                )}
             </div>
 
-            {/* Item Grid */}
-            <div className="border rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-blue-50">
-                            <tr>
-                                <th className="px-2 py-3 text-xs font-semibold text-gray-700 border-r">
+            {/* Content Section */}
+            <div className="min-h-[400px] bg-white">
+                {activeTab === 'invoice' && (
+                    <div className="space-y-6">
+                        {/* Row 1: Date, Sales Invoice No, Customer Name, Upload Document */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Date <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    value={date}
+                                    onChange={(e) => setDate(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Sales Invoice No. <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={salesInvoiceNo}
+                                    onChange={(e) => setSalesInvoiceNo(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                    placeholder="Enter invoice number"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Customer Name <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={customerName}
+                                    onChange={(e) => setCustomerName(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                    placeholder="Search or enter customer name"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Upload Supporting Document
+                                </label>
+                                <div className="relative">
                                     <input
-                                        type="checkbox"
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setSelectedItemIds(new Set(items.map(i => i.id)));
-                                            } else {
-                                                setSelectedItemIds(new Set());
-                                            }
-                                        }}
-                                        checked={selectedItemIds.size === items.length && items.length > 0}
+                                        type="file"
+                                        id="supporting-doc"
+                                        onChange={handleFileUpload}
+                                        className="hidden"
+                                        accept=".pdf,.jpg,.jpeg,.png"
                                     />
-                                </th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700 border-r">S.No</th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700 border-r">Sales Order No.</th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700 border-r">Item Code</th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700 border-r">Item Name</th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700 border-r">HSN/SAC</th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700 border-r">UQC</th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700 border-r">Quantity</th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700 border-r">Item Rate</th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700 border-r">Taxable Value</th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700 border-r">CGST</th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700 border-r">SGST</th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700 border-r">IGST</th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700 border-r">CESS</th>
-                                <th className="px-3 py-3 text-xs font-semibold text-gray-700">Invoice Value</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {items.map((item, index) => (
-                                <tr key={item.id} className="border-t hover:bg-gray-50">
-                                    <td className="px-2 py-2 border-r text-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedItemIds.has(item.id)}
-                                            onChange={() => handleItemSelect(item.id)}
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2 text-sm text-gray-700 border-r text-center">{item.sNo}</td>
-                                    <td className="px-3 py-2 text-sm text-gray-700 border-r">
-                                        <input
-                                            type="text"
-                                            value={item.salesOrderNumber}
-                                            readOnly
-                                            className="w-full px-2 py-1 text-sm bg-gray-50 border-0 cursor-not-allowed"
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2 border-r">
-                                        <input
-                                            type="text"
-                                            value={item.itemCode}
-                                            readOnly={item.isFromSalesOrder}
-                                            className={`w-full px-2 py-1 text-sm border rounded ${item.isFromSalesOrder ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'
-                                                }`}
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2 border-r">
-                                        <input
-                                            type="text"
-                                            value={item.itemName}
-                                            readOnly
-                                            className="w-full px-2 py-1 text-sm bg-gray-50 border-0 cursor-not-allowed"
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2 border-r">
-                                        <input
-                                            type="text"
-                                            value={item.hsnSac}
-                                            readOnly
-                                            className="w-full px-2 py-1 text-sm bg-gray-50 border-0 cursor-not-allowed"
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2 border-r">
-                                        <input
-                                            type="text"
-                                            value={item.uqc}
-                                            readOnly
-                                            className="w-full px-2 py-1 text-sm bg-gray-50 border-0 cursor-not-allowed"
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2 border-r">
-                                        <input
-                                            type="number"
-                                            value={item.quantity}
-                                            onChange={(e) => handleQuantityChange(item.id, parseFloat(e.target.value) || 0)}
-                                            className="w-20 px-2 py-1 text-sm border rounded text-right"
-                                            min="0"
-                                            max={item.maxQuantity}
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2 border-r">
-                                        <input
-                                            type="number"
-                                            value={item.itemRate.toFixed(2)}
-                                            readOnly
-                                            className="w-24 px-2 py-1 text-sm bg-gray-50 border-0 cursor-not-allowed text-right"
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2 border-r">
-                                        <input
-                                            type="text"
-                                            value={item.taxableValue.toFixed(2)}
-                                            readOnly
-                                            className="w-28 px-2 py-1 text-sm bg-gray-50 border-0 cursor-not-allowed text-right font-semibold"
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2 border-r">
-                                        <input
-                                            type="text"
-                                            value={item.cgst.toFixed(2)}
-                                            readOnly
-                                            className="w-24 px-2 py-1 text-sm bg-gray-50 border-0 cursor-not-allowed text-right"
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2 border-r">
-                                        <input
-                                            type="text"
-                                            value={item.sgst.toFixed(2)}
-                                            readOnly
-                                            className="w-24 px-2 py-1 text-sm bg-gray-50 border-0 cursor-not-allowed text-right"
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2 border-r">
-                                        <input
-                                            type="text"
-                                            value={item.igst.toFixed(2)}
-                                            readOnly
-                                            className="w-24 px-2 py-1 text-sm bg-gray-50 border-0 cursor-not-allowed text-right"
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2 border-r">
-                                        <input
-                                            type="text"
-                                            value={item.cess.toFixed(2)}
-                                            readOnly
-                                            className="w-24 px-2 py-1 text-sm bg-gray-50 border-0 cursor-not-allowed text-right"
-                                        />
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        <input
-                                            type="text"
-                                            value={item.invoiceValue.toFixed(2)}
-                                            readOnly
-                                            className="w-28 px-2 py-1 text-sm bg-blue-50 border-0 cursor-not-allowed text-right font-bold text-blue-700"
-                                        />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                        <tfoot className="bg-gray-100 border-t-2">
-                            <tr>
-                                <td colSpan={9} className="px-3 py-3 text-sm font-bold text-right">Total:</td>
-                                <td className="px-3 py-3 text-sm font-bold text-right border-l">{totals.taxableValue.toFixed(2)}</td>
-                                <td className="px-3 py-3 text-sm font-bold text-right border-l">{totals.cgst.toFixed(2)}</td>
-                                <td className="px-3 py-3 text-sm font-bold text-right border-l">{totals.sgst.toFixed(2)}</td>
-                                <td className="px-3 py-3 text-sm font-bold text-right border-l">{totals.igst.toFixed(2)}</td>
-                                <td className="px-3 py-3 text-sm font-bold text-right border-l">{totals.cess.toFixed(2)}</td>
-                                <td className="px-3 py-3 text-sm font-bold text-right border-l text-blue-700">{totals.invoiceValue.toFixed(2)}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => document.getElementById('supporting-doc')?.click()}
+                                        className="w-full h-24 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex flex-col items-center justify-center gap-1"
+                                    >
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                        </svg>
+                                        <span className="text-xs">Upload Supporting Document</span>
+                                    </button>
+                                    {supportingDocument && (
+                                        <p className="mt-1 text-xs text-green-600">✓ {supportingDocument.name}</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-                <button
-                    onClick={handleAddNewItem}
-                    className="btn-secondary"
-                >
-                    <Icon name="plus" className="w-4 h-4 mr-1" />
-                    Add Item
-                </button>
-                <button
-                    onClick={handleDeleteItems}
-                    disabled={selectedItemIds.size === 0}
-                    className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                >
-                    <Icon name="trash" className="w-4 h-4 mr-1" />
-                    Delete Selected ({selectedItemIds.size})
-                </button>
-            </div>
-
-            {/* Sales Ledger and Description */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                <div>
-                    <label className="form-label">Sales Ledger *</label>
-                    <select
-                        value={salesLedger}
-                        onChange={(e) => setSalesLedger(e.target.value)}
-                        className="form-input"
-                    >
-                        <option value="">Select Sales Ledger</option>
-                        {salesLedgers.map(ledger => (
-                            <option key={ledger.id} value={ledger.id}>
-                                {ledger.name}
-                            </option>
-                        ))}
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">Only Income group ledgers</p>
-                </div>
-
-                <div>
-                    <label className="form-label">Description</label>
-                    <textarea
-                        value={description}
-                        onChange={(e) => {
-                            if (e.target.value.length <= 200) {
-                                setDescription(e.target.value);
-                            }
-                        }}
-                        className="form-input resize-none"
-                        rows={3}
-                        maxLength={200}
-                        placeholder="Enter description (max 200 characters)"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">{description.length}/200 characters</p>
-                </div>
-            </div>
-        </div>
-    );
-
-    // Payment Details Tab State
-    const [paymentTerms, setPaymentTerms] = useState('');
-    const [dueDate, setDueDate] = useState('');
-    const [modeOfPayment, setModeOfPayment] = useState('');
-    const [bankName, setBankName] = useState('');
-    const [accountNumber, setAccountNumber] = useState('');
-    const [ifscCode, setIfscCode] = useState('');
-    const [branchName, setBranchName] = useState('');
-    const [transactionId, setTransactionId] = useState('');
-    const [transactionDate, setTransactionDate] = useState('');
-    const [chequeNumber, setChequeNumber] = useState('');
-    const [chequeDate, setChequeDate] = useState('');
-    const [termsAndConditions, setTermsAndConditions] = useState('');
-
-    const renderPaymentTab = () => (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Left Column */}
-                <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Terms</h3>
-
-                    <div>
-                        <label className="form-label">Payment Terms</label>
-                        <select
-                            value={paymentTerms}
-                            onChange={(e) => setPaymentTerms(e.target.value)}
-                            className="form-input"
-                        >
-                            <option value="">Select Payment Terms</option>
-                            <option value="immediate">Immediate</option>
-                            <option value="net_15">Net 15 Days</option>
-                            <option value="net_30">Net 30 Days</option>
-                            <option value="net_45">Net 45 Days</option>
-                            <option value="net_60">Net 60 Days</option>
-                            <option value="net_90">Net 90 Days</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="form-label">Due Date</label>
-                        <input
-                            type="date"
-                            value={dueDate}
-                            onChange={(e) => setDueDate(e.target.value)}
-                            className="form-input"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="form-label">Mode of Payment</label>
-                        <select
-                            value={modeOfPayment}
-                            onChange={(e) => setModeOfPayment(e.target.value)}
-                            className="form-input"
-                        >
-                            <option value="">Select Mode</option>
-                            <option value="cash">Cash</option>
-                            <option value="cheque">Cheque</option>
-                            <option value="bank_transfer">Bank Transfer</option>
-                            <option value="upi">UPI</option>
-                            <option value="credit_card">Credit Card</option>
-                            <option value="debit_card">Debit Card</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-
-                    {/* Bank Details Section */}
-                    <div className="pt-4 border-t">
-                        <h4 className="text-md font-semibold text-gray-700 mb-3">Bank Details</h4>
-
-                        <div className="space-y-3">
+                        {/* Row 2: Bill To and Ship To */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="form-label">Bank Name</label>
-                                <input
-                                    type="text"
-                                    value={bankName}
-                                    onChange={(e) => setBankName(e.target.value)}
-                                    className="form-input"
-                                    placeholder="Enter bank name"
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Bill to (Full Address)
+                                </label>
+                                <textarea
+                                    value={billTo}
+                                    onChange={(e) => setBillTo(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 resize-none"
+                                    rows={6}
+                                    placeholder="Enter billing address"
                                 />
+                                <div className="mt-3 space-y-2">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">GSTIN</label>
+                                        <input
+                                            type="text"
+                                            value={gstin}
+                                            onChange={(e) => setGstin(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
+                                            placeholder="Enter GSTIN"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Contact</label>
+                                        <input
+                                            type="text"
+                                            value={contact}
+                                            onChange={(e) => setContact(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
+                                            placeholder="Enter contact number"
+                                        />
+                                    </div>
+                                </div>
                             </div>
 
                             <div>
-                                <label className="form-label">Account Number</label>
-                                <input
-                                    type="text"
-                                    value={accountNumber}
-                                    onChange={(e) => setAccountNumber(e.target.value)}
-                                    className="form-input"
-                                    placeholder="Enter account number"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="form-label">IFSC Code</label>
-                                <input
-                                    type="text"
-                                    value={ifscCode}
-                                    onChange={(e) => setIfscCode(e.target.value.toUpperCase())}
-                                    className="form-input"
-                                    placeholder="Enter IFSC code"
-                                    maxLength={11}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="form-label">Branch Name</label>
-                                <input
-                                    type="text"
-                                    value={branchName}
-                                    onChange={(e) => setBranchName(e.target.value)}
-                                    className="form-input"
-                                    placeholder="Enter branch name"
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Ship to
+                                </label>
+                                <textarea
+                                    value={shipTo}
+                                    onChange={(e) => setShipTo(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 resize-none"
+                                    rows={6}
+                                    placeholder="Enter shipping address (editable format)"
                                 />
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                {/* Right Column */}
-                <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Transaction Details</h3>
+                        {/* Row 3: Tax Type and State Selection */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Tax Type
+                            </label>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                <div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setStateType('within')}
+                                        className={`w-full px-4 py-2 border rounded-md transition-colors ${stateType === 'within'
+                                            ? 'bg-white border-gray-400 text-gray-800 font-medium'
+                                            : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                                            }`}
+                                    >
+                                        Within State
+                                    </button>
+                                </div>
 
-                    {modeOfPayment === 'bank_transfer' || modeOfPayment === 'upi' ? (
-                        <>
-                            <div>
-                                <label className="form-label">Transaction ID</label>
-                                <input
-                                    type="text"
-                                    value={transactionId}
-                                    onChange={(e) => setTransactionId(e.target.value)}
-                                    className="form-input"
-                                    placeholder="Enter transaction ID"
-                                />
+                                <div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setStateType('other')}
+                                        className={`w-full px-4 py-2 border rounded-md transition-colors ${stateType === 'other'
+                                            ? 'bg-white border-gray-400 text-gray-800 font-medium'
+                                            : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                                            }`}
+                                    >
+                                        Other State
+                                    </button>
+                                </div>
+
+                                <div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setStateType('export')}
+                                        className={`w-full px-4 py-2 border rounded-md transition-colors ${stateType === 'export'
+                                            ? 'bg-yellow-100 border-yellow-400 text-gray-800 font-medium'
+                                            : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                                            }`}
+                                    >
+                                        Export
+                                    </button>
+                                </div>
+
+                                <div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveTab('item_tax')}
+                                        className="w-full px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-medium"
+                                    >
+                                        NEXT
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
+                        </div>
 
-                            <div>
-                                <label className="form-label">Transaction Date</label>
-                                <input
-                                    type="date"
-                                    value={transactionDate}
-                                    onChange={(e) => setTransactionDate(e.target.value)}
-                                    className="form-input"
-                                    max={getTodayDate()}
-                                />
-                            </div>
-                        </>
-                    ) : null}
 
-                    {modeOfPayment === 'cheque' ? (
-                        <>
-                            <div>
-                                <label className="form-label">Cheque Number</label>
-                                <input
-                                    type="text"
-                                    value={chequeNumber}
-                                    onChange={(e) => setChequeNumber(e.target.value)}
-                                    className="form-input"
-                                    placeholder="Enter cheque number"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="form-label">Cheque Date</label>
-                                <input
-                                    type="date"
-                                    value={chequeDate}
-                                    onChange={(e) => setChequeDate(e.target.value)}
-                                    className="form-input"
-                                />
-                            </div>
-                        </>
-                    ) : null}
-
-                    {/* Terms and Conditions */}
-                    <div className="pt-4 border-t">
-                        <h4 className="text-md font-semibold text-gray-700 mb-3">Terms & Conditions</h4>
-                        <textarea
-                            value={termsAndConditions}
-                            onChange={(e) => setTermsAndConditions(e.target.value)}
-                            className="form-input resize-none"
-                            rows={8}
-                            placeholder="Enter terms and conditions for this invoice..."
-                        />
                     </div>
-                </div>
-            </div>
-
-            {/* Summary Section */}
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h4 className="text-md font-semibold text-blue-900 mb-3">Payment Summary</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                        <p className="text-xs text-gray-600">Total Amount</p>
-                        <p className="text-lg font-bold text-gray-900">₹{totals.invoiceValue.toFixed(2)}</p>
-                    </div>
-                    <div>
-                        <p className="text-xs text-gray-600">Payment Terms</p>
-                        <p className="text-sm font-semibold text-gray-800">{paymentTerms || 'Not Set'}</p>
-                    </div>
-                    <div>
-                        <p className="text-xs text-gray-600">Due Date</p>
-                        <p className="text-sm font-semibold text-gray-800">{dueDate || 'Not Set'}</p>
-                    </div>
-                    <div>
-                        <p className="text-xs text-gray-600">Payment Mode</p>
-                        <p className="text-sm font-semibold text-gray-800">{modeOfPayment || 'Not Set'}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-
-    // Dispatch Details Tab State
-    const [transporterName, setTransporterName] = useState('');
-    const [transporterId, setTransporterId] = useState('');
-    const [vehicleNumber, setVehicleNumber] = useState('');
-    const [driverName, setDriverName] = useState('');
-    const [driverContact, setDriverContact] = useState('');
-    const [lrNumber, setLrNumber] = useState('');
-    const [lrDate, setLrDate] = useState('');
-    const [dispatchDate, setDispatchDate] = useState('');
-    const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
-    const [shippingAddress, setShippingAddress] = useState('');
-    const [dispatchRemarks, setDispatchRemarks] = useState('');
-
-    const renderDispatchTab = () => (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Left Column - Transporter Details */}
-                <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Transporter Details</h3>
-
-                    <div>
-                        <label className="form-label">Transporter Name</label>
-                        <input
-                            type="text"
-                            value={transporterName}
-                            onChange={(e) => setTransporterName(e.target.value)}
-                            className="form-input"
-                            placeholder="Enter transporter name"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="form-label">Transporter ID</label>
-                        <input
-                            type="text"
-                            value={transporterId}
-                            onChange={(e) => setTransporterId(e.target.value)}
-                            className="form-input"
-                            placeholder="Enter transporter ID"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="form-label">Vehicle Number</label>
-                        <input
-                            type="text"
-                            value={vehicleNumber}
-                            onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
-                            className="form-input"
-                            placeholder="e.g., MH12AB1234"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="form-label">Driver Name</label>
-                        <input
-                            type="text"
-                            value={driverName}
-                            onChange={(e) => setDriverName(e.target.value)}
-                            className="form-input"
-                            placeholder="Enter driver name"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="form-label">Driver Contact</label>
-                        <input
-                            type="tel"
-                            value={driverContact}
-                            onChange={(e) => setDriverContact(e.target.value)}
-                            className="form-input"
-                            placeholder="Enter contact number"
-                            maxLength={10}
-                        />
-                    </div>
-                </div>
-
-                {/* Right Column - Shipping Details */}
-                <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Shipping Details</h3>
-
-                    <div>
-                        <label className="form-label">LR Number</label>
-                        <input
-                            type="text"
-                            value={lrNumber}
-                            onChange={(e) => setLrNumber(e.target.value)}
-                            className="form-input"
-                            placeholder="Lorry Receipt Number"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="form-label">LR Date</label>
-                        <input
-                            type="date"
-                            value={lrDate}
-                            onChange={(e) => setLrDate(e.target.value)}
-                            className="form-input"
-                            max={getTodayDate()}
-                        />
-                    </div>
-
-                    <div>
-                        <label className="form-label">Dispatch Date</label>
-                        <input
-                            type="date"
-                            value={dispatchDate}
-                            onChange={(e) => setDispatchDate(e.target.value)}
-                            className="form-input"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="form-label">Expected Delivery Date</label>
-                        <input
-                            type="date"
-                            value={expectedDeliveryDate}
-                            onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                            className="form-input"
-                            min={dispatchDate || getTodayDate()}
-                        />
-                    </div>
-
-                    <div>
-                        <label className="form-label">Shipping Address</label>
-                        <textarea
-                            value={shippingAddress}
-                            onChange={(e) => setShippingAddress(e.target.value)}
-                            className="form-input resize-none"
-                            rows={4}
-                            placeholder="Enter complete shipping address"
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* Dispatch Remarks */}
-            <div>
-                <label className="form-label">Dispatch Remarks</label>
-                <textarea
-                    value={dispatchRemarks}
-                    onChange={(e) => setDispatchRemarks(e.target.value)}
-                    className="form-input resize-none"
-                    rows={3}
-                    placeholder="Any special instructions or remarks for dispatch..."
-                />
-            </div>
-
-            {/* Dispatch Summary */}
-            <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                <h4 className="text-md font-semibold text-green-900 mb-3">Dispatch Summary</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                        <p className="text-xs text-gray-600">Transporter</p>
-                        <p className="text-sm font-semibold text-gray-800">{transporterName || 'Not Set'}</p>
-                    </div>
-                    <div>
-                        <p className="text-xs text-gray-600">Vehicle Number</p>
-                        <p className="text-sm font-semibold text-gray-800">{vehicleNumber || 'Not Set'}</p>
-                    </div>
-                    <div>
-                        <p className="text-xs text-gray-600">Dispatch Date</p>
-                        <p className="text-sm font-semibold text-gray-800">{dispatchDate || 'Not Set'}</p>
-                    </div>
-                    <div>
-                        <p className="text-xs text-gray-600">Expected Delivery</p>
-                        <p className="text-sm font-semibold text-gray-800">{expectedDeliveryDate || 'Not Set'}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-
-    // E-Invoice & E-way Bill Tab State
-    const [eInvoiceEnabled, setEInvoiceEnabled] = useState(false);
-    const [irn, setIrn] = useState('');
-    const [ackNo, setAckNo] = useState('');
-    const [ackDate, setAckDate] = useState('');
-    const [eInvoiceQrCode, setEInvoiceQrCode] = useState('');
-    const [eWayBillEnabled, setEWayBillEnabled] = useState(false);
-    const [eWayBillNo, setEWayBillNo] = useState('');
-    const [eWayBillDate, setEWayBillDate] = useState('');
-    const [eWayBillValidUpto, setEWayBillValidUpto] = useState('');
-    const [distance, setDistance] = useState('');
-    const [transportMode, setTransportMode] = useState('');
-    const [vehicleType, setVehicleType] = useState('');
-
-
-
-    const renderEInvoiceTab = () => (
-        <div className="max-w-4xl mx-auto space-y-8 py-6">
-            {/* E-Invoice Details Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-8">
-                <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-semibold text-gray-800">E-Invoice Details</h3>
-                    <label className="flex items-center cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={eInvoiceEnabled}
-                            onChange={(e) => setEInvoiceEnabled(e.target.checked)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <span className="ml-2 text-sm font-medium text-gray-700">Enable E-Invoice</span>
-                    </label>
-                </div>
-
-                <div className="text-center py-12">
-                    <p className="text-gray-600 text-base">
-                        Enable E-Invoice to generate IRN and QR code
-                    </p>
-                </div>
-            </div>
-
-            {/* E-Way Bill Details Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-8">
-                <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-semibold text-gray-800">E-Way Bill Details</h3>
-                    <label className="flex items-center cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={eWayBillEnabled}
-                            onChange={(e) => setEWayBillEnabled(e.target.checked)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <span className="ml-2 text-sm font-medium text-gray-700">Enable E-Way Bill</span>
-                    </label>
-                </div>
-
-                <div className="text-center py-12">
-                    <p className="text-gray-600 text-base">
-                        Enable E-Way Bill for goods transportation
-                    </p>
-                    <p className="text-gray-500 text-sm mt-2">
-                        Required for consignments above ₹50,000
-                    </p>
-                </div>
-            </div>
-
-            {/* Important Information */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                <div className="flex items-start">
-                    <div className="flex-shrink-0">
-                        <svg className="w-6 h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 0 11-2 0 1 1 0 012 0zm-1-8a1 0 00-1 1v3a1 0 002 0V6a1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                    <div className="ml-4">
-                        <h4 className="text-base font-semibold text-yellow-900 mb-3">Important Information</h4>
-                        <ul className="space-y-2 text-sm text-yellow-800">
-                            <li className="flex items-start">
-                                <span className="mr-2">•</span>
-                                <span>E-Invoice is mandatory for businesses with turnover above ₹5 crores</span>
-                            </li>
-                            <li className="flex items-start">
-                                <span className="mr-2">•</span>
-                                <span>E-Way Bill is required for goods movement above ₹50,000</span>
-                            </li>
-                            <li className="flex items-start">
-                                <span className="mr-2">•</span>
-                                <span>Both can be generated after saving the voucher</span>
-                            </li>
-                            <li className="flex items-start">
-                                <span className="mr-2">•</span>
-                                <span>Ensure all invoice details are correct before generation</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-
-    return (
-        <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Sales / Receipt Voucher</h2>
-                {onClose && (
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-                        <Icon name="x" className="w-6 h-6" />
-                    </button>
                 )}
-            </div>
 
-            {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-                    {error}
-                </div>
-            )}
+                {activeTab === 'item_tax' && (
+                    <div className="space-y-6">
+                        {/* Sales Order Selection */}
+                        <div className="flex items-center gap-4">
+                            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                                Sales Order/Quotation No.
+                            </label>
+                            <select
+                                value={salesOrderNo}
+                                onChange={(e) => setSalesOrderNo(e.target.value)}
+                                className="px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            >
+                                <option value="">Select Sales Order</option>
+                                <option value="SO-001">SO-001</option>
+                                <option value="SO-002">SO-002</option>
+                            </select>
+                            <button
+                                type="button"
+                                className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-800 rounded-md transition-colors font-medium"
+                            >
+                                X
+                            </button>
+                            <button
+                                type="button"
+                                className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-800 rounded-md transition-colors font-medium"
+                            >
+                                ✓
+                            </button>
+                        </div>
 
-            {renderTabButtons()}
+                        {/* Items Table */}
+                        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                            <table className="w-full">
+                                <thead className="bg-blue-500 text-white">
+                                    <tr>
+                                        <th className="px-3 py-2 text-xs font-semibold text-center border-r border-blue-400">S. No.</th>
+                                        <th className="px-3 py-2 text-xs font-semibold text-center border-r border-blue-400">Item Code</th>
+                                        <th className="px-3 py-2 text-xs font-semibold text-center border-r border-blue-400">Item Name</th>
+                                        <th className="px-3 py-2 text-xs font-semibold text-center border-r border-blue-400">HSN/SAC</th>
+                                        <th className="px-3 py-2 text-xs font-semibold text-center border-r border-blue-400">Qty</th>
+                                        <th className="px-3 py-2 text-xs font-semibold text-center border-r border-blue-400">UOM</th>
+                                        <th className="px-3 py-2 text-xs font-semibold text-center border-r border-blue-400">Item Rate</th>
+                                        <th className="px-3 py-2 text-xs font-semibold text-center border-r border-blue-400">Taxable Value</th>
+                                        <th className="px-3 py-2 text-xs font-semibold text-center border-r border-blue-400">IGST</th>
+                                        <th className="px-3 py-2 text-xs font-semibold text-center border-r border-blue-400">CGST</th>
+                                        <th className="px-3 py-2 text-xs font-semibold text-center border-r border-blue-400">CESS</th>
+                                        <th className="px-3 py-2 text-xs font-semibold text-center border-r border-blue-400">Invoice Value</th>
+                                        <th className="px-3 py-2 text-xs font-semibold text-center">Delete</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {itemRows.map((row, index) => (
+                                        <React.Fragment key={row.id}>
+                                            <tr className="border-b border-gray-200 hover:bg-gray-50">
+                                                <td className="px-2 py-2 text-center text-sm border-r border-gray-200">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                                                    />
+                                                    <span className="ml-2">{index + 1}</span>
+                                                </td>
+                                                <td className="px-2 py-2 border-r border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={row.itemCode}
+                                                        onChange={(e) => handleItemRowChange(row.id, 'itemCode', e.target.value)}
+                                                        className="w-full px-2 py-1 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm"
+                                                        placeholder="Item code"
+                                                    />
+                                                </td>
+                                                <td className="px-2 py-2 border-r border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={row.itemName}
+                                                        onChange={(e) => handleItemRowChange(row.id, 'itemName', e.target.value)}
+                                                        className="w-full px-2 py-1 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm"
+                                                        placeholder="Item name"
+                                                    />
+                                                </td>
+                                                <td className="px-2 py-2 border-r border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={row.hsnSac}
+                                                        onChange={(e) => handleItemRowChange(row.id, 'hsnSac', e.target.value)}
+                                                        className="w-full px-2 py-1 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm"
+                                                        placeholder="HSN/SAC"
+                                                    />
+                                                </td>
+                                                <td className="px-2 py-2 border-r border-gray-200">
+                                                    <input
+                                                        type="number"
+                                                        value={row.qty}
+                                                        onChange={(e) => handleItemRowChange(row.id, 'qty', e.target.value)}
+                                                        className="w-20 px-2 py-1 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm"
+                                                        placeholder="Qty"
+                                                    />
+                                                </td>
+                                                <td className="px-2 py-2 border-r border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={row.uom}
+                                                        onChange={(e) => handleItemRowChange(row.id, 'uom', e.target.value)}
+                                                        className="w-20 px-2 py-1 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm"
+                                                        placeholder="UOM"
+                                                    />
+                                                </td>
+                                                <td className="px-2 py-2 border-r border-gray-200">
+                                                    <input
+                                                        type="number"
+                                                        value={row.itemRate}
+                                                        onChange={(e) => handleItemRowChange(row.id, 'itemRate', e.target.value)}
+                                                        className="w-24 px-2 py-1 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm"
+                                                        placeholder="Rate"
+                                                    />
+                                                </td>
+                                                <td className="px-2 py-2 border-r border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={row.taxableValue}
+                                                        readOnly
+                                                        className="w-24 px-2 py-1 bg-gray-50 border-0 rounded text-sm"
+                                                    />
+                                                </td>
+                                                <td className="px-2 py-2 border-r border-gray-200">
+                                                    <input
+                                                        type="number"
+                                                        value={row.igst}
+                                                        onChange={(e) => handleItemRowChange(row.id, 'igst', e.target.value)}
+                                                        className="w-20 px-2 py-1 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm"
+                                                        placeholder="IGST"
+                                                    />
+                                                </td>
+                                                <td className="px-2 py-2 border-r border-gray-200">
+                                                    <input
+                                                        type="number"
+                                                        value={row.cgst}
+                                                        onChange={(e) => handleItemRowChange(row.id, 'cgst', e.target.value)}
+                                                        className="w-20 px-2 py-1 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm"
+                                                        placeholder="CGST"
+                                                    />
+                                                </td>
+                                                <td className="px-2 py-2 border-r border-gray-200">
+                                                    <input
+                                                        type="number"
+                                                        value={row.cess}
+                                                        onChange={(e) => handleItemRowChange(row.id, 'cess', e.target.value)}
+                                                        className="w-20 px-2 py-1 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm"
+                                                        placeholder="CESS"
+                                                    />
+                                                </td>
+                                                <td className="px-2 py-2 border-r border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={row.invoiceValue}
+                                                        readOnly
+                                                        className="w-28 px-2 py-1 bg-gray-50 border-0 rounded text-sm font-medium"
+                                                    />
+                                                </td>
+                                                <td className="px-2 py-2 text-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteItemRow(row.id)}
+                                                        className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                                                        title="Delete this item"
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {/* Sales Ledger and Description Row */}
+                                            <tr className="border-b border-gray-200 bg-gray-50">
+                                                <td colSpan={4} className="px-2 py-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <label className="text-xs font-medium text-gray-700 whitespace-nowrap">Sales Ledger:</label>
+                                                        <input
+                                                            type="text"
+                                                            value={row.salesLedger}
+                                                            onChange={(e) => handleItemRowChange(row.id, 'salesLedger', e.target.value)}
+                                                            className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-teal-500"
+                                                            placeholder="Select sales ledger"
+                                                        />
+                                                    </div>
+                                                </td>
+                                                <td colSpan={9} className="px-2 py-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <label className="text-xs font-medium text-gray-700 whitespace-nowrap">Description:</label>
+                                                        <input
+                                                            type="text"
+                                                            value={row.description}
+                                                            onChange={(e) => handleItemRowChange(row.id, 'description', e.target.value)}
+                                                            className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-teal-500"
+                                                            placeholder="Enter description"
+                                                        />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </React.Fragment>
+                                    ))}
 
-            <div className="min-h-[500px]">
-                {currentTab === 1 && renderInvoiceDetailsTab()}
-                {currentTab === 2 && renderItemsTab()}
-                {currentTab === 3 && renderPaymentTab()}
-                {currentTab === 4 && renderDispatchTab()}
-                {currentTab === 5 && renderEInvoiceTab()}
-            </div>
+                                    {/* Totals Row */}
+                                    <tr className="bg-gray-100 font-semibold border-t-2 border-gray-300">
+                                        <td colSpan={7} className="px-3 py-2 text-right text-sm">Total:</td>
+                                        <td className="px-2 py-2">
+                                            <input
+                                                type="text"
+                                                value={calculateTotals().taxableValue.toFixed(2)}
+                                                readOnly
+                                                className="w-24 px-2 py-1 bg-white border border-gray-300 rounded text-sm font-semibold text-center"
+                                            />
+                                        </td>
+                                        <td className="px-2 py-2">
+                                            <input
+                                                type="text"
+                                                value={calculateTotals().igst.toFixed(2)}
+                                                readOnly
+                                                className="w-20 px-2 py-1 bg-white border border-gray-300 rounded text-sm font-semibold text-center"
+                                            />
+                                        </td>
+                                        <td className="px-2 py-2">
+                                            <input
+                                                type="text"
+                                                value={calculateTotals().cgst.toFixed(2)}
+                                                readOnly
+                                                className="w-20 px-2 py-1 bg-white border border-gray-300 rounded text-sm font-semibold text-center"
+                                            />
+                                        </td>
+                                        <td className="px-2 py-2">
+                                            <input
+                                                type="text"
+                                                value={calculateTotals().cess.toFixed(2)}
+                                                readOnly
+                                                className="w-20 px-2 py-1 bg-white border border-gray-300 rounded text-sm font-semibold text-center"
+                                            />
+                                        </td>
+                                        <td className="px-2 py-2">
+                                            <input
+                                                type="text"
+                                                value={calculateTotals().invoiceValue.toFixed(2)}
+                                                readOnly
+                                                className="w-28 px-2 py-1 bg-white border border-gray-300 rounded text-sm font-semibold text-center"
+                                            />
+                                        </td>
+                                        <td className="px-2 py-2"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
 
-            {/* Navigation Buttons */}
-            <div className="flex justify-between mt-8 pt-6 border-t">
-                <button
-                    onClick={handlePrevious}
-                    disabled={currentTab === 1}
-                    className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    <Icon name="chevron-left" className="w-4 h-4 mr-1" />
-                    Previous
-                </button>
+                        {/* Action Buttons */}
+                        <div className="flex items-center justify-between">
+                            <button
+                                type="button"
+                                onClick={handleAddItemRow}
+                                className="px-4 py-2 text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add Row
+                            </button>
 
-                {currentTab < 5 ? (
-                    <button
-                        onClick={handleNext}
-                        disabled={currentTab === 2 && (isDeleting || selectedItemIds.size > 0)}
-                        className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Next
-                        <Icon name="chevron-right" className="w-4 h-4 ml-1" />
-                    </button>
-                ) : (
-                    <button
-                        onClick={() => alert('Save functionality to be implemented')}
-                        className="btn-primary"
-                    >
-                        <Icon name="save" className="w-4 h-4 mr-1" />
-                        Save Voucher
-                    </button>
+                            <div className="flex items-center gap-4">
+
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('payment')}
+                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center gap-2 font-medium"
+                                >
+                                    NEXT
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'payment' && (
+                    <div className="space-y-6">
+                        {/* Tax Summary Table */}
+                        <div className="border border-gray-300 rounded-lg overflow-hidden">
+                            <table className="w-full">
+                                <thead className="bg-gray-100">
+                                    <tr>
+                                        <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-r border-gray-300">Taxable Value</th>
+                                        <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-r border-gray-300">IGST</th>
+                                        <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-r border-gray-300">CGST</th>
+                                        <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-r border-gray-300">SGST/UTGST</th>
+                                        <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-r border-gray-300">Cess</th>
+                                        <th className="px-4 py-2 text-sm font-semibold text-gray-700">State Cess</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr className="bg-white">
+                                        <td className="px-4 py-3 border-r border-gray-300">
+                                            <input
+                                                type="text"
+                                                value={calculateTotals().taxableValue.toFixed(2)}
+                                                readOnly
+                                                className="w-full px-2 py-1 bg-gray-50 border-0 rounded text-sm text-center"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-3 border-r border-gray-300">
+                                            <input
+                                                type="text"
+                                                value={calculateTotals().igst.toFixed(2)}
+                                                readOnly
+                                                className="w-full px-2 py-1 bg-gray-50 border-0 rounded text-sm text-center"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-3 border-r border-gray-300">
+                                            <input
+                                                type="text"
+                                                value={calculateTotals().cgst.toFixed(2)}
+                                                readOnly
+                                                className="w-full px-2 py-1 bg-gray-50 border-0 rounded text-sm text-center"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-3 border-r border-gray-300">
+                                            <input
+                                                type="text"
+                                                value={paymentSgst}
+                                                readOnly
+                                                className="w-full px-2 py-1 bg-gray-50 border-0 rounded text-sm text-center"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-3 border-r border-gray-300">
+                                            <input
+                                                type="text"
+                                                value={calculateTotals().cess.toFixed(2)}
+                                                readOnly
+                                                className="w-full px-2 py-1 bg-gray-50 border-0 rounded text-sm text-center"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <input
+                                                type="text"
+                                                value={paymentStateCess}
+                                                readOnly
+                                                className="w-full px-2 py-1 bg-gray-50 border-0 rounded text-sm text-center"
+                                            />
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Main Content Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* Left Column - Payment Summary */}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Invoice Value
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={calculateTotals().invoiceValue.toFixed(2)}
+                                        readOnly
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50 text-right"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        TDS/TCS
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={paymentTds}
+                                        onChange={(e) => setPaymentTds(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-right"
+                                        placeholder="0.00"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Advance
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={paymentAdvance}
+                                        readOnly
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50 text-right"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Payable
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={paymentPayable}
+                                        readOnly
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50 text-right font-bold"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Posting Note:
+                                    </label>
+                                    <textarea
+                                        value={paymentPostingNote}
+                                        onChange={(e) => setPaymentPostingNote(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 resize-none"
+                                        rows={6}
+                                        placeholder="Enter posting notes..."
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Middle Column - Advance References */}
+                            <div className="border border-gray-300 rounded-lg p-4 bg-blue-50">
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-gray-700">
+                                        <div className="text-center">Date</div>
+                                        <div className="text-center">Advance Ref. No.</div>
+                                        <div className="text-center">Amount</div>
+                                        <div className="text-center">Applied Now</div>
+                                    </div>
+
+                                    {advanceReferences.length === 0 ? (
+                                        <div className="text-center py-8 text-gray-500 text-sm">
+                                            No advance references available
+                                        </div>
+                                    ) : (
+                                        advanceReferences.map((ref) => (
+                                            <div key={ref.id} className="grid grid-cols-4 gap-2">
+                                                <input
+                                                    type="date"
+                                                    value={ref.date}
+                                                    readOnly
+                                                    className="px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                                                />
+                                                <select
+                                                    value={ref.refNo}
+                                                    className="px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                                                >
+                                                    <option value="">Select</option>
+                                                    <option value={ref.refNo}>{ref.refNo}</option>
+                                                </select>
+                                                <input
+                                                    type="text"
+                                                    value={ref.amount}
+                                                    readOnly
+                                                    className="px-2 py-1 border border-gray-300 rounded text-xs bg-white text-center"
+                                                />
+                                                <div className="flex items-center justify-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={ref.appliedNow}
+                                                        className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Right Column - Edit Master */}
+                            <div className="border border-gray-200 rounded-lg p-6 bg-gray-50">
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between pb-4 border-b border-gray-200">
+                                        <button
+                                            type="button"
+                                            className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm font-medium shadow-sm"
+                                        >
+                                            Terms & Conditions
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md transition-colors text-sm font-medium shadow-sm"
+                                        >
+                                            Edit Masters
+                                        </button>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Edit Here</label>
+                                        <textarea
+                                            value={termsConditions}
+                                            onChange={(e) => setTermsConditions(e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-gray-800 resize-none bg-white"
+                                            rows={8}
+                                            placeholder="Enter terms and conditions..."
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('dispatch')}
+                                className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md transition-colors flex items-center gap-2 font-medium"
+                            >
+                                NEXT
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'dispatch' && (
+                    <div className="space-y-6">
+                        {/* Skip Button */}
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSkipDispatch(true);
+                                    setActiveTab('einvoice');
+                                }}
+                                className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md transition-colors font-medium"
+                            >
+                                Skip
+                            </button>
+                        </div>
+
+                        {/* Main Grid Layout */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Left Column */}
+                            <div className="space-y-4">
+                                {/* Dispatch From */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Dispatch From
+                                    </label>
+                                    <textarea
+                                        value={dispatchFrom}
+                                        onChange={(e) => setDispatchFrom(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 resize-none"
+                                        rows={3}
+                                        placeholder="Warehouse (If connected with the inventory module) / Location (As full address with Pincode)"
+                                    />
+                                </div>
+
+                                {/* Mode of Transport */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Mode of Transport
+                                    </label>
+                                    <select
+                                        value={modeOfTransport}
+                                        onChange={(e) => setModeOfTransport(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 bg-white"
+                                    >
+                                        <option value="Road">Road</option>
+                                        <option value="Air">Air</option>
+                                        <option value="Sea">Sea</option>
+                                        <option value="Rail">Rail</option>
+                                        <option value="Courier">Courier</option>
+                                    </select>
+                                </div>
+
+                                {/* Dispatch Date */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Dispatch Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={dispatchDate}
+                                        onChange={(e) => setDispatchDate(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                    />
+                                </div>
+
+                                {/* Dispatch Time */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Dispatch Time
+                                    </label>
+                                    <input
+                                        type="time"
+                                        value={dispatchTime}
+                                        onChange={(e) => setDispatchTime(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                    />
+                                </div>
+
+                                {/* Upload Document */}
+                                <div className="mt-6">
+                                    <input
+                                        type="file"
+                                        id="dispatch-doc"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) setDispatchDocument(file);
+                                        }}
+                                        className="hidden"
+                                        accept=".jpg,.jpeg,.pdf"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => document.getElementById('dispatch-doc')?.click()}
+                                        className="w-full h-40 border-2 border-dashed border-gray-300 hover:border-teal-500 bg-gray-50 hover:bg-teal-50 text-gray-600 rounded-lg transition-colors flex flex-col items-center justify-center gap-2"
+                                    >
+                                        <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                        </svg>
+                                        <span className="text-sm font-medium">UPLOAD DOCUMENT</span>
+                                        {dispatchDocument && (
+                                            <span className="text-xs mt-2 text-teal-600 font-medium">✓ {dispatchDocument.name}</span>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Right Column */}
+                            <div className="space-y-4">
+                                {/* Delivery Type */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Delivery Type
+                                    </label>
+                                    <select
+                                        value={deliveryType}
+                                        onChange={(e) => {
+                                            setDeliveryType(e.target.value);
+                                            // If Courier is selected, disable other fields
+                                            if (e.target.value === 'Courier') {
+                                                setTransporterId('');
+                                                setTransporterName('');
+                                                setVehicleNo('');
+                                                setLrGrConsignment('');
+                                            }
+                                        }}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 bg-white"
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="Self">Self</option>
+                                        <option value="Third Party">Third Party</option>
+                                        <option value="Courier">Courier</option>
+                                    </select>
+                                </div>
+
+                                {/* Self/Third Party/Courier */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Self/Third Party/Courier
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={selfThirdParty}
+                                        onChange={(e) => setSelfThirdParty(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="Enter details"
+                                    />
+                                </div>
+
+                                {/* Transporter ID/GSTIN */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Transporter ID/GSTIN
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={transporterId}
+                                        onChange={(e) => setTransporterId(e.target.value)}
+                                        disabled={deliveryType === 'Courier'}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                        placeholder="Editable with numerics and alphabet"
+                                    />
+                                </div>
+
+                                {/* Transporter Name */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Transporter Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={transporterName}
+                                        onChange={(e) => setTransporterName(e.target.value)}
+                                        disabled={deliveryType === 'Courier'}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                        placeholder="Editable with numerics and alphabet"
+                                    />
+                                </div>
+
+                                {/* Vehicle No. */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Vehicle No.
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={vehicleNo}
+                                        onChange={(e) => setVehicleNo(e.target.value)}
+                                        disabled={deliveryType === 'Courier'}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                        placeholder="Editable with numerics and alphabet"
+                                    />
+                                </div>
+
+                                {/* LR/GR/Consignment */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        LR/GR/Consignment
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={lrGrConsignment}
+                                        onChange={(e) => setLrGrConsignment(e.target.value)}
+                                        disabled={deliveryType === 'Courier'}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                        placeholder="Editable with numerics and alphabet"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Conditional Port Details for Air/Sea */}
+                        {(modeOfTransport === 'Air' || modeOfTransport === 'Sea') && (
+                            <div className="space-y-6 mt-6">
+                                {/* UPTO PORT Section */}
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">UPTO PORT</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Shipping Bill No.
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={uptoPortShippingBillNo}
+                                                    onChange={(e) => setUptoPortShippingBillNo(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Ship/Port Code
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={uptoPortShipPortCode}
+                                                    onChange={(e) => setUptoPortShipPortCode(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Shipping Bill Date
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    value={uptoPortShippingBillDate}
+                                                    onChange={(e) => setUptoPortShippingBillDate(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Origin
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={uptoPortOrigin}
+                                                    onChange={(e) => setUptoPortOrigin(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                    placeholder="City"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* BEYOND PORT Section */}
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">BEYOND PORT</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Shipping Bill No.
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={beyondPortShippingBillNo}
+                                                    onChange={(e) => setBeyondPortShippingBillNo(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Ship/Port Code
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={beyondPortShipPortCode}
+                                                    onChange={(e) => setBeyondPortShipPortCode(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Port of Loading
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={beyondPortPortOfLoading}
+                                                    onChange={(e) => setBeyondPortPortOfLoading(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Final Destination
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={beyondPortFinalDestination}
+                                                    onChange={(e) => setBeyondPortFinalDestination(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                    placeholder="City"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Origin
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={beyondPortOriginCountry}
+                                                    onChange={(e) => setBeyondPortOriginCountry(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                    placeholder="Country"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Shipping Bill Date
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    value={beyondPortShippingBillDate}
+                                                    onChange={(e) => setBeyondPortShippingBillDate(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Vessel/Flight No.
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={beyondPortVesselFlightNo}
+                                                    onChange={(e) => setBeyondPortVesselFlightNo(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Port of Discharge
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={beyondPortPortOfDischarge}
+                                                    onChange={(e) => setBeyondPortPortOfDischarge(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Dest. Country
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={beyondPortDestCountry}
+                                                    onChange={(e) => setBeyondPortDestCountry(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                    placeholder="Country"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Conditional Rail Details */}
+                        {modeOfTransport === 'Rail' && (
+                            <div className="space-y-6 mt-6">
+                                {/* UPTO PORT Section for Rail */}
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">UPTO PORT</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Delivery Type
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={railUptoPortDeliveryType}
+                                                    onChange={(e) => setRailUptoPortDeliveryType(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                    placeholder="Self/Third Party"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Transporter Name
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={railUptoPortTransporterName}
+                                                    onChange={(e) => setRailUptoPortTransporterName(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Transporter ID/GSTIN
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={railUptoPortTransporterId}
+                                                    onChange={(e) => setRailUptoPortTransporterId(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* BEYOND PORT Section for Rail */}
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">BEYOND PORT</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Railway Receipt No.
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={railBeyondPortRailwayReceiptNo}
+                                                    onChange={(e) => setRailBeyondPortRailwayReceiptNo(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Origin
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={railBeyondPortOrigin}
+                                                    onChange={(e) => setRailBeyondPortOrigin(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                    placeholder="City"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Rail No.
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={railBeyondPortRailNo}
+                                                    onChange={(e) => setRailBeyondPortRailNo(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Station of Loading
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={railBeyondPortStationOfLoading}
+                                                    onChange={(e) => setRailBeyondPortStationOfLoading(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Final Destination
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={railBeyondPortFinalDestination}
+                                                    onChange={(e) => setRailBeyondPortFinalDestination(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                    placeholder="City"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Railway Receipt Date
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    value={railBeyondPortRailwayReceiptDate}
+                                                    onChange={(e) => setRailBeyondPortRailwayReceiptDate(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Origin Country
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={railBeyondPortOriginCountry}
+                                                    onChange={(e) => setRailBeyondPortOriginCountry(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                    placeholder="Country"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Station of Discharge
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={railBeyondPortStationOfDischarge}
+                                                    onChange={(e) => setRailBeyondPortStationOfDischarge(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Dest. Country
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={railBeyondPortDestCountry}
+                                                    onChange={(e) => setRailBeyondPortDestCountry(e.target.value)}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                    placeholder="Country"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('einvoice')}
+                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center gap-2 font-medium"
+                            >
+                                NEXT
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'einvoice' && (
+                    <div className="space-y-6">
+                        {/* E-way Bill Section */}
+                        <div className="border-b border-gray-300 pb-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <h3 className="text-lg font-semibold text-gray-800">E-way Bill</h3>
+                                <button
+                                    type="button"
+                                    className="px-4 py-1 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md transition-colors text-sm"
+                                >
+                                    +
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Left Column */}
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Eway Bill - Available
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={ewayBillAvailable}
+                                            onChange={(e) => setEwayBillAvailable(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                            placeholder="Yes/No"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Eway Bill No.
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={ewayBillNo}
+                                            onChange={(e) => setEwayBillNo(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Eway Bill Date
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={ewayBillDate}
+                                            onChange={(e) => setEwayBillDate(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Right Column */}
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Validity Period
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={validityPeriod}
+                                            onChange={(e) => setValidityPeriod(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Distance (KM)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={distance}
+                                            onChange={(e) => setDistance(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Extended E-way Bill Section */}
+                        <div className="border-b border-gray-300 pb-6">
+                            <h3 className="text-lg font-semibold text-gray-800 mb-4">Extended E-way Bill</h3>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Left Column */}
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Extension Date
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={extensionDate}
+                                            onChange={(e) => setExtensionDate(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Extended EWB No.
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={extendedEwbNo}
+                                            onChange={(e) => setExtendedEwbNo(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Extension Reason
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={extensionReason}
+                                            onChange={(e) => setExtensionReason(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            From Place
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={fromPlace}
+                                            onChange={(e) => setFromPlace(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Right Column */}
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Remaining Distance
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={remainingDistance}
+                                            onChange={(e) => setRemainingDistance(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            New Validity
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={newValidity}
+                                            onChange={(e) => setNewValidity(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Updated Vehicle No.
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={updatedVehicleNo}
+                                            onChange={(e) => setUpdatedVehicleNo(e.target.value)}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* E-Invoice Section */}
+                        <div className="pb-6">
+                            <h3 className="text-lg font-semibold text-gray-800 mb-4">E-Invoice</h3>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        IRN
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={irn}
+                                        onChange={(e) => setIrn(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Ack. No.
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={ackNo}
+                                        onChange={(e) => setAckNo(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-end gap-4 pt-4">
+                            <button
+                                type="button"
+                                className="px-8 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-md transition-colors font-medium"
+                            >
+                                Post & Close
+                            </button>
+                            <button
+                                type="button"
+                                className="px-8 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-md transition-colors font-medium"
+                            >
+                                Post & Print/Email
+                            </button>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
