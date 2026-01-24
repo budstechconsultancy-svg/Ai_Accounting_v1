@@ -207,7 +207,7 @@ const App: React.FC = () => {
 
   // AI Agent conversation history
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([
-    { role: 'model', text: 'Hello! I am your AI Agent. How can I help you with your accounting data today? Use the toggle below to search the web for up-to-date information.' }
+    { role: 'model', text: 'Hello! I am Kiki Agent. How can I help you with your accounting data today? Use the toggle below to search the web for up-to-date information.' }
   ]);
 
   // AI Agent loading state (when waiting for response)
@@ -758,19 +758,42 @@ const App: React.FC = () => {
       switch (tool_use) {
         case 'navigate': {
           const pageMap: Record<string, string> = {
-            'Dashboard': 'Dashboard', 'Masters': 'Masters', 'Inventory': 'Inventory',
-            'Vouchers': 'Vouchers', 'Reports': 'Reports', 'Settings': 'Settings',
-            'Payroll': 'Payroll', 'Vendor Portal': 'Vendor Portal', 'Customer Portal': 'Customer Portal'
+            'dashboard': 'Dashboard',
+            'masters': 'Masters',
+            'inventory': 'Inventory',
+            'vouchers': 'Vouchers',
+            'reports': 'Reports',
+            'settings': 'Settings',
+            'payroll': 'Payroll',
+            'vendor portal': 'Vendor Portal',
+            'vendors': 'Vendor Portal',
+            'vendor': 'Vendor Portal',
+            'customer portal': 'Customer Portal',
+            'customers': 'Customer Portal',
+            'customer': 'Customer Portal',
+            'service': 'Service',
+            'services': 'Service'
           };
-          const paramPage = parameters.page || '';
-          // Find matching page key
-          const targetPageKey = Object.keys(pageMap).find(key => key.toLowerCase() === paramPage.toLowerCase());
+          const paramPage = (parameters.page || '').toLowerCase().trim();
+
+          // Direct match from aliases
+          if (pageMap[paramPage]) {
+            setCurrentPage(pageMap[paramPage] as Page);
+            return `✅ Navigated to ${pageMap[paramPage]}`;
+          }
+
+          // Fuzzy match (fallback)
+          const targetPageKey = Object.keys(pageMap).find(key =>
+            key.includes(paramPage) || paramPage.includes(key)
+          );
 
           if (targetPageKey) {
             setCurrentPage(pageMap[targetPageKey] as Page);
             return `✅ Navigated to ${pageMap[targetPageKey]}`;
           }
-        } // Close navigate case
+
+          return `❌ Could not find page: "${parameters.page}". Try "Dashboard", "Inventory", "Vendors", etc.`;
+        }
 
         case 'ask_for_info': {
           // AI requests more info. Save the context state.
@@ -1109,11 +1132,10 @@ const App: React.FC = () => {
       {/* Floating AI Agent Button */}
       <button
         onClick={() => setIsAgentOpen(true)}
-        className="fixed bottom-6 right-6 w-16 h-16 bg-white rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 z-50 flex items-center justify-center group overflow-hidden border border-gray-200"
-        title="Chat with AI Agent"
+        className="fixed bottom-2 right-2 w-28 h-28 hover:scale-110 transition-transform duration-300 z-50 flex items-center justify-center group filter drop-shadow-xl"
+        title="Chat with Kiki Agent"
       >
-        <div className="absolute inset-0 bg-gray-50 opacity-0 group-hover:opacity-20 transition-opacity" />
-        <img src="/src/assets/fox_agent.png" alt="AI Agent" className="w-full h-full object-contain p-2" />
+        <img src="/src/assets/fox-logo-transparent.png" alt="AI Agent" className="w-full h-full object-contain" />
       </button>
 
       <AIAgent
