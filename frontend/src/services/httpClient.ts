@@ -44,6 +44,24 @@ class HttpClient {
     // Base URL for all API requests
     private baseURL = API_BASE_URL;
 
+    // Refresh Token Management
+    private isRefreshing = false;
+    private failedQueue: any[] = [];
+
+    /**
+     * Process the queue of failed requests
+     */
+    private processQueue(error: Error | null) {
+        this.failedQueue.forEach(prom => {
+            if (error) {
+                prom.reject(error);
+            } else {
+                prom.resolve(this.request(prom.endpoint, prom.options));
+            }
+        });
+        this.failedQueue = [];
+    }
+
     /**
      * Generic request method
      */
@@ -72,6 +90,15 @@ class HttpClient {
         if (!response.ok) {
             // Handle 401 Unauthorized - Attempt Token Refresh
             if (response.status === 401 && !endpoint.includes('/auth/')) {
+                // If a refresh is already in progress, wait for it
+                if (this.isRefreshing) {
+                    return new Promise((resolve, reject) => {
+                        this.failedQueue.push({ resolve, reject, endpoint, options });
+                    });
+                }
+
+                this.isRefreshing = true;
+
                 try {
                     console.log('🔄 Access token expired. Attempting refresh...');
                     const refreshResponse = await fetch(`${this.baseURL}/api/auth/refresh/`, {
@@ -82,15 +109,20 @@ class HttpClient {
 
                     if (refreshResponse.ok) {
                         console.log('✅ Token refresh successful. Retrying request...');
+
+                        // Process queued requests
+                        this.processQueue(null);
+                        this.isRefreshing = false;
+
                         // Retry original request (cookies are automatically sent)
                         return this.request<T>(endpoint, options);
                     } else {
-                        console.error('❌ Token refresh failed. Logging out.');
-                        this.clearAuthData();
-                        window.location.href = '/login';
                         throw new Error('Session expired');
                     }
                 } catch (e) {
+                    console.error('❌ Token refresh failed. Logging out.');
+                    this.isRefreshing = false;
+                    this.processQueue(e as Error);
                     this.clearAuthData();
                     window.location.href = '/login';
                     throw e; // Re-throw

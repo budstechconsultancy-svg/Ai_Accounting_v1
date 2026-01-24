@@ -163,3 +163,33 @@ class GSTExcelView(views.APIView):
         
         wb.save(response)
         return response
+
+class AIReportExcelView(views.APIView):
+    """Export AI report as Excel file"""
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "AI Report"
+        
+        headers = ['Metric', 'Value', 'Analysis']
+        ws.append(headers)
+        
+        # Sample data - in a real app this would come from the AI analysis
+        sample_data = [
+            ['Total Revenue', '₹ 1,50,000', 'Positive growth trend'],
+            ['Top Customer', 'ABC Corp', 'Consistent purchaser'],
+            ['Expense Trend', 'Stable', 'Expenses within budget'],
+        ]
+        
+        for row in sample_data:
+            ws.append(row)
+        
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=ai_report_{datetime.now().strftime("%Y%m%d")}.xlsx'
+        
+        wb.save(response)
+        return response
