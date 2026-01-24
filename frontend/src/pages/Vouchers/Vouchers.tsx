@@ -8,6 +8,7 @@ import ErrorBoundary from '../../components/ErrorBoundary';
 import SalesVoucher from './SalesVoucher';
 import PaymentVoucherSingle from './PaymentVoucherSingle';
 import PaymentVoucherBulk from './PaymentVoucherBulk';
+import ReceiptVoucher from './ReceiptVoucher';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5003';
 
@@ -2404,35 +2405,70 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
   };
 
   // Validate and save expense voucher
-  const handleSaveExpenseVoucher = () => {
+  const handleSaveExpenseVoucher = async () => {
     // Validation
     let hasError = false;
 
     expenseRows.forEach(row => {
-      if (!row.expense || !row.postTo || !row.billRefNo || !row.entryNote || row.totalAmount <= 0) {
+      if (!row.expense || !row.postTo || !row.totalAmount || row.totalAmount <= 0) {
         hasError = true;
       }
     });
 
     if (hasError) {
-      alert('Please fill all mandatory fields in all expense rows');
+      alert('Please fill all mandatory fields (Expense, Post To, Amount) in all rows');
       return;
     }
 
-    // Create expense voucher (simplified - you may need to adjust based on your backend)
-    const voucher = {
-      id: '',
-      type: 'Expenses' as VoucherType,
+    // Create expense voucher payload
+    const payload = {
       date,
-      narration,
-      expenseRows,
-      uploadedFiles: uploadedFiles.map(f => f.name)
+      voucher_number: voucherNumber,
+      posting_note: narration,
+      expense_rows: expenseRows.map(row => ({
+        id: row.id,
+        expense: row.expense,
+        postTo: row.postTo,
+        billRefNo: row.billRefNo || '',
+        entryNote: row.entryNote || '',
+        totalAmount: row.totalAmount,
+        gstRate: row.gstRate,
+        taxableValue: row.taxableValue,
+        igst: row.igst,
+        cgst: row.cgst,
+        sgst: row.sgst,
+        cess: row.cess,
+        showTax: row.showTax
+      })),
+      uploaded_files: uploadedFiles.map(f => f.name) // In a real app, you'd handle file uploads separately/first
     };
 
-    console.log('Saving expense voucher:', voucher);
-    // onAddVouchers([voucher]); // Uncomment when backend is ready
-    alert('Expense voucher saved successfully!');
-    resetForm();
+    console.log('Posting Expense Voucher:', payload);
+    try {
+      const response = await httpClient.post('/api/vouchers/expenses/', payload);
+      console.log('Expense Voucher Response:', response);
+      alert('Expense voucher saved successfully!');
+      // Reset form
+      setExpenseRows([{
+        id: Date.now().toString(),
+        expense: '',
+        postTo: '',
+        billRefNo: '',
+        entryNote: '',
+        totalAmount: 0,
+        gstRate: 0,
+        taxableValue: 0,
+        igst: 0,
+        cgst: 0,
+        sgst: 0,
+        cess: 0,
+        showTax: false
+      }]);
+      setUploadedFiles([]);
+    } catch (error) {
+      console.error('Error posting expense voucher:', error);
+      alert('Failed to save expense voucher. Please try again.');
+    }
   };
 
   const renderExpensesForm = () => (
@@ -2946,8 +2982,9 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
         </style>
         {voucherType === 'Sales' && <SalesVoucher />}
         {voucherType === 'Payment' && <PaymentVoucherSingle />}
+        {voucherType === 'Receipt' && <ReceiptVoucher />}
         {voucherType === 'Purchase' && renderSalesPurchaseForm()}
-        {(voucherType === 'Receipt' || voucherType === 'Contra') && renderSimpleForm(voucherType)}
+        {voucherType === 'Contra' && renderSimpleForm(voucherType)}
         {voucherType === 'Journal' && renderJournalForm()}
         {voucherType === 'Expenses' && renderExpensesForm()}
 

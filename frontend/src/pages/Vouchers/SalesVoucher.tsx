@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiService } from '../../services/api';
 
 interface ItemRow {
     id: number;
@@ -145,6 +146,135 @@ const SalesVoucher: React.FC = () => {
         { id: 'dispatch', label: 'Dispatch Details' },
         { id: 'einvoice', label: 'E-Invoice & E-way Bill Details' }
     ];
+
+    const handlePost = async () => {
+        try {
+            const parseNum = (val: any) => {
+                if (val === '' || val === null || val === undefined) return 0;
+                const num = parseFloat(val);
+                return isNaN(num) ? 0 : num;
+            };
+            const formatDate = (val: string) => (!val || val.trim() === '') ? null : val;
+
+            const payload = {
+                // Invoice Details
+                date: formatDate(date),
+                sales_invoice_no: salesInvoiceNo,
+                customer_name: customerName,
+                bill_to: billTo,
+                ship_to: shipTo,
+                gstin,
+                contact,
+                tax_type: taxType,
+                state_type: stateType,
+                supporting_document: supportingDocument, // Passed but likely needs special handling if file
+                sales_order_no: salesOrderNo,
+
+                // Items
+                items: itemRows.map(row => ({
+                    item_code: row.itemCode,
+                    item_name: row.itemName,
+                    hsn_sac: row.hsnSac,
+                    qty: parseNum(row.qty),
+                    uom: row.uom,
+                    item_rate: parseNum(row.itemRate),
+                    taxable_value: parseNum(row.taxableValue),
+                    igst: parseNum(row.igst),
+                    cgst: parseNum(row.cgst),
+                    cess: parseNum(row.cess),
+                    invoice_value: parseNum(row.invoiceValue),
+                    sales_ledger: row.salesLedger,
+                    description: row.description
+                })),
+
+                // Payment Details
+                payment_details: {
+                    payment_taxable_value: calculateTotals().taxableValue,
+                    payment_igst: calculateTotals().igst,
+                    payment_cgst: calculateTotals().cgst,
+                    payment_sgst: parseNum(paymentSgst),
+                    payment_cess: calculateTotals().cess,
+                    payment_state_cess: parseNum(paymentStateCess),
+                    payment_invoice_value: calculateTotals().invoiceValue,
+                    payment_tds: parseNum(paymentTds),
+                    payment_tcs: parseNum(paymentTcs),
+                    payment_advance: parseNum(paymentAdvance),
+                    payment_payable: parseNum(paymentPayable),
+                    posting_note: paymentPostingNote,
+                    terms_conditions: termsConditions
+                },
+
+                // Dispatch Details
+                dispatch_details: {
+                    dispatch_from: dispatchFrom,
+                    mode_of_transport: modeOfTransport,
+                    dispatch_date: formatDate(dispatchDate),
+                    dispatch_time: formatDate(dispatchTime),
+                    delivery_type: deliveryType,
+                    self_third_party: selfThirdParty,
+                    transporter_id: transporterId,
+                    transporter_name: transporterName,
+                    vehicle_no: vehicleNo,
+                    lr_gr_consignment: lrGrConsignment,
+                    dispatch_document: dispatchDocument,
+
+                    // Air/Sea
+                    upto_port_shipping_bill_no: uptoPortShippingBillNo,
+                    upto_port_shipping_bill_date: formatDate(uptoPortShippingBillDate),
+                    upto_port_ship_port_code: uptoPortShipPortCode,
+                    upto_port_origin: uptoPortOrigin,
+                    beyond_port_shipping_bill_no: beyondPortShippingBillNo,
+                    beyond_port_shipping_bill_date: formatDate(beyondPortShippingBillDate),
+                    beyond_port_ship_port_code: beyondPortShipPortCode,
+                    beyond_port_vessel_flight_no: beyondPortVesselFlightNo,
+                    beyond_port_port_of_loading: beyondPortPortOfLoading,
+                    beyond_port_port_of_discharge: beyondPortPortOfDischarge,
+                    beyond_port_final_destination: beyondPortFinalDestination,
+                    beyond_port_origin_country: beyondPortOriginCountry,
+                    beyond_port_dest_country: beyondPortDestCountry,
+
+                    // Rail
+                    rail_upto_port_delivery_type: railUptoPortDeliveryType,
+                    rail_upto_port_transporter_id: railUptoPortTransporterId,
+                    rail_upto_port_transporter_name: railUptoPortTransporterName,
+                    rail_beyond_port_receipt_no: railBeyondPortRailwayReceiptNo,
+                    rail_beyond_port_receipt_date: formatDate(railBeyondPortRailwayReceiptDate),
+                    rail_beyond_port_origin: railBeyondPortOrigin,
+                    rail_beyond_port_origin_country: railBeyondPortOriginCountry,
+                    rail_beyond_port_rail_no: railBeyondPortRailNo,
+                    rail_beyond_port_station_loading: railBeyondPortStationOfLoading,
+                    rail_beyond_port_station_discharge: railBeyondPortStationOfDischarge,
+                    rail_beyond_port_final_destination: railBeyondPortFinalDestination,
+                    rail_beyond_port_dest_country: railBeyondPortDestCountry
+                },
+
+                // E-way Bill Details
+                eway_bill_details: {
+                    eway_bill_available: ewayBillAvailable,
+                    eway_bill_no: ewayBillNo,
+                    eway_bill_date: formatDate(ewayBillDate),
+                    validity_period: validityPeriod,
+                    distance: distance,
+                    extension_date: formatDate(extensionDate),
+                    extended_ewb_no: extendedEwbNo,
+                    extension_reason: extensionReason,
+                    from_place: fromPlace,
+                    remaining_distance: remainingDistance,
+                    new_validity: newValidity,
+                    updated_vehicle_no: updatedVehicleNo,
+                    irn: irn,
+                    ack_no: ackNo
+                }
+            };
+
+            await apiService.createSalesVoucherNew(payload);
+            alert('Sales Voucher Saved Successfully!');
+            // Reset form or redirect logic here if needed
+        } catch (error) {
+            console.error('Failed to save sales voucher:', error);
+            alert('Failed to save voucher. Please check inputs.');
+        }
+    };
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -1775,12 +1905,14 @@ const SalesVoucher: React.FC = () => {
                         <div className="flex justify-end gap-4 pt-4">
                             <button
                                 type="button"
+                                onClick={handlePost}
                                 className="px-8 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-md transition-colors font-medium"
                             >
                                 Post & Close
                             </button>
                             <button
                                 type="button"
+                                onClick={handlePost}
                                 className="px-8 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-md transition-colors font-medium"
                             >
                                 Post & Print/Email
