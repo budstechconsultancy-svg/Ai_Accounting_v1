@@ -224,7 +224,12 @@ const InventoryPage: React.FC = () => {
   const [grnPostingNote, setGrnPostingNote] = useState('');
   const [postingNote, setPostingNote] = useState('');
   const [showDeliveryChallan, setShowDeliveryChallan] = useState(false);
+  const [deliveryChallanAddress, setDeliveryChallanAddress] = useState('');
+  const [deliveryChallanDate, setDeliveryChallanDate] = useState('');
+
   const [showEWayBill, setShowEWayBill] = useState(false);
+  const [ewayBillVehicleNo, setEwayBillVehicleNo] = useState('');
+  const [ewayBillValidTill, setEwayBillValidTill] = useState('');
   const [operationsStockData, setOperationsStockData] = useState<any[]>([
     { id: 1, category: 'Electronics', subCategory: 'Mobile', itemCode: 'IT001', itemName: 'Product A', uom: 'Nos', openingQty: 100, openingValue: 150000, inwardQty: 50, inwardValue: 75000, outwardQty: 30, outwardValue: 45000, closingQty: 120, closingValue: 180000 },
     { id: 2, category: 'Furniture', subCategory: 'Chairs', itemCode: 'IT002', itemName: 'Product B', uom: 'Nos', openingQty: 200, openingValue: 1000000, inwardQty: 100, inwardValue: 500000, outwardQty: 50, outwardValue: 250000, closingQty: 250, closingValue: 1250000 },
@@ -741,6 +746,94 @@ const InventoryPage: React.FC = () => {
     );
   };
 
+  const handleIssueSlipSubmit = async () => {
+    try {
+      if (issueSlipTab === 'outward') {
+        const outwardPayload = {
+          outward_slip_no: issueSlipNumber,
+          date: issueSlipDate || null,
+          time: issueSlipTime || null,
+          outward_type: outwardType,
+          location: itemLocation || null,
+          sales_order_no: outwardSalesOrder,
+          customer_name: outwardCustomerName,
+          supplier_invoice_no: outwardSupplierInvoice,
+          vendor_name: outwardVendorName,
+          branch: outwardBranch,
+          address: outwardAddress,
+          gstin: outwardGstin,
+          total_boxes: outwardTotalBoxes,
+          posting_note: postingNote,
+          items: issueSlipItems.map(item => ({
+            item_code: item.itemCode,
+            item_name: item.itemName,
+            hsn_code: item.hsnCode || null,
+            uom: item.uom,
+            quantity: item.quantity || 0,
+            no_of_boxes: item.noOfBoxes || null
+          })),
+          delivery_challan: (deliveryChallanAddress || deliveryChallanDate) ? {
+            dispatch_address: deliveryChallanAddress,
+            dispatch_date: deliveryChallanDate || null
+          } : null,
+          eway_bill: (ewayBillVehicleNo || ewayBillValidTill) ? {
+            vehicle_number: ewayBillVehicleNo,
+            valid_till: ewayBillValidTill || null
+          } : null
+        };
+        await httpClient.post('/api/inventory/operations/outward/', outwardPayload);
+      } else {
+        // Common payload for other tabs
+        const commonPayload = {
+          issue_slip_no: issueSlipNumber,
+          date: issueSlipDate || null,
+          time: issueSlipTime || null,
+          status: 'Posted',
+          goods_from_location: goodsFromLocation,
+          goods_to_location: goodsToLocation,
+          posting_note: postingNote,
+          items: issueSlipItems.map(item => ({
+            item_code: item.itemCode,
+            item_name: item.itemName,
+            uom: item.uom,
+            quantity: item.quantity || 0,
+            rate: item.rate || 0,
+            value: item.value || 0
+          })),
+          delivery_challan: (deliveryChallanAddress || deliveryChallanDate) ? {
+            dispatch_address: deliveryChallanAddress,
+            dispatch_date: deliveryChallanDate || null
+          } : null,
+          eway_bill: (ewayBillVehicleNo || ewayBillValidTill) ? {
+            vehicle_number: ewayBillVehicleNo,
+            valid_till: ewayBillValidTill || null
+          } : null
+        };
+
+        const endpoints: { [key: string]: string } = {
+          'job-work': '/api/inventory/operations/job-work/',
+          'inter-unit': '/api/inventory/operations/inter-unit/',
+          'location-change': '/api/inventory/operations/location-change/',
+          'production': '/api/inventory/operations/production/',
+          'consumption': '/api/inventory/operations/consumption/',
+          'scrap': '/api/inventory/operations/scrap/'
+        };
+
+        const endpoint = endpoints[issueSlipTab];
+        if (endpoint) {
+          await httpClient.post(endpoint, commonPayload);
+        }
+      }
+
+      alert('Operation saved successfully!');
+      setShowIssueSlipForm(false);
+      // Optional: Reset form fields here if needed
+    } catch (error) {
+      console.error('Error saving operation:', error);
+      alert('Failed to save operation. Please check your inputs.');
+    }
+  };
+
   const handleAddIssueSlipItem = () => {
     setIssueSlipItems([...issueSlipItems, { itemCode: '', itemName: '', uom: '', quantity: '', rate: '', value: 0, noOfBoxes: '' }]);
   };
@@ -1180,7 +1273,7 @@ const InventoryPage: React.FC = () => {
 
                     <div className="flex gap-3 justify-end border-t border-gray-200 pt-5 mt-4">
                       <button
-                        onClick={() => setShowIssueSlipForm(false)}
+                        onClick={handleIssueSlipSubmit}
                         className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 font-semibold text-sm"
                       >
                         Post & Close
@@ -1364,7 +1457,7 @@ const InventoryPage: React.FC = () => {
 
                     <div className="flex gap-3 justify-end border-t border-gray-200 pt-5 mt-4">
                       <button
-                        onClick={() => setShowIssueSlipForm(false)}
+                        onClick={handleIssueSlipSubmit}
                         className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 font-semibold text-sm"
                       >
                         Post & Close
@@ -1522,7 +1615,7 @@ const InventoryPage: React.FC = () => {
                         E-Way Bill
                       </button>
                       <button
-                        onClick={() => setShowIssueSlipForm(false)}
+                        onClick={handleIssueSlipSubmit}
                         className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 font-semibold text-sm"
                       >
                         Post & Close
@@ -1776,11 +1869,11 @@ const InventoryPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Dispatch Address</label>
-                    <input type="text" placeholder="Address" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                    <input type="text" value={deliveryChallanAddress} onChange={(e) => setDeliveryChallanAddress(e.target.value)} placeholder="Address" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Dispatch Date</label>
-                    <input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                    <input type="date" value={deliveryChallanDate} onChange={(e) => setDeliveryChallanDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
                   </div>
                 </div>
                 <div className="flex gap-3 justify-end border-t border-gray-200 pt-4">
@@ -1819,11 +1912,11 @@ const InventoryPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Number</label>
-                    <input type="text" placeholder="Vehicle No" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                    <input type="text" value={ewayBillVehicleNo} onChange={(e) => setEwayBillVehicleNo(e.target.value)} placeholder="Vehicle No" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Valid Till</label>
-                    <input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                    <input type="date" value={ewayBillValidTill} onChange={(e) => setEwayBillValidTill(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
                   </div>
                 </div>
                 <div className="flex gap-3 justify-end border-t border-gray-200 pt-4">

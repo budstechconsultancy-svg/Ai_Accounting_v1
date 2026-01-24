@@ -55,65 +55,67 @@ const MonthlyActivityChart: React.FC<{ data: { month: string; sales: number; pur
             </div>
 
             {/* Fixed height container as required */}
-            <div style={{ width: '100%', height: 340 }}>
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                    <LineChart
-                        data={validatedData}
-                        margin={{
-                            top: 20,
-                            right: 30,
-                            left: 20,
-                            bottom: 20,
-                        }}
-                    >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis
-                            dataKey="month"
-                            stroke="#6b7280"
-                            fontSize={12}
-                            fontWeight={500}
-                        />
-                        <YAxis
-                            stroke="#6b7280"
-                            fontSize={11}
-                            tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
-                        />
-                        <Tooltip
-                            formatter={(value: number, name: string) => [
-                                `₹${value.toLocaleString()}`,
-                                name === 'sales' ? 'Sales' : 'Purchases'
-                            ]}
-                            labelStyle={{ color: '#374151' }}
-                            contentStyle={{
-                                backgroundColor: 'white',
-                                border: '1px solid #d1d5db',
-                                borderRadius: '8px',
-                                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+            <div style={{ width: '100%', height: 340 }} className="relative block">
+                {validatedData.length > 0 && (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                            data={validatedData}
+                            margin={{
+                                top: 20,
+                                right: 30,
+                                left: 20,
+                                bottom: 20,
                             }}
-                        />
-                        <Legend
-                            wrapperStyle={{ paddingTop: '20px' }}
-                        />
-                        <Line
-                            type="monotone"
-                            dataKey="sales"
-                            stroke="#f97316"
-                            strokeWidth={3}
-                            dot={{ fill: '#f97316', strokeWidth: 2, r: 5 }}
-                            activeDot={{ r: 7, stroke: '#f97316', strokeWidth: 2 }}
-                            name="Sales"
-                        />
-                        <Line
-                            type="monotone"
-                            dataKey="purchases"
-                            stroke="#ef4444"
-                            strokeWidth={3}
-                            dot={{ fill: '#ef4444', strokeWidth: 2, r: 5 }}
-                            activeDot={{ r: 7, stroke: '#ef4444', strokeWidth: 2 }}
-                            name="Purchases"
-                        />
-                    </LineChart>
-                </ResponsiveContainer>
+                        >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis
+                                dataKey="month"
+                                stroke="#6b7280"
+                                fontSize={12}
+                                fontWeight={500}
+                            />
+                            <YAxis
+                                stroke="#6b7280"
+                                fontSize={11}
+                                tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
+                            />
+                            <Tooltip
+                                formatter={(value: number, name: string) => [
+                                    `₹${value.toLocaleString()}`,
+                                    name === 'sales' ? 'Sales' : 'Purchases'
+                                ]}
+                                labelStyle={{ color: '#374151' }}
+                                contentStyle={{
+                                    backgroundColor: 'white',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                                }}
+                            />
+                            <Legend
+                                wrapperStyle={{ paddingTop: '20px' }}
+                            />
+                            <Line
+                                type="monotone"
+                                dataKey="sales"
+                                stroke="#f97316"
+                                strokeWidth={3}
+                                dot={{ fill: '#f97316', strokeWidth: 2, r: 5 }}
+                                activeDot={{ r: 7, stroke: '#f97316', strokeWidth: 2 }}
+                                name="Sales"
+                            />
+                            <Line
+                                type="monotone"
+                                dataKey="purchases"
+                                stroke="#ef4444"
+                                strokeWidth={3}
+                                dot={{ fill: '#ef4444', strokeWidth: 2, r: 5 }}
+                                activeDot={{ r: 7, stroke: '#ef4444', strokeWidth: 2 }}
+                                name="Purchases"
+                            />
+                        </LineChart>
+                    </ResponsiveContainer>
+                )}
             </div>
 
             {/* Data summary */}

@@ -435,7 +435,7 @@ const CustomerContent: React.FC = () => {
 
     const fetchStockItems = async () => {
         try {
-            const response = await httpClient.get<any[]>('/api/inventory/stock-items/');
+            const response = await httpClient.get<any[]>('/api/inventory/items/');
             setStockItems(response.map(item => ({
                 code: item.item_code,
                 name: item.item_name

@@ -164,11 +164,11 @@ class ApiService {
     // ============================================================================
 
     async getStockItems() {
-        return httpClient.get<StockItem[]>('/api/inventory/stock-items/');
+        return httpClient.get<StockItem[]>('/api/inventory/items/');
     }
 
     async saveStockItem(data: any) {
-        return httpClient.post<StockItem>('/api/inventory/stock-items/', data);
+        return httpClient.post<StockItem>('/api/inventory/items/', data);
     }
 
     /**
@@ -535,7 +535,7 @@ class ApiService {
     }
 
     async getUserTables() {
-        return httpClient.get<UserTable[]>('/api/settings/user-tables/');
+        return httpClient.get<UserTable[]>('/api/user-tables/');
     }
 
     async getRoleModules(roleId: number) {

@@ -56,12 +56,12 @@ class HttpClient {
             headers.set('Content-Type', 'application/json');
         }
 
-        // REMOVED: Bearer token injection. We rely on HttpOnly cookies for security.
-        // The backend CustomJWTAuthentication prefers cookies if header is absent.
-        // const token = localStorage.getItem('token');
-        // if (token) {
-        //     headers.set('Authorization', `Bearer ${token}`);
-        // }
+        // Bearer token injection as fallback for HttpOnly cookies
+        // The backend CustomJWTAuthentication prefers header if available.
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers.set('Authorization', `Bearer ${token}`);
+        }
 
         const response = await fetch(url, {
             ...options,

@@ -4,7 +4,11 @@ from rest_framework.permissions import IsAuthenticated
 
 from .models import (
     InventoryMasterCategory, InventoryLocation, InventoryItem, InventoryUnit,
-    InventoryMasterGRN, InventoryMasterIssueSlip
+    InventoryMasterGRN, InventoryMasterIssueSlip,
+    InventoryOperationJobWork, InventoryOperationInterUnit, 
+    InventoryOperationLocationChange, InventoryOperationProduction,
+    InventoryOperationConsumption, InventoryOperationScrap,
+    InventoryOperationOutward
 )
 from .serializers import (
     InventoryMasterCategorySerializer, 
@@ -12,7 +16,14 @@ from .serializers import (
     InventoryItemSerializer,
     InventoryUnitSerializer,
     InventoryMasterGRNSerializer,
-    InventoryMasterIssueSlipSerializer
+    InventoryMasterIssueSlipSerializer,
+    InventoryOperationJobWorkSerializer,
+    InventoryOperationInterUnitSerializer,
+    InventoryOperationLocationChangeSerializer,
+    InventoryOperationProductionSerializer,
+    InventoryOperationConsumptionSerializer,
+    InventoryOperationScrapSerializer,
+    InventoryOperationOutwardSerializer
 )
 from core.tenant import get_tenant_from_request
 
@@ -153,3 +164,91 @@ class InventoryMasterIssueSlipViewSet(viewsets.ModelViewSet):
         instance.is_active = False
         instance.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+# -------------------------------------------------------------------------
+# OPERATION VIEWS
+# -------------------------------------------------------------------------
+
+class InventoryOperationJobWorkViewSet(viewsets.ModelViewSet):
+    serializer_class = InventoryOperationJobWorkSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        tenant_id = get_tenant_from_request(self.request)
+        return InventoryOperationJobWork.objects.filter(tenant_id=tenant_id)
+
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)
+
+class InventoryOperationInterUnitViewSet(viewsets.ModelViewSet):
+    serializer_class = InventoryOperationInterUnitSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        tenant_id = get_tenant_from_request(self.request)
+        return InventoryOperationInterUnit.objects.filter(tenant_id=tenant_id)
+
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)
+
+class InventoryOperationLocationChangeViewSet(viewsets.ModelViewSet):
+    serializer_class = InventoryOperationLocationChangeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        tenant_id = get_tenant_from_request(self.request)
+        return InventoryOperationLocationChange.objects.filter(tenant_id=tenant_id)
+
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)
+
+class InventoryOperationProductionViewSet(viewsets.ModelViewSet):
+    serializer_class = InventoryOperationProductionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        tenant_id = get_tenant_from_request(self.request)
+        return InventoryOperationProduction.objects.filter(tenant_id=tenant_id)
+
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)
+
+class InventoryOperationConsumptionViewSet(viewsets.ModelViewSet):
+    serializer_class = InventoryOperationConsumptionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        tenant_id = get_tenant_from_request(self.request)
+        return InventoryOperationConsumption.objects.filter(tenant_id=tenant_id)
+
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)
+
+class InventoryOperationScrapViewSet(viewsets.ModelViewSet):
+    serializer_class = InventoryOperationScrapSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        tenant_id = get_tenant_from_request(self.request)
+        return InventoryOperationScrap.objects.filter(tenant_id=tenant_id)
+
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)
+
+class InventoryOperationOutwardViewSet(viewsets.ModelViewSet):
+    serializer_class = InventoryOperationOutwardSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        tenant_id = get_tenant_from_request(self.request)
+        return InventoryOperationOutward.objects.filter(tenant_id=tenant_id)
+
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)

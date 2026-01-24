@@ -6,7 +6,14 @@ from .views import (
     InventoryItemViewSet,
     InventoryUnitViewSet,
     InventoryMasterGRNViewSet,
-    InventoryMasterIssueSlipViewSet
+    InventoryMasterIssueSlipViewSet,
+    InventoryOperationJobWorkViewSet,
+    InventoryOperationInterUnitViewSet,
+    InventoryOperationLocationChangeViewSet,
+    InventoryOperationProductionViewSet,
+    InventoryOperationConsumptionViewSet,
+    InventoryOperationScrapViewSet,
+    InventoryOperationOutwardViewSet
 )
 
 router = DefaultRouter()
@@ -16,6 +23,15 @@ router.register('items', InventoryItemViewSet, basename='inventory-item')
 router.register('units', InventoryUnitViewSet, basename='inventory-unit')
 router.register('master-voucher-grn', InventoryMasterGRNViewSet, basename='inventory-master-grn')
 router.register('master-voucher-issue-slip', InventoryMasterIssueSlipViewSet, basename='inventory-master-issue-slip')
+
+# Operation URLs
+router.register('operations/job-work', InventoryOperationJobWorkViewSet, basename='inventory-operation-job-work')
+router.register('operations/inter-unit', InventoryOperationInterUnitViewSet, basename='inventory-operation-inter-unit')
+router.register('operations/location-change', InventoryOperationLocationChangeViewSet, basename='inventory-operation-location-change')
+router.register('operations/production', InventoryOperationProductionViewSet, basename='inventory-operation-production')
+router.register('operations/consumption', InventoryOperationConsumptionViewSet, basename='inventory-operation-consumption')
+router.register('operations/scrap', InventoryOperationScrapViewSet, basename='inventory-operation-scrap')
+router.register('operations/outward', InventoryOperationOutwardViewSet, basename='inventory-operation-outward')
 
 urlpatterns = [
     path('', include(router.urls)),

@@ -1557,3 +1557,39 @@ CREATE TABLE IF NOT EXISTS service_groups (
     INDEX idx_tenant_category (tenant_id, category)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Service Groups Table';
    
+      
+   CREATE TABLE `inventory_master_grn` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` VARCHAR(36) NOT NULL,
+  `created_at` DATETIME(6) DEFAULT NULL,
+  `updated_at` DATETIME(6) DEFAULT NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `grn_type` VARCHAR(100) NOT NULL,
+  `prefix` VARCHAR(50) DEFAULT NULL,
+  `suffix` VARCHAR(50) DEFAULT NULL,
+  `year` VARCHAR(4) DEFAULT NULL,
+  `required_digits` INT NOT NULL,
+  `preview` VARCHAR(255) DEFAULT NULL,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `inventory_master_issueslip` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` VARCHAR(36) NOT NULL,
+  `created_at` DATETIME(6) DEFAULT NULL,
+  `updated_at` DATETIME(6) DEFAULT NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `issue_slip_type` VARCHAR(100) NOT NULL,
+  `prefix` VARCHAR(50) DEFAULT NULL,
+  `suffix` VARCHAR(50) DEFAULT NULL,
+  `year` VARCHAR(4) DEFAULT NULL,
+  `required_digits` INT NOT NULL,
+  `preview` VARCHAR(255) DEFAULT NULL,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
