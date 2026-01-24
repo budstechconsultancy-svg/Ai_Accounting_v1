@@ -160,10 +160,10 @@ const AIAgent: React.FC<AIAgentProps> = ({ isOpen, onClose, messages, onSendMess
       <div className="bg-white w-full max-w-md h-[70vh] m-8 rounded-xl shadow-2xl flex flex-col transform transition-transform duration-300 ease-out animate-slide-in">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-white rounded-full overflow-hidden flex items-center justify-center p-1">
-              <img src="/src/assets/fox_agent.png" alt="Kiki" className="w-full h-full object-contain" />
+            <div className="w-20 h-20 flex items-center justify-center">
+              <img src="/src/assets/fox-logo-transparent.png" alt="Kiki" className="w-full h-full object-contain" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-800">AI Agent</h3>
+            <h3 className="text-lg font-semibold text-gray-800">Kiki Agent</h3>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <Icon name="close" className="w-6 h-6" />
@@ -175,7 +175,7 @@ const AIAgent: React.FC<AIAgentProps> = ({ isOpen, onClose, messages, onSendMess
           {messages.map((msg, index) => (
             <div key={index}>
               <div className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {msg.role === 'model' && <div className="w-10 h-10 bg-white rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 p-1"><img src="/src/assets/fox_agent.png" alt="Kiki" className="w-full h-full object-contain" /></div>}
+                {msg.role === 'model' && <div className="w-10 h-10 flex items-center justify-center flex-shrink-0"><img src="/src/assets/fox-logo-transparent.png" alt="Kiki" className="w-full h-full object-contain filter drop-shadow-sm" /></div>}
                 <div className={`max-w-xs md:max-w-sm rounded-lg px-4 py-2 text-sm ${msg.role === 'user' ? 'bg-orange-500 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'}`}>
                   {msg.text}
                 </div>
@@ -198,7 +198,7 @@ const AIAgent: React.FC<AIAgentProps> = ({ isOpen, onClose, messages, onSendMess
           ))}
           {isLoading && (
             <div className="flex items-end gap-2 justify-start">
-              <div className="w-10 h-10 bg-white rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 p-1"><img src="/src/assets/fox_agent.png" alt="Kiki" className="w-full h-full object-contain" /></div>
+              <div className="w-10 h-10 flex items-center justify-center flex-shrink-0"><img src="/src/assets/fox-logo-transparent.png" alt="Kiki" className="w-full h-full object-contain filter drop-shadow-sm" /></div>
               <div className="max-w-xs rounded-lg px-4 py-2 bg-gray-100 text-gray-800 rounded-bl-none">
                 <div className="flex items-center justify-center space-x-1">
                   <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>

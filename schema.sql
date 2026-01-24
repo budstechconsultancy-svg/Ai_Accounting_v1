@@ -1593,3 +1593,228 @@ CREATE TABLE `inventory_master_issueslip` (
 ) ENGINE=InnoDB
 DEFAULT CHARSET=utf8mb4
 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE inventory_operation_consumption (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    issue_slip_no VARCHAR(100),
+    date DATE,
+    time TIME(6),
+    status VARCHAR(50),
+    goods_from_location VARCHAR(255),
+    goods_to_location VARCHAR(255),
+    posting_note LONGTEXT,
+    INDEX idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE inventory_operation_consumption_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    item_code VARCHAR(100),
+    item_name VARCHAR(255),
+    uom VARCHAR(50),
+    quantity DECIMAL(15,4) DEFAULT 0.0000,
+    rate DECIMAL(15,2) DEFAULT 0.00,
+    value DECIMAL(15,2) DEFAULT 0.00,
+    parent_id BIGINT,
+    INDEX idx_parent_id (parent_id),
+    INDEX idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE inventory_operation_interunit (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    issue_slip_no VARCHAR(100),
+    date DATE,
+    time TIME(6),
+    status VARCHAR(50),
+    goods_from_location VARCHAR(255),
+    goods_to_location VARCHAR(255),
+    posting_note LONGTEXT,
+    INDEX idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE inventory_operation_interunit_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    item_code VARCHAR(100),
+    item_name VARCHAR(255),
+    uom VARCHAR(50),
+    quantity DECIMAL(15,4) DEFAULT 0.0000,
+    rate DECIMAL(15,2) DEFAULT 0.00,
+    value DECIMAL(15,2) DEFAULT 0.00,
+    parent_id BIGINT,
+    INDEX idx_parent_id (parent_id),
+    INDEX idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE inventory_operation_jobwork (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    issue_slip_no VARCHAR(100),
+    date DATE,
+    time TIME(6),
+    status VARCHAR(50),
+    goods_from_location VARCHAR(255),
+    goods_to_location VARCHAR(255),
+    posting_note LONGTEXT,
+    INDEX idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE inventory_operation_jobwork_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    item_code VARCHAR(100),
+    item_name VARCHAR(255),
+    uom VARCHAR(50),
+    quantity DECIMAL(15,4) DEFAULT 0.0000,
+    rate DECIMAL(15,2) DEFAULT 0.00,
+    value DECIMAL(15,2) DEFAULT 0.00,
+    parent_id BIGINT,
+    INDEX idx_parent_id (parent_id),
+    INDEX idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE inventory_operation_locationchange (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    issue_slip_no VARCHAR(100),
+    date DATE,
+    time TIME(6),
+    status VARCHAR(50),
+    goods_from_location VARCHAR(255),
+    goods_to_location VARCHAR(255),
+    posting_note LONGTEXT,
+    INDEX idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE inventory_operation_locationchange_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    item_code VARCHAR(100),
+    item_name VARCHAR(255),
+    uom VARCHAR(50),
+    quantity DECIMAL(15,4) DEFAULT 0.0000,
+    rate DECIMAL(15,2) DEFAULT 0.00,
+    value DECIMAL(15,2) DEFAULT 0.00,
+    parent_id BIGINT,
+    INDEX idx_parent_id (parent_id),
+    INDEX idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE inventory_operation_outward (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    outward_slip_no VARCHAR(100),
+    date DATE,
+    time TIME(6),
+    outward_type VARCHAR(50),
+    sales_order_no VARCHAR(100),
+    customer_name VARCHAR(255),
+    supplier_invoice_no VARCHAR(100),
+    vendor_name VARCHAR(255),
+    branch VARCHAR(100),
+    address LONGTEXT,
+    gstin VARCHAR(20),
+    total_boxes VARCHAR(50),
+    posting_note LONGTEXT,
+    location_id BIGINT,
+    INDEX idx_tenant_id (tenant_id),
+    INDEX idx_location_id (location_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE inventory_operation_outward_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    item_code VARCHAR(100),
+    item_name VARCHAR(255),
+    hsn_code VARCHAR(50),
+    uom VARCHAR(50),
+    quantity DECIMAL(15,4) DEFAULT 0.0000,
+    no_of_boxes VARCHAR(100),
+    parent_id BIGINT,
+    INDEX idx_parent_id (parent_id),
+    INDEX idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE inventory_operation_production (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    issue_slip_no VARCHAR(100),
+    date DATE,
+    time TIME(6),
+    status VARCHAR(50),
+    goods_from_location VARCHAR(255),
+    goods_to_location VARCHAR(255),
+    posting_note LONGTEXT,
+    INDEX idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE inventory_operation_production_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    item_code VARCHAR(100),
+    item_name VARCHAR(255),
+    uom VARCHAR(50),
+    quantity DECIMAL(15,4) DEFAULT 0.0000,
+    rate DECIMAL(15,2) DEFAULT 0.00,
+    value DECIMAL(15,2) DEFAULT 0.00,
+    parent_id BIGINT,
+    INDEX idx_parent_id (parent_id),
+    INDEX idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE inventory_operation_scrap (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    issue_slip_no VARCHAR(100),
+    date DATE,
+    time TIME(6),
+    status VARCHAR(50),
+    goods_from_location VARCHAR(255),
+    goods_to_location VARCHAR(255),
+    posting_note LONGTEXT,
+    INDEX idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE inventory_operation_scrap_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_at DATETIME(6) DEFAULT NULL,
+    updated_at DATETIME(6) DEFAULT NULL,
+    item_code VARCHAR(100),
+    item_name VARCHAR(255),
+    uom VARCHAR(50),
+    quantity DECIMAL(15,4) DEFAULT 0.0000,
+    rate DECIMAL(15,2) DEFAULT 0.00,
+    value DECIMAL(15,2) DEFAULT 0.00,
+    parent_id BIGINT,
+    INDEX idx_parent_id (parent_id),
+    INDEX idx_tenant_id (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
