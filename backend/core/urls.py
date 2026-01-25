@@ -2,9 +2,8 @@ from django.urls import path, include  # type: ignore
 from rest_framework import routers  # type: ignore
 from .views import (
     CompanySettingsViewSet, health_check, check_status,
-    ModulePermissionsSchemaView, UserModulePermissionsView, AgentMessageView, AIProxyView,
-    ai_metrics, health_with_metrics, AdminPaymentsView,
-    SettingsUsersView
+    AgentMessageView, AIProxyView,
+    ai_metrics, health_with_metrics, AdminPaymentsView
 )
 from .admin_views import AdminSubscriptionsView, AdminUserStatusView
 from .direct_registration import DirectRegisterView
@@ -35,27 +34,10 @@ urlpatterns = [
     path('admin/user-subscription/', AdminUserStatusView.as_view(), name='admin-user-subscription'),
     path('admin/payments/', AdminPaymentsView.as_view(), name='admin-payments'),
 
-    # Module Permissions
-    path('module-permissions/schema/', ModulePermissionsSchemaView.as_view()),
-    path('module-permissions/user/<str:user_id>/', UserModulePermissionsView.as_view()),
-
     # AI Services
     path('ai/<str:action>/', AIProxyView.as_view(), name='ai-proxy'),
     path('agent/message/', AgentMessageView.as_view()),  # Legacy endpoint, uses AI proxy internally
     path('metrics/ai/', ai_metrics, name='ai-metrics'),
     
-    # Settings
-    # REF: Moved to users_roles module
-    # path('settings/users/', SettingsUsersView.as_view(), name='settings-users'),
-    # path('settings/users/<int:user_id>/', SettingsUsersView.as_view(), name='settings-user-detail'),
-    # REMOVED: Role-related endpoints - no longer using roles
-    # path('settings/roles/', SettingsRolesView.as_view(), name='settings-roles'),
-    # path('seed-module-roles', SeedModuleRolesView.as_view(), name='seed-module-roles'),
-    # path('settings/module-roles/', ModuleRolesView.as_view(), name='module-roles'),
-
-    # REMOVED: Permission endpoints - no longer using permission tables
-    # path('permissions/modules/', PermissionModulesListView.as_view(), name='permission-modules'),
-    # path('roles/<int:role_id>/permissions/', RolePermissionsView.as_view(), name='role-permissions'),
-
     path('', include(router.urls)),
 ]

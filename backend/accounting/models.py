@@ -7,6 +7,8 @@ from .models_transaction import TransactionFile
 from .models_voucher_payment import VoucherPaymentSingle, VoucherPaymentBulk
 from .models_voucher_receipt import VoucherReceiptSingle, VoucherReceiptBulk
 from .models_voucher_expense import VoucherExpense
+from .models_voucher_contra import VoucherContra
+from .models_voucher_journal import VoucherJournal
 
 
 # ============================================================================

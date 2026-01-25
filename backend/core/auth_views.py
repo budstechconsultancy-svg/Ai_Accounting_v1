@@ -109,7 +109,14 @@ class CookieTokenRefreshView(TokenRefreshView):
         # Some setups rotate refresh tokens too
         new_refresh = token_data.get('refresh') 
 
-        response = Response({'success': True}, status=status.HTTP_200_OK)
+        # Return the tokens in the body as well to support Bearer auth flow
+        response_data = {'success': True}
+        if access_token:
+            response_data['access'] = access_token
+        if new_refresh:
+            response_data['refresh'] = new_refresh
+            
+        response = Response(response_data, status=status.HTTP_200_OK)
 
         # Update Access Token
         if access_token:

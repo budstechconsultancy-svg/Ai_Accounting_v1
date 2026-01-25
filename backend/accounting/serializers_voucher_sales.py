@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models_voucher_sales import (
-    VoucherSalesInvoiceDetails, VoucherSalesItems,
+    VoucherSalesInvoiceDetails, VoucherSalesItems, VoucherSalesItemsForeign,
     VoucherSalesPaymentDetails, VoucherSalesDispatchDetails,
     VoucherSalesEwayBill
 )
@@ -9,6 +9,12 @@ from core.utils import TenantModelSerializerMixin
 class VoucherSalesItemsSerializer(serializers.ModelSerializer):
     class Meta:
         model = VoucherSalesItems
+        exclude = ('invoice', 'tenant_id')
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+class VoucherSalesItemsForeignSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VoucherSalesItemsForeign
         exclude = ('invoice', 'tenant_id')
         read_only_fields = ('id', 'created_at', 'updated_at')
 
@@ -32,6 +38,7 @@ class VoucherSalesEwayBillSerializer(serializers.ModelSerializer):
 
 class VoucherSalesInvoiceDetailsSerializer(TenantModelSerializerMixin, serializers.ModelSerializer):
     items = VoucherSalesItemsSerializer(many=True, required=False)
+    foreign_items = VoucherSalesItemsForeignSerializer(many=True, required=False)
     payment_details = VoucherSalesPaymentDetailsSerializer(required=False)
     dispatch_details = VoucherSalesDispatchDetailsSerializer(required=False)
     eway_bill_details = VoucherSalesEwayBillSerializer(required=False) 
@@ -43,6 +50,7 @@ class VoucherSalesInvoiceDetailsSerializer(TenantModelSerializerMixin, serialize
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
+        foreign_items_data = validated_data.pop('foreign_items', [])
         payment_data = validated_data.pop('payment_details', None)
         dispatch_data = validated_data.pop('dispatch_details', None)
         eway_bill_data = validated_data.pop('eway_bill_details', None)
@@ -54,6 +62,10 @@ class VoucherSalesInvoiceDetailsSerializer(TenantModelSerializerMixin, serialize
         # Create Items
         for item in items_data:
             VoucherSalesItems.objects.create(invoice=invoice, tenant_id=tenant_id, **item)
+        
+        # Create Foreign Items
+        for item in foreign_items_data:
+            VoucherSalesItemsForeign.objects.create(invoice=invoice, tenant_id=tenant_id, **item)
         
         # Create Payment Details
         if payment_data:
@@ -71,6 +83,7 @@ class VoucherSalesInvoiceDetailsSerializer(TenantModelSerializerMixin, serialize
 
     def update(self, instance, validated_data):
         items_data = validated_data.pop('items', None)
+        foreign_items_data = validated_data.pop('foreign_items', None)
         payment_data = validated_data.pop('payment_details', None)
         dispatch_data = validated_data.pop('dispatch_details', None)
         eway_bill_data = validated_data.pop('eway_bill_details', None)
@@ -79,11 +92,17 @@ class VoucherSalesInvoiceDetailsSerializer(TenantModelSerializerMixin, serialize
         instance = super().update(instance, validated_data)
         tenant_id = instance.tenant_id
 
-        # Update Items (Full replacement for simplicity, or smart update)
+        # Update Items
         if items_data is not None:
             instance.items.all().delete()
             for item in items_data:
                 VoucherSalesItems.objects.create(invoice=instance, tenant_id=tenant_id, **item)
+        
+        # Update Foreign Items
+        if foreign_items_data is not None:
+            instance.foreign_items.all().delete()
+            for item in foreign_items_data:
+                VoucherSalesItemsForeign.objects.create(invoice=instance, tenant_id=tenant_id, **item)
 
         # Update Payment Details
         if payment_data:

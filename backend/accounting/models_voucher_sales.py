@@ -10,14 +10,16 @@ class VoucherSalesInvoiceDetails(BaseModel):
     # Date
     date = models.DateField(help_text="Voucher Date")
     
-    # Invoice No (User entered or auto-generated)
+    # Invoice No
     sales_invoice_no = models.CharField(max_length=50, help_text="Sales Invoice Number")
+    
+    # New Fields matching Frontend
+    voucher_name = models.CharField(max_length=100, null=True, blank=True)
+    outward_slip_no = models.CharField(max_length=50, null=True, blank=True)
     
     # Customer
     customer_name = models.CharField(max_length=255, help_text="Customer Name as entered/selected")
-    # Optional: Link to MasterLedger if meaningful, but frontend sends name string mostly
-    # customer = models.ForeignKey(MasterLedger, on_delete=models.SET_NULL, null=True, blank=True)
-
+    
     # Addresses
     bill_to = models.TextField(null=True, blank=True, help_text="Billing Address")
     ship_to = models.TextField(null=True, blank=True, help_text="Shipping Address")
@@ -33,6 +35,8 @@ class VoucherSalesInvoiceDetails(BaseModel):
         choices=[('within', 'Within State'), ('other', 'Other State'), ('export', 'Export')],
         default='within'
     )
+    export_type = models.CharField(max_length=50, null=True, blank=True)
+    exchange_rate = models.CharField(max_length=50, null=True, blank=True)
     
     # Document
     supporting_document = models.FileField(upload_to='voucher_documents/sales/', null=True, blank=True)
@@ -47,8 +51,7 @@ class VoucherSalesInvoiceDetails(BaseModel):
 
 class VoucherSalesItems(BaseModel):
     """
-    Sales Voucher - Items
-    Detailed line items linked to the invoice.
+    Sales Voucher - Items (Standard/Domestic)
     """
     invoice = models.ForeignKey(VoucherSalesInvoiceDetails, on_delete=models.CASCADE, related_name='items')
     
@@ -75,14 +78,33 @@ class VoucherSalesItems(BaseModel):
         verbose_name = "Voucher Sales Item"
 
 
+class VoucherSalesItemsForeign(BaseModel):
+    """
+    Sales Voucher - Items (Foreign/Export)
+    """
+    invoice = models.OneToOneField(VoucherSalesInvoiceDetails, on_delete=models.CASCADE, related_name='foreign_items')
+    # Note: Using OneToOne might be wrong if multiple items, should be ForeignKey. 
+    # Frontend allows multiple rows. Changing to ForeignKey.
+    invoice = models.ForeignKey(VoucherSalesInvoiceDetails, on_delete=models.CASCADE, related_name='foreign_items')
+
+    description = models.TextField(null=True, blank=True)
+    quantity = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+    uqc = models.CharField(max_length=50, null=True, blank=True)
+    rate = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+
+    class Meta:
+        db_table = 'voucher_sales_items_foreign'
+        verbose_name = "Voucher Sales Item Foreign"
+
+
 class VoucherSalesPaymentDetails(BaseModel):
     """
     Sales Voucher - Payment Details
-    Summary of payments and taxes.
     """
     invoice = models.OneToOneField(VoucherSalesInvoiceDetails, on_delete=models.CASCADE, related_name='payment_details')
     
-    # Tax Summaries (from state)
+    # Tax Summaries
     payment_taxable_value = models.DecimalField(max_digits=18, decimal_places=2, default=0)
     payment_igst = models.DecimalField(max_digits=18, decimal_places=2, default=0)
     payment_cgst = models.DecimalField(max_digits=18, decimal_places=2, default=0)
@@ -98,7 +120,7 @@ class VoucherSalesPaymentDetails(BaseModel):
     payment_payable = models.DecimalField(max_digits=18, decimal_places=2, default=0)
     
     # Notes
-    posting_note = models.TextField(null=True, blank=True) # paymentPostingNote
+    posting_note = models.TextField(null=True, blank=True)
     terms_conditions = models.TextField(null=True, blank=True)
 
     class Meta:
@@ -109,17 +131,16 @@ class VoucherSalesPaymentDetails(BaseModel):
 class VoucherSalesDispatchDetails(BaseModel):
     """
     Sales Voucher - Dispatch Details
-    Shipping and transport information.
     """
     invoice = models.OneToOneField(VoucherSalesInvoiceDetails, on_delete=models.CASCADE, related_name='dispatch_details')
     
     dispatch_from = models.TextField(null=True, blank=True)
-    mode_of_transport = models.CharField(max_length=50, null=True, blank=True) # Road, Air, Sea, Rail, Courier
+    mode_of_transport = models.CharField(max_length=50, null=True, blank=True)
     dispatch_date = models.DateField(null=True, blank=True)
     dispatch_time = models.TimeField(null=True, blank=True)
     
     delivery_type = models.CharField(max_length=50, null=True, blank=True)
-    self_third_party = models.CharField(max_length=255, null=True, blank=True) # selfThirdParty
+    self_third_party = models.CharField(max_length=255, null=True, blank=True)
     transporter_id = models.CharField(max_length=100, null=True, blank=True)
     transporter_name = models.CharField(max_length=255, null=True, blank=True)
     vehicle_no = models.CharField(max_length=50, null=True, blank=True)
@@ -127,7 +148,6 @@ class VoucherSalesDispatchDetails(BaseModel):
     
     dispatch_document = models.FileField(upload_to='voucher_documents/dispatch/', null=True, blank=True)
 
-    # Mixed fields for Air/Sea/Rail (storing all possible columns as requested)
     # Air/Sea Upto Port
     upto_port_shipping_bill_no = models.CharField(max_length=100, null=True, blank=True)
     upto_port_shipping_bill_date = models.DateField(null=True, blank=True)
@@ -145,10 +165,7 @@ class VoucherSalesDispatchDetails(BaseModel):
     beyond_port_origin_country = models.CharField(max_length=100, null=True, blank=True)
     beyond_port_dest_country = models.CharField(max_length=100, null=True, blank=True)
     
-    # Rail Specifics (Prefixing with rail_ for clarity, though user said strict columns, I must infer mapping)
-    # Re-using common fields if possible, but user asked for "exact column from frontend".
-    # Frontend has specific state variables like railUptoPortDeliveryType.
-    
+    # Rail
     rail_upto_port_delivery_type = models.CharField(max_length=100, null=True, blank=True)
     rail_upto_port_transporter_id = models.CharField(max_length=100, null=True, blank=True)
     rail_upto_port_transporter_name = models.CharField(max_length=255, null=True, blank=True)
@@ -174,7 +191,7 @@ class VoucherSalesEwayBill(BaseModel):
     """
     invoice = models.OneToOneField(VoucherSalesInvoiceDetails, on_delete=models.CASCADE, related_name='eway_bill_details')
     
-    eway_bill_available = models.CharField(max_length=10, null=True, blank=True) # Yes/No
+    eway_bill_available = models.CharField(max_length=10, null=True, blank=True)
     eway_bill_no = models.CharField(max_length=50, null=True, blank=True)
     eway_bill_date = models.DateField(null=True, blank=True)
     validity_period = models.CharField(max_length=50, null=True, blank=True)

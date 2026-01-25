@@ -250,18 +250,22 @@ const SalesVoucher: React.FC = () => {
                 // Invoice Details
                 date: formatDate(date),
                 sales_invoice_no: salesInvoiceNo,
+                voucher_name: voucherName,
+                outward_slip_no: outwardSlipNo,
                 customer_name: customerName,
-                bill_to: billTo,
-                ship_to: shipTo,
+                bill_to: JSON.stringify(billTo),
+                ship_to: JSON.stringify(shipTo),
                 gstin,
                 contact,
                 tax_type: taxType,
                 state_type: stateType,
+                export_type: exportType,
+                exchange_rate: exchangeRate,
                 supporting_document: supportingDocument, // Passed but likely needs special handling if file
                 sales_order_no: salesOrderNo,
 
-                // Items
-                items: itemRows.map(row => ({
+                // Items (Domestic)
+                items: stateType !== 'export' ? itemRows.map(row => ({
                     item_code: row.itemCode,
                     item_name: row.itemName,
                     hsn_sac: row.hsnSac,
@@ -275,7 +279,16 @@ const SalesVoucher: React.FC = () => {
                     invoice_value: parseNum(row.invoiceValue),
                     sales_ledger: row.salesLedger,
                     description: row.description
-                })),
+                })) : [],
+
+                // Items (Foreign)
+                foreign_items: stateType === 'export' ? itemRows.map(row => ({
+                    description: row.description,
+                    quantity: parseNum(row.qty),
+                    uqc: row.uom, // mapped from frontend state alias if any, using uom as placeholder
+                    rate: parseNum(row.itemRate),
+                    amount: parseNum(row.invoiceValue) // assuming invoiceValue is the calculated amount
+                })) : [],
 
                 // Payment Details
                 payment_details: {

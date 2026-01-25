@@ -1,7 +1,6 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from django.conf import settings
-from .models import TenantUser
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     email = serializers.EmailField(required=True)
@@ -21,19 +20,14 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['permissions'] = [] if not is_superuser else ['ALL']
         token['is_superuser'] = is_superuser
 
-        if isinstance(user, TenantUser):
-            token['user_type'] = 'tenant_user'
-            token['is_owner'] = False
-            token['submodule_ids'] = []
-        else:
-            token['user_type'] = 'owner'
-            token['is_owner'] = True
-            token['submodule_ids'] = []
+        token['user_type'] = 'owner'
+        token['is_owner'] = True
+        token['submodule_ids'] = []
         
         return token
 
     def validate(self, attrs):
-        """Custom auth logic to support two tables (User and TenantUser)"""
+        """Custom auth logic"""
         from django.contrib.auth import authenticate
         from rest_framework.exceptions import AuthenticationFailed
 
@@ -47,17 +41,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Check if Owner user is active
         if user is not None and not user.is_active:
             raise AuthenticationFailed('Your account has been deactivated. Please contact the administrator.')
-
-        if user is None and username and password:
-            try:
-                candidate = TenantUser.objects.get(username=username)
-                if candidate.check_password(password):
-                    if candidate.is_active:
-                        user = candidate
-                    else:
-                        raise AuthenticationFailed('Your account has been deactivated. Please contact the administrator.')
-            except TenantUser.DoesNotExist:
-                pass
         
         if user is None:
             raise AuthenticationFailed('No active account found with the given credentials')

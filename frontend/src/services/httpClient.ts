@@ -2,224 +2,228 @@
  * ============================================================================
  * HTTP CLIENT (httpClient.ts)
  * ============================================================================
- * This is the low-level HTTP communication layer for the entire application.
- * It handles all network requests to the Django backend API.
+ * Production-grade JWT Authentication Client
  * 
- * KEY FEATURES:
- * - Automatic authentication using HttpOnly cookies (secure)
- * - Automatic token refresh when access token expires
- * - Error handling and retry logic
- * - Support for JSON and FormData (file uploads)
+ * FEATURES:
+ * - Bearer Token Authentication (Access + Refresh)
+ * - Automatic Token Refresh on 401
+ * - Request Queueing (prevents parallel refresh calls)
+ * - Expiration Detection (token_not_valid)
+ * - Automatic Logout on Refresh Failure
+ * - Type-safe Request Methods
  * 
- * SECURITY:
- * - Uses HttpOnly cookies instead of localStorage for tokens
- * - Automatically includes credentials in all requests
- * - Handles 401 errors by attempting token refresh
- * 
- * FOR NEW DEVELOPERS:
- * - Don't use fetch() directly - always use this httpClient
- * - The backend expects cookies, not Authorization headers
- * - All methods return Promises that resolve to typed data
- * 
- * USAGE EXAMPLE:
- * ```typescript
- * import { httpClient } from './httpClient';
- * 
- * // GET request
- * const data = await httpClient.get<MyType>('/api/endpoint');
- * 
- * // POST request
- * const result = await httpClient.post('/api/endpoint', { key: 'value' });
- * ```
+ * ARCHITECTURE:
+ * 1. Request Interceptor: Injects 'Authorization: Bearer <token>'
+ * 2. Response Interceptor: Catches 401 errors
+ * 3. Refresh Logic: Pauses requests, refreshes token, retries queue
  */
 
-// Read API base URL from environment variable or use default
-// In production, set VITE_API_URL in .env file to your backend URL
+// Environment configuration
 export const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
 
-/**
- * HttpClient class - Handles all HTTP communication with the backend
- */
-class HttpClient {
-    // Base URL for all API requests
-    private baseURL = API_BASE_URL;
+// Type definitions for Queue Items
+interface QueueItem {
+    resolve: (value: any) => void;
+    reject: (error: any) => void;
+}
 
-    // Refresh Token Management
+class HttpClient {
+    private baseURL = API_BASE_URL;
     private isRefreshing = false;
-    private failedQueue: any[] = [];
+    private failedQueue: QueueItem[] = [];
 
     /**
-     * Process the queue of failed requests
+     * PROCESS QUEUE
+     * Retries all failed requests after a successful token refresh.
+     * Rejects them if refresh fails.
      */
     private processQueue(error: Error | null) {
         this.failedQueue.forEach(prom => {
             if (error) {
                 prom.reject(error);
             } else {
-                prom.resolve(this.request(prom.endpoint, prom.options));
+                prom.resolve({}); // Signal to retry
             }
         });
         this.failedQueue = [];
     }
 
     /**
-     * Generic request method
+     * CORE REQUEST METHOD
+     * Wraps fetch() with auth logic, headers, and error handling.
      */
     private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
         const url = `${this.baseURL}${endpoint}`;
 
-        // Merge headers
+        // 1. Prepare Headers (Inject Bearer Token)
         const headers = new Headers(options.headers || {});
         if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
             headers.set('Content-Type', 'application/json');
         }
 
-        // Bearer token injection as fallback for HttpOnly cookies
-        // The backend CustomJWTAuthentication prefers header if available.
         const token = localStorage.getItem('token');
         if (token) {
             headers.set('Authorization', `Bearer ${token}`);
         }
 
-        const response = await fetch(url, {
-            ...options,
-            headers,
-            credentials: 'include', // Send cookies for authentication
-        });
+        try {
+            // 2. Execute Request
+            const response = await fetch(url, {
+                ...options,
+                headers,
+                credentials: 'include', // Include cookies (needed for refresh endpoint if using cookies)
+            });
 
-        if (!response.ok) {
-            // Handle 401 Unauthorized - Attempt Token Refresh
-            if (response.status === 401 && !endpoint.includes('/auth/')) {
-                // If a refresh is already in progress, wait for it
+            // 3. Handle Unauthorized (401)
+            if (response.status === 401) {
+                // Avoid infinite loops: Don't refresh if the failed request WAS a refresh attempt
+                if (endpoint.includes('/auth/refresh') || endpoint.includes('/auth/login')) {
+                    throw new Error('Authentication failed');
+                }
+
+                // If already refreshing, queue this request
                 if (this.isRefreshing) {
                     return new Promise((resolve, reject) => {
-                        this.failedQueue.push({ resolve, reject, endpoint, options });
+                        this.failedQueue.push({
+                            resolve: () => resolve(this.request(endpoint, options)), // Retry
+                            reject
+                        });
                     });
                 }
 
+                // START REFRESH FLOW
                 this.isRefreshing = true;
 
                 try {
-                    console.log('🔄 Access token expired. Attempting refresh...');
+                    console.log('🔄 Access token expired. Refreshing...');
+
+                    // Call backend refresh endpoint
+                    // Note: Backend reads refresh token from HTTP-only cookie, 
+                    // but we also support reading from storage if response body contained it.
+                    // For this setup, we assume backend handles the cookie or body.
+                    // Based on provided code, the backend view reads COOKIES for the refresh token.
                     const refreshResponse = await fetch(`${this.baseURL}/api/auth/refresh/`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include'
+                        credentials: 'include' // Send refresh cookie
                     });
 
-                    if (refreshResponse.ok) {
-                        console.log('✅ Token refresh successful. Retrying request...');
-
-                        // Process queued requests
-                        this.processQueue(null);
-                        this.isRefreshing = false;
-
-                        // Retry original request (cookies are automatically sent)
-                        return this.request<T>(endpoint, options);
-                    } else {
-                        throw new Error('Session expired');
+                    if (!refreshResponse.ok) {
+                        throw new Error('Refresh failed');
                     }
-                } catch (e) {
-                    console.error('❌ Token refresh failed. Logging out.');
+
+                    const data = await refreshResponse.json();
+
+                    // 4. Update Token Storage
+                    if (data.access) {
+                        localStorage.setItem('token', data.access);
+                        console.log('✅ Token refreshed successfully');
+                    }
+                    if (data.refresh) {
+                        localStorage.setItem('refreshToken', data.refresh); // Optional if using cookies
+                    }
+
+                    // 5. Retry Queued Requests
+                    this.processQueue(null);
+
+                    // 6. Retry Original Request immediately
+                    return this.request<T>(endpoint, options);
+
+                } catch (refreshError) {
+                    console.error('❌ Session expired. Logging out.');
+                    this.processQueue(refreshError as Error);
+                    this.logout();
+                    throw refreshError;
+                } finally {
                     this.isRefreshing = false;
-                    this.processQueue(e as Error);
-                    this.clearAuthData();
-                    window.location.href = '/login';
-                    throw e; // Re-throw
                 }
             }
 
-            const errorText = await response.text().catch(() => '');
-            throw new Error(errorText || `API request failed: ${response.status} ${response.statusText}`);
-        }
+            // 4. Handle Standard Errors
+            if (!response.ok) {
+                const errorText = await response.text();
+                // Parse JSON error if possible
+                try {
+                    throw JSON.parse(errorText);
+                } catch (e) {
+                    if (e instanceof SyntaxError) {
+                        throw new Error(errorText || `HTTP ${response.status}`);
+                    }
+                    throw e;
+                }
+            }
 
-        const contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-            return response.json();
+            // 5. Parse Success Response
+            // Handle 204 No Content
+            if (response.status === 204) {
+                return {} as T;
+            }
+
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return await response.json();
+            }
+
+            return (await response.text()) as unknown as T;
+
+        } catch (error) {
+            throw error;
         }
-        return (await response.text()) as unknown as T;
     }
 
-    /**
-     * GET request
-     */
-    async get<T>(endpoint: string): Promise<T> {
+    // --- PUBLIC METHODS ---
+
+    public async get<T>(endpoint: string): Promise<T> {
         return this.request<T>(endpoint, { method: 'GET' });
     }
 
-    /**
-     * POST request with JSON body
-     */
-    async post<T>(endpoint: string, data?: any): Promise<T> {
+    public async post<T>(endpoint: string, data?: any): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'POST',
             body: data ? JSON.stringify(data) : undefined,
         });
     }
 
-    /**
-     * PUT request with JSON body
-     */
-    async put<T>(endpoint: string, data: any): Promise<T> {
+    public async put<T>(endpoint: string, data: any): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'PUT',
             body: JSON.stringify(data),
         });
     }
 
-    /**
-     * PATCH request with JSON body
-     */
-    async patch<T>(endpoint: string, data: any): Promise<T> {
+    public async patch<T>(endpoint: string, data: any): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'PATCH',
             body: JSON.stringify(data),
         });
     }
 
-    /**
-     * DELETE request
-     */
-    async delete<T>(endpoint: string): Promise<T> {
+    public async delete<T>(endpoint: string): Promise<T> {
         return this.request<T>(endpoint, { method: 'DELETE' });
     }
 
-    /**
-     * POST request with FormData (for file uploads)
-     */
-    async postFormData<T>(endpoint: string, formData: FormData): Promise<T> {
+    public async postFormData<T>(endpoint: string, formData: FormData): Promise<T> {
         return this.request<T>(endpoint, {
             method: 'POST',
             body: formData,
-            // Don't set Content-Type header - browser will set it with boundary
         });
     }
 
-    /**
-     * Helper to get tenant ID from localStorage
-     */
-    getTenantId(): string {
-        return localStorage.getItem('tenantId') || '';
+    // --- HELPERS ---
+
+    public logout() {
+        this.clearAuthData();
+        window.location.href = '/login';
     }
 
-    /**
-     * Helper to save auth data to localStorage
-     */
-    saveAuthData(data: { tenant_id?: string; company_name?: string }) {
-        if (data.tenant_id) {
-            localStorage.setItem('tenantId', data.tenant_id);
-        }
-        if (data.company_name) {
-            localStorage.setItem('companyName', data.company_name);
-        }
+    public saveAuthData(data: { tenant_id?: string; company_name?: string }) {
+        if (data.tenant_id) localStorage.setItem('tenantId', data.tenant_id);
+        if (data.company_name) localStorage.setItem('companyName', data.company_name);
     }
 
-
-    /**
-     * Helper to clear auth data from localStorage
-     */
-    clearAuthData() {
+    public clearAuthData() {
         localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('tenantId');
         localStorage.removeItem('companyName');
     }

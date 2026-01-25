@@ -21,6 +21,7 @@ from .views_voucher_sales import VoucherSalesViewSet
 from .views_payment import VoucherPaymentSingleViewSet, VoucherPaymentBulkViewSet
 from .views_receipt import VoucherReceiptSingleViewSet, VoucherReceiptBulkViewSet
 from .views_expense import VoucherExpenseViewSet
+from .views_contra_journal import VoucherContraViewSet, VoucherJournalViewSet
 
 router = routers.DefaultRouter()
 
@@ -41,6 +42,8 @@ router.register('vouchers/payment-bulk', VoucherPaymentBulkViewSet, basename='pa
 router.register('vouchers/receipt-single', VoucherReceiptSingleViewSet, basename='receipt-voucher-single')
 router.register('vouchers/receipt-bulk', VoucherReceiptBulkViewSet, basename='receipt-voucher-bulk')
 router.register('vouchers/expenses', VoucherExpenseViewSet, basename='expense-vouchers')
+router.register('vouchers/contra', VoucherContraViewSet, basename='contra-vouchers')
+router.register('vouchers/journal', VoucherJournalViewSet, basename='journal-vouchers')
 
 # Sales Invoice endpoints (NEW)
 router.register('invoices', SalesInvoiceViewSet, basename='invoices')

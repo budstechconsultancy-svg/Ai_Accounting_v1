@@ -339,8 +339,31 @@ class ApiService {
     }
 
     async saveVouchers(data: Voucher[]) {
-        const normalizedData = data.map(v => ({ ...v, type: this.normalizeVoucherType(v.type) }));
-        return httpClient.post<{ success: boolean }>('/api/vouchers/bulk/', normalizedData);
+        // Group vouchers by type to handle specialized endpoints
+        const contraVouchers = data.filter(v => v.type === 'Contra');
+        const journalVouchers = data.filter(v => v.type === 'Journal');
+        const otherVouchers = data.filter(v => v.type !== 'Contra' && v.type !== 'Journal');
+
+        const promises = [];
+
+        // Handle Contra Vouchers
+        for (const voucher of contraVouchers) {
+            promises.push(httpClient.post('/api/vouchers/contra/', voucher));
+        }
+
+        // Handle Journal Vouchers
+        for (const voucher of journalVouchers) {
+            promises.push(httpClient.post('/api/vouchers/journal/', voucher));
+        }
+
+        // Handle others via bulk endpoint
+        if (otherVouchers.length > 0) {
+            const normalizedData = otherVouchers.map(v => ({ ...v, type: this.normalizeVoucherType(v.type) }));
+            promises.push(httpClient.post<{ success: boolean }>('/api/vouchers/bulk/', normalizedData));
+        }
+
+        await Promise.all(promises);
+        return { success: true };
     }
 
     async updateVoucher(id: number, data: Partial<Voucher>) {
