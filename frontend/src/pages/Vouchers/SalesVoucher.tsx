@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { apiService } from '../../services/api';
+import CreateIssueSlipModal from '../../components/CreateIssueSlipModal';
 
 interface ItemRow {
     id: number;
@@ -20,6 +21,7 @@ interface ItemRow {
 
 const SalesVoucher: React.FC = () => {
     const [activeTab, setActiveTab] = useState('invoice');
+    const [isIssueSlipModalOpen, setIsIssueSlipModalOpen] = useState(false);
 
     // Invoice Details State
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -609,6 +611,7 @@ const SalesVoucher: React.FC = () => {
                                 </label>
                                 <button
                                     type="button"
+                                    onClick={() => setIsIssueSlipModalOpen(true)}
                                     className="w-full px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md transition-colors font-medium"
                                 >
                                     Create Outward Slip
@@ -1530,7 +1533,6 @@ const SalesVoucher: React.FC = () => {
                                         onChange={(e) => setDispatchFrom(e.target.value)}
                                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 resize-none"
                                         rows={3}
-                                        placeholder="Warehouse (If connected with the inventory module) / Location (As full address with Pincode)"
                                     />
                                 </div>
 
@@ -2322,6 +2324,17 @@ const SalesVoucher: React.FC = () => {
                     </div>
                 )}
             </div>
+            {/* Issue Slip Modal */}
+            {isIssueSlipModalOpen && (
+                <CreateIssueSlipModal
+                    onClose={() => setIsIssueSlipModalOpen(false)}
+                    onSave={(data) => {
+                        console.log('Issue Slip Created:', data);
+                        setOutwardSlipNo(data.outwardSlipNo);
+                        // You can populate other fields here if needed
+                    }}
+                />
+            )}
         </div>
     );
 };

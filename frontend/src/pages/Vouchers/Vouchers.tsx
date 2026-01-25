@@ -9,6 +9,7 @@ import SalesVoucher from './SalesVoucher';
 import PaymentVoucherSingle from './PaymentVoucherSingle';
 import PaymentVoucherBulk from './PaymentVoucherBulk';
 import ReceiptVoucher from './ReceiptVoucher';
+import CreateGRNModal from '../../components/CreateGRNModal';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5003';
 
@@ -141,6 +142,7 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
   const jsonInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
   const [isMassUploadOpen, setIsMassUploadOpen] = useState(false);
+  const [isCreateGRNModalOpen, setIsCreateGRNModalOpen] = useState(false);
 
   // Invoice Scanner Modal state
   const [isInvoiceScannerOpen, setIsInvoiceScannerOpen] = useState(false);
@@ -156,6 +158,7 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
 
   // Sales/Purchase
   const [invoiceNo, setInvoiceNo] = useState('');
+  const [gstin, setGstin] = useState('');
   const [isInterState, setIsInterState] = useState(false);
   const [items, setItems] = useState<VoucherItem[]>([{ name: '', qty: 1, rate: 0, taxableAmount: 0, cgstAmount: 0, sgstAmount: 0, igstAmount: 0, totalAmount: 0 }]);
 
@@ -168,19 +171,22 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
   const [toAccount, setToAccount] = useState('');
 
   // Purchase Voucher Tabs
-  const [purchaseActiveTab, setPurchaseActiveTab] = useState<'supplier' | 'supply' | 'due' | 'transit'>('supplier');
+  const [purchaseActiveTab, setPurchaseActiveTab] = useState<'supplier' | 'supply' | 'supply_foreign' | 'supply_inr' | 'due' | 'transit'>('supplier');
   const [grnRefNo, setGrnRefNo] = useState('');
   const [billFrom, setBillFrom] = useState(''); // Correspond to 'billTo' in wireframe if needed, but 'From' is better for Purchase
   const [shipFrom, setShipFrom] = useState(''); // Correspond to 'shipTo' in wireframe if needed
   const [purchaseInputType, setPurchaseInputType] = useState('Intrastate'); // Default to Same State
+  const [invoiceInForeignCurrency, setInvoiceInForeignCurrency] = useState<'Yes' | 'No'>('No');
   const [purchaseSupportingDocument, setPurchaseSupportingDocument] = useState<File | null>(null);
 
   // Purchase Supply Details Tab State
   const [purchaseOrderNo, setPurchaseOrderNo] = useState('');
+  const [exchangeRate, setExchangeRate] = useState(''); // Added exchangeRate state
   const [purchaseLedger, setPurchaseLedger] = useState('');
   const [purchaseDescription, setPurchaseDescription] = useState('');
+  const [selectedPurchaseItems, setSelectedPurchaseItems] = useState<string[]>([]);
   const [purchaseItems, setPurchaseItems] = useState([
-    { id: '1', itemCode: '', itemName: '', hsnSac: '', qty: 1, uom: '', rate: 0, taxableValue: 0, igst: 0, cgst: 0, cess: 0, invoiceValue: 0 }
+    { id: '1', itemCode: '', itemName: '', hsnSac: '', qty: 1, uom: '', rate: 0, taxableValue: 0, igst: 0, cgst: 0, sgst: 0, cess: 0, invoiceValue: 0, description: '' }
   ]);
 
   // Purchase Due Details State
@@ -858,6 +864,18 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
     }
   }, [prefilledData, clearPrefilledData, stockItems, ledgers, companyDetails.state]);
 
+  // Sync Input Type and Interstate status based on Party
+  useEffect(() => {
+    if (party && ledgers.length > 0 && companyDetails?.state) {
+      const partyLedger = ledgers.find(l => l.name.toLowerCase() === party.toLowerCase());
+      if (partyLedger && partyLedger.state) {
+        const isInter = partyLedger.state.toLowerCase() !== companyDetails.state.toLowerCase();
+        setIsInterState(isInter);
+        setPurchaseInputType(isInter ? 'Interstate' : 'Intrastate');
+      }
+    }
+  }, [party, ledgers, companyDetails]);
+
   const { partyLedgers, accountLedgers, allLedgers } = useMemo(() => {
     const partyLedgers = [...ledgers]; // Allow all ledgers to be selected as a party across all voucher types
     // Use cashBankLedgers from API instead of filtering
@@ -932,6 +950,38 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
 
     switch (voucherType) {
       case 'Purchase':
+        // Calculate totals for Purchase items
+        const pTotalTaxable = purchaseItems.reduce((sum, item) => sum + (Number(item.taxableValue) || 0), 0);
+        const pTotalCgst = purchaseItems.reduce((sum, item) => sum + (Number(item.cgst) || 0), 0);
+        const pTotalSgst = purchaseItems.reduce((sum, item) => sum + (Number(item.sgst) || 0), 0);
+        const pTotalIgst = purchaseItems.reduce((sum, item) => sum + (Number(item.igst) || 0), 0);
+        const pGrandTotal = purchaseItems.reduce((sum, item) => sum + (Number(item.invoiceValue) || 0), 0);
+
+        voucher = {
+          id: '',
+          type: voucherType,
+          date,
+          isInterState,
+          invoiceNo,
+          party,
+          items: purchaseItems.map(pi => ({
+            name: pi.itemName,
+            qty: pi.qty,
+            rate: pi.rate,
+            taxableAmount: pi.taxableValue,
+            cgstAmount: pi.cgst,
+            sgstAmount: pi.sgst || 0,
+            igstAmount: pi.igst,
+            totalAmount: pi.invoiceValue
+          })),
+          totalTaxableAmount: pTotalTaxable,
+          totalCgst: pTotalCgst,
+          totalSgst: pTotalSgst,
+          totalIgst: pTotalIgst,
+          total: pGrandTotal,
+          narration
+        };
+        break;
       case 'Sales':
         voucher = { id: '', type: voucherType, date, isInterState, invoiceNo, party, items, totalTaxableAmount, totalCgst, totalSgst, totalIgst, total: grandTotal, narration };
         break;
@@ -994,57 +1044,205 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
   };
 
 
+  // Purchase Item Handlers
+  const handlePurchaseItemChange = (index: number, field: string, value: string | number) => {
+    const newItems = [...purchaseItems];
+    const item = { ...newItems[index] };
+
+    // Update field
+    (item as any)[field] = value;
+
+    // Auto-calculate Taxable Value (Qty * Rate)
+    if (field === 'qty' || field === 'rate') {
+      const qty = parseFloat(field === 'qty' ? value as string : item.qty.toString()) || 0;
+      const rate = parseFloat(field === 'rate' ? value as string : item.rate.toString()) || 0;
+      item.taxableValue = qty * rate;
+    }
+
+    // Auto-calculate Invoice Value (Taxable + Taxes)
+    const taxable = parseFloat(item.taxableValue.toString()) || 0;
+    const igst = parseFloat(item.igst.toString()) || 0;
+    const cgst = parseFloat(item.cgst.toString()) || 0;
+    const sgst = parseFloat(item.sgst?.toString() || '0') || 0;
+    const cess = parseFloat(item.cess.toString()) || 0;
+
+    item.invoiceValue = taxable + igst + cgst + sgst + cess;
+
+
+    newItems[index] = item;
+    setPurchaseItems(newItems);
+  };
+
+  const handleAddPurchaseItem = () => {
+    setPurchaseItems([...purchaseItems, {
+      id: (Date.now()).toString(),
+      itemCode: '',
+      itemName: '',
+      hsnSac: '',
+      qty: 1,
+      uom: '',
+      rate: 0,
+      taxableValue: 0,
+      igst: 0,
+      cgst: 0,
+      sgst: 0,
+      cess: 0,
+      invoiceValue: 0,
+      description: ''
+    }]);
+  };
+
+  const handleTogglePurchaseItemSelection = (id: string) => {
+    setSelectedPurchaseItems(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleDeleteSelectedItems = () => {
+    if (selectedPurchaseItems.length === 0) return;
+
+    // Filter out selected items
+    const remainingItems = purchaseItems.filter(item => !selectedPurchaseItems.includes(item.id));
+
+    // Always keep at least one row
+    if (remainingItems.length === 0) {
+      setPurchaseItems([{
+        id: (Date.now()).toString(),
+        itemCode: '',
+        itemName: '',
+        hsnSac: '',
+        qty: 1,
+        uom: '',
+        rate: 0,
+        taxableValue: 0,
+        igst: 0,
+        cgst: 0,
+        sgst: 0,
+        cess: 0,
+        invoiceValue: 0,
+        description: ''
+      }]);
+    } else {
+      setPurchaseItems(remainingItems);
+    }
+    setSelectedPurchaseItems([]); // Clear selection
+  };
+
+  const handleRemovePurchaseItem = (index: number) => {
+    if (purchaseItems.length > 1) {
+      setPurchaseItems(purchaseItems.filter((_, i) => i !== index));
+    }
+  };
+
   // New Purchase Voucher Form with Tabs
   const renderPurchaseForm = () => {
     return (
       <div className="space-y-6">
         {/* Tabs Navigation */}
-        <div className="flex border-b border-gray-200">
-          <button
-            onClick={() => setPurchaseActiveTab('supplier')}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${purchaseActiveTab === 'supplier'
-              ? 'border-orange-600 text-orange-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-          >
-            Supplier Details
-          </button>
-          <button
-            onClick={() => setPurchaseActiveTab('supply')}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${purchaseActiveTab === 'supply'
-              ? 'border-orange-600 text-orange-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-          >
-            Supply Details
-          </button>
-          <button
-            onClick={() => setPurchaseActiveTab('due')}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${purchaseActiveTab === 'due'
-              ? 'border-orange-600 text-orange-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-          >
-            Due Details
-          </button>
-          <button
-            onClick={() => setPurchaseActiveTab('transit')}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${purchaseActiveTab === 'transit'
-              ? 'border-orange-600 text-orange-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-          >
-            Transit Details
-          </button>
+        {/* Tabs Navigation */}
+        <div className="flex border-b border-gray-200 overflow-x-auto">
+          {(invoiceInForeignCurrency === 'Yes' ? [
+            { id: 'supplier', label: 'Supplier Details' },
+            { id: 'supply_foreign', label: 'Supply Details (Foreign Currency)' },
+            { id: 'supply_inr', label: 'Supply Details (INR)' },
+            { id: 'due', label: 'Due Details' },
+            { id: 'transit', label: 'Transit Details' }
+          ] : [
+            { id: 'supplier', label: 'Supplier Details' },
+            { id: 'supply', label: 'Supply Details' },
+            { id: 'due', label: 'Due Details' },
+            { id: 'transit', label: 'Transit Details' }
+          ]).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setPurchaseActiveTab(tab.id as any)}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${purchaseActiveTab === tab.id
+                ? 'border-orange-600 text-orange-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Tab Content */}
         <div className="p-4 bg-white rounded-lg border border-gray-200 min-h-[200px]">
           {purchaseActiveTab === 'supplier' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {/* Upload Section - Spanning 1 column on MD */}
-                <div className="md:col-span-1">
+              {/* Row 1: Date, Supplier Invoice No, Purchase Voucher No */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Supplier Invoice No. <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={invoiceNo}
+                    onChange={(e) => setInvoiceNo(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                    placeholder="From Document"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Purchase Voucher No.
+                  </label>
+                  <input
+                    type="text"
+                    value={voucherNumber}
+                    readOnly
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-500"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Vendor Name, GSTIN, Upload */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Vendor Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={party}
+                    onChange={(e) => setParty(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                    placeholder="Select Vendor"
+                    list="party-list"
+                  />
+                  <datalist id="party-list">
+                    {partyLedgers.map((ledger, index) => (
+                      <option key={index} value={ledger.name} />
+                    ))}
+                  </datalist>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    GSTIN
+                  </label>
+                  <input
+                    type="text"
+                    value={gstin}
+                    onChange={(e) => setGstin(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                    placeholder="Enter GSTIN"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Upload Supporting Document
                   </label>
@@ -1061,149 +1259,297 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                     <button
                       type="button"
                       onClick={() => document.getElementById('purchase-supporting-doc')?.click()}
-                      className="w-full h-48 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex flex-col items-center justify-center gap-2 p-4 text-center"
+                      className="w-full h-[42px] bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
-                      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
-                      <span className="text-sm font-medium">Click to Upload Supporting Document</span>
+                      <span className="text-sm">Upload Document</span>
                     </button>
                     {purchaseSupportingDocument && (
                       <p className="mt-2 text-xs text-green-600 font-medium truncate">✓ {purchaseSupportingDocument.name}</p>
                     )}
                   </div>
                 </div>
+              </div>
 
-                {/* Form Fields - Spanning 3 columns on MD */}
-                <div className="md:col-span-3 space-y-4">
-                  {/* Row 0: GRN Buttons */}
-                  <div className="flex gap-4 items-end">
-                    <div>
-                      <button className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 text-sm font-medium">Create GRN</button>
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">GRN Ref. No.</label>
-                      <input
-                        type="text"
-                        value={grnRefNo}
-                        onChange={(e) => setGrnRefNo(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
-                        placeholder="GRN Reference"
-                      />
-                    </div>
-                    {/* Date & Voucher No */}
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
-                      <input
-                        type="date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Purchase Voucher No.</label>
-                      <input
-                        type="text"
-                        value={voucherNumber} /* Reusing default voucherNumber or need new state? Using voucherNumber for now as it's auto-generated usually */
-                        readOnly
-                        className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-500 text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Row 1: Supplier Invoice & Vendor */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Supplier Invoice No.</label>
-                      <input
-                        type="text"
-                        value={invoiceNo} /* Reusing invoiceNo for supplier invoice no in purchase context */
-                        onChange={(e) => setInvoiceNo(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
-                        placeholder="From Document"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Vendor Name</label>
-                      <input
-                        type="text"
-                        value={party}
-                        onChange={(e) => setParty(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
-                        placeholder="Select Vendor"
-                        list="party-list"
-                      />
-                      <datalist id="party-list">
-                        {/* Placeholder options */}
-                        <option value="Vendor A" />
-                        <option value="Vendor B" />
-                      </datalist>
-                    </div>
-                  </div>
-
-                  {/* Row 2: Bill From & Ship From */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Bill From</label>
-                      <textarea
-                        value={billFrom}
-                        onChange={(e) => setBillFrom(e.target.value)}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm resize-none"
-                        placeholder="Auto-populate from Vendor"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Ship From</label>
-                      <textarea
-                        value={shipFrom}
-                        onChange={(e) => setShipFrom(e.target.value)}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm resize-none"
-                        placeholder="Auto-populate from Vendor"
-                      />
-                    </div>
+              {/* Row 3: Create GRN */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex gap-4 items-end">
+                  <button
+                    onClick={() => setIsCreateGRNModalOpen(true)}
+                    className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 text-sm font-medium h-[42px]"
+                  >
+                    Create GRN
+                  </button>
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={grnRefNo}
+                      onChange={(e) => setGrnRefNo(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                      placeholder="GRN Reference"
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Footer / Controls */}
-              <div className="flex flex-wrap items-center gap-4 pt-4 border-t mt-4">
-                <div className="w-48">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Input Type</label>
-                  <select
-                    value={purchaseInputType}
-                    onChange={(e) => setPurchaseInputType(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
+              {/* Row 4: Address Headers */}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Bill From (Full Address)</label>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Ship From</label>
+                </div>
+              </div>
+
+              {/* Row 5: Address Textareas */}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <textarea
+                    value={billFrom}
+                    onChange={(e) => setBillFrom(e.target.value)}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 resize-none"
+                    placeholder="Auto-populate from Vendor"
+                  />
+                </div>
+                <div>
+                  <textarea
+                    value={shipFrom}
+                    onChange={(e) => setShipFrom(e.target.value)}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 resize-none"
+                    placeholder="Auto-populate from Vendor"
+                  />
+                </div>
+              </div>
+
+              {/* Input Type / Tax Type */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Input Type</label>
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPurchaseInputType('Intrastate');
+                        setIsInterState(false);
+                      }}
+                      className={`flex-1 px-4 py-2 border rounded-md transition-colors ${purchaseInputType === 'Intrastate'
+                        ? 'bg-white border-gray-400 text-gray-800 font-medium'
+                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                        }`}
+                    >
+                      CGST & SGST
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPurchaseInputType('Interstate');
+                        setIsInterState(true);
+                      }}
+                      className={`flex-1 px-4 py-2 border rounded-md transition-colors ${purchaseInputType === 'Interstate'
+                        ? 'bg-white border-gray-400 text-gray-800 font-medium'
+                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                        }`}
+                    >
+                      IGST
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPurchaseInputType('Import');
+                        setIsInterState(true);
+                      }}
+                      className={`flex-1 px-4 py-2 border rounded-md transition-colors ${purchaseInputType === 'Import'
+                        ? 'bg-white border-gray-400 text-gray-800 font-medium'
+                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                        }`}
+                    >
+                      Cess
+                    </button>
+                  </div>
+                </div>
+
+                {/* Foreign Currency */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Invoice in Foreign Currency</label>
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setInvoiceInForeignCurrency('Yes')}
+                      className={`px-8 py-2 border rounded-md transition-colors ${invoiceInForeignCurrency === 'Yes'
+                        ? 'bg-white border-gray-400 text-gray-800 font-medium'
+                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                        }`}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInvoiceInForeignCurrency('No')}
+                      className={`px-8 py-2 border rounded-md transition-colors ${invoiceInForeignCurrency === 'No'
+                        ? 'bg-white border-gray-400 text-gray-800 font-medium'
+                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                        }`}
+                    >
+                      No
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+
+          {/* Supply Details (Foreign Currency) Content */}
+          {purchaseActiveTab === 'supply_foreign' && (
+            <div className="space-y-6">
+              {/* Header: Purchase Order and Exchange Rate */}
+              <div className="flex flex-wrap justify-between items-end gap-4">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 whitespace-nowrap">
+                      Purchase Order No.
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={purchaseOrderNo}
+                        onChange={(e) => setPurchaseOrderNo(e.target.value)}
+                        className="px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 min-w-[200px]"
+                      >
+                        <option value="">Select Purchase Order</option>
+                        <option value="PO-001">PO-001</option>
+                        <option value="PO-002">PO-002</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 bg-white px-4 py-2 border border-blue-200 rounded-lg shadow-sm">
+                  <span className="text-sm font-medium text-gray-700">1 Foreign Currency =</span>
+                  <input
+                    type="text"
+                    value={exchangeRate}
+                    onChange={(e) => setExchangeRate(e.target.value)}
+                    className="w-24 border-b-2 border-gray-300 focus:border-teal-500 focus:outline-none px-2 py-1 text-center font-medium text-teal-600"
+                    placeholder="Rate"
+                  />
+                  <span className="text-sm font-medium text-gray-700">INR</span>
+                </div>
+              </div>
+
+              {/* Foreign Currency Table */}
+              <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm">
+                <table className="w-full">
+                  <thead className="bg-blue-600 text-white">
+                    <tr>
+                      <th className="px-3 py-3 text-center w-12 border-r border-blue-500"></th>
+                      <th className="px-3 py-3 text-sm font-semibold text-center border-r border-blue-500">Description</th>
+                      <th className="px-3 py-3 text-sm font-semibold text-center w-32 border-r border-blue-500">Quantity</th>
+                      <th className="px-3 py-3 text-sm font-semibold text-center w-32 border-r border-blue-500">UQC</th>
+                      <th className="px-3 py-3 text-sm font-semibold text-center w-40 border-r border-blue-500">Rate</th>
+                      <th className="px-3 py-3 text-sm font-semibold text-center w-40 border-r border-blue-500">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {purchaseItems.map((row, index) => (
+                      <tr key={row.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-center border-r border-gray-200">
+                          <input
+                            type="checkbox"
+                            checked={selectedPurchaseItems.includes(row.id)}
+                            onChange={() => handleTogglePurchaseItemSelection(row.id)}
+                            className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                          />
+                        </td>
+                        <td className="px-3 py-2 border-r border-gray-200">
+                          <input
+                            type="text"
+                            value={row.description}
+                            onChange={(e) => handlePurchaseItemChange(index, 'description', e.target.value)}
+                            className="w-full px-2 py-1.5 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm bg-transparent"
+                            placeholder="Item description"
+                          />
+                        </td>
+                        <td className="px-3 py-2 border-r border-gray-200">
+                          <input
+                            type="text"
+                            value={row.qty}
+                            onChange={(e) => handlePurchaseItemChange(index, 'qty', e.target.value)}
+                            className="w-full px-2 py-1.5 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm text-center bg-transparent"
+                            placeholder="0"
+                          />
+                        </td>
+                        <td className="px-3 py-2 border-r border-gray-200">
+                          <input
+                            type="text"
+                            value={row.uom}
+                            onChange={(e) => handlePurchaseItemChange(index, 'uom', e.target.value)}
+                            className="w-full px-2 py-1.5 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm text-center bg-transparent"
+                            placeholder="UQC"
+                          />
+                        </td>
+                        <td className="px-3 py-2 border-r border-gray-200">
+                          <input
+                            type="text"
+                            value={row.rate}
+                            onChange={(e) => handlePurchaseItemChange(index, 'rate', e.target.value)}
+                            className="w-full px-2 py-1.5 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm text-center bg-transparent"
+                            placeholder="0.00"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={row.taxableValue}
+                            readOnly
+                            className="w-full px-2 py-1.5 bg-gray-50 border-0 rounded text-sm font-medium text-center text-gray-700"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={handleAddPurchaseItem}
+                  className="px-4 py-2 text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Row
+                </button>
+
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={handleDeleteSelectedItems}
+                    disabled={selectedPurchaseItems.length === 0}
+                    className={`px-4 py-2 rounded-md transition-colors font-medium flex items-center gap-2 ${selectedPurchaseItems.length === 0 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
                   >
-                    <option value="Intrastate">Same State (CGST/SGST)</option>
-                    <option value="Interstate">Other State (IGST)</option>
-                    <option value="Import">Import</option>
-                  </select>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete Items
+                  </button>
+
+
                 </div>
-
-                {/* Visual indicators for taxes based on Input Type */}
-                <div className="flex gap-2">
-                  <div className={`px-3 py-2 border rounded text-xs font-medium ${purchaseInputType === 'Intrastate' ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-gray-50 text-gray-400'}`}>
-                    CGST & SGST
-                  </div>
-                  <div className={`px-3 py-2 border rounded text-xs font-medium ${purchaseInputType !== 'Intrastate' ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-gray-50 text-gray-400'}`}>
-                    IGST
-                  </div>
-                  <div className="px-3 py-2 border rounded text-xs font-medium bg-orange-50 border-orange-200 text-orange-700">
-                    Cess
-                  </div>
-                </div>
-
-
               </div>
             </div>
           )}
 
           {/* Supply Details Tab Content */}
           {
-            purchaseActiveTab === 'supply' && (
+            (purchaseActiveTab === 'supply' || purchaseActiveTab === 'supply_inr') && (
               <div className="space-y-6">
                 {/* Purchase Order Selection */}
                 <div className="flex items-center gap-4">
@@ -1232,11 +1578,12 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                         <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">HSN/SAC</th>
                         <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">Qty</th>
                         <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">UQC</th>
-                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">Rate</th>
+                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">Item Rate</th>
                         <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">Taxable Value</th>
                         <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">IGST</th>
                         <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">CESS</th>
-                        <th className="px-3 py-3 text-xs font-semibold text-center">Invoice Value</th>
+                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">Invoice Value</th>
+                        <th className="px-3 py-3 text-xs font-semibold text-center">Delete</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1261,6 +1608,7 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                             <input
                               type="number"
                               value={row.qty}
+                              onChange={(e) => handlePurchaseItemChange(index, 'qty', e.target.value)}
                               className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm"
                             />
                           </td>
@@ -1268,26 +1616,63 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                             <div className="text-sm">{row.uom || '---'}</div>
                           </td>
                           <td className="px-2 py-2 border-r border-gray-200">
-                            <div className="text-right text-sm">{row.rate.toFixed(2)}</div>
+                            <input
+                              type="number"
+                              value={row.rate}
+                              onChange={(e) => handlePurchaseItemChange(index, 'rate', e.target.value)}
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm"
+                            />
                           </td>
                           <td className="px-2 py-2 border-r border-gray-200 bg-gray-50">
-                            <div className="text-right text-sm font-medium">{row.taxableValue.toFixed(2)}</div>
+                            <input
+                              type="number"
+                              value={row.taxableValue}
+                              readOnly
+                              className="w-24 px-2 py-1 bg-transparent border-0 text-right text-sm font-medium"
+                            />
                           </td>
                           <td className="px-2 py-2 border-r border-gray-200">
-                            <div className="text-right text-sm">{row.igst.toFixed(2)}</div>
+                            <input
+                              type="number"
+                              value={row.igst}
+                              onChange={(e) => handlePurchaseItemChange(index, 'igst', e.target.value)}
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm"
+                            />
+                          </td>
+
+
+                          <td className="px-2 py-2 border-r border-gray-200">
+                            <input
+                              type="number"
+                              value={row.cess}
+                              onChange={(e) => handlePurchaseItemChange(index, 'cess', e.target.value)}
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm"
+                            />
                           </td>
                           <td className="px-2 py-2 border-r border-gray-200">
-                            <div className="text-right text-sm">{row.cess.toFixed(2)}</div>
-                          </td>
-                          <td className="px-2 py-2">
                             <div className="text-right text-sm font-bold">{row.invoiceValue.toFixed(2)}</div>
+                          </td>
+                          <td className="px-2 py-2 flex justify-center items-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePurchaseItem(index)}
+                              className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
                           </td>
                         </tr>
                       ))}
-                      {/* Empty Row for Visuals if needed or Add Item Button Row */}
+                      {/* Add Item Button Row */}
                       <tr className="border-b border-gray-200 bg-blue-50/10">
-                        <td colSpan={11} className="px-4 py-2">
-                          <button className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1">
+                        <td colSpan={12} className="px-4 py-2">
+                          <button
+                            type="button"
+                            onClick={handleAddPurchaseItem}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+                          >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                             Add Item
                           </button>
@@ -1499,7 +1884,6 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                         onChange={(e) => setPurchaseTransitReceivedIn(e.target.value)}
                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 resize-none"
                         rows={3}
-                        placeholder="Warehouse (If connected with the inventory module) / Location (As full address with Pincode)"
                       />
                     </div>
 
@@ -1600,19 +1984,7 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                       </select>
                     </div>
 
-                    {/* Self/Third Party/Courier */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Self/Third Party/Courier
-                      </label>
-                      <input
-                        type="text"
-                        value={purchaseTransitSelfThirdParty}
-                        onChange={(e) => setPurchaseTransitSelfThirdParty(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                        placeholder="Enter details"
-                      />
-                    </div>
+
 
                     {/* Transporter ID/GSTIN */}
                     <div>
@@ -4059,7 +4431,12 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
             {voucherType === 'Purchase' && purchaseActiveTab !== 'transit' ? (
               <button
                 onClick={() => {
-                  if (purchaseActiveTab === 'supplier') setPurchaseActiveTab('supply');
+                  if (purchaseActiveTab === 'supplier') {
+                    if (invoiceInForeignCurrency === 'Yes') setPurchaseActiveTab('supply_foreign');
+                    else setPurchaseActiveTab('supply');
+                  }
+                  else if (purchaseActiveTab === 'supply_foreign') setPurchaseActiveTab('supply_inr');
+                  else if (purchaseActiveTab === 'supply_inr') setPurchaseActiveTab('due');
                   else if (purchaseActiveTab === 'supply') setPurchaseActiveTab('due');
                   else if (purchaseActiveTab === 'due') setPurchaseActiveTab('transit');
                 }}
@@ -4081,88 +4458,112 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
         )}
       </div>
 
-      {isMassUploadOpen && (
-        <ErrorBoundary>
+      {
+        isMassUploadOpen && (
+          <ErrorBoundary>
+            <MassUploadModal
+              onClose={() => setIsMassUploadOpen(false)}
+              onComplete={onMassUploadComplete}
+              ledgers={ledgers}
+              stockItems={stockItems}
+              companyDetails={companyDetails}
+              voucherType={voucherType}
+            />
+          </ErrorBoundary>
+        )
+      }
+
+      {/* Invoice Scanner Modal */}
+      {
+        isInvoiceScannerOpen && (
+          <InvoiceScannerModal
+            onClose={() => setIsInvoiceScannerOpen(false)}
+          />
+        )
+      }
+
+      {/* Recent / Imported Vouchers - show below the form so imports are visible immediately */}
+      {
+        vouchers && vouchers.length > 0 && (
+          <div className="mt-8 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Vouchers</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead className="bg-slate-100"><tr>
+                  <th className="table-header">Date</th>
+                  <th className="table-header">Type</th>
+                  <th className="table-header">Invoice No.</th>
+                  <th className="table-header">Party</th>
+                  <th className="table-header">Image</th>
+                  <th className="table-header text-right">Total</th>
+                </tr></thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {vouchers.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((v, idx) => (
+                    <tr key={`${v.type}-${v.date}-${(v as any).invoiceNo || (v as any).party || ''}-${idx}`}>
+                      <td className="px-4 py-2 text-sm text-gray-700">{v.date}</td>
+                      <td className="px-4 py-2 text-sm text-gray-700">{v.type}</td>
+                      <td className="px-4 py-2 text-sm text-gray-700">{(v as any).invoiceNo || ''}</td>
+                      <td className="px-4 py-2 text-sm text-gray-700">{(v as any).party || ''}</td>
+                      <td className="px-4 py-2 text-sm text-gray-700">
+                        {v.image ? (
+                          <img src={`${API_BASE_URL}${v.image}`} alt="Voucher" className="w-12 h-12 object-cover border rounded" />
+                        ) : (
+                          <span className="text-gray-400">No image</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-800 text-right font-semibold">{Number((v as any).total || (v as any).amount || 0).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      }
+      {/* Mass Upload Modal */}
+      {
+        isMassUploadOpen && (
           <MassUploadModal
             onClose={() => setIsMassUploadOpen(false)}
-            onComplete={onMassUploadComplete}
+            onComplete={(newVouchers) => {
+              if (onMassUploadComplete) {
+                onMassUploadComplete(newVouchers);
+              } else {
+                onAddVouchers(newVouchers);
+              }
+              setIsMassUploadOpen(false);
+            }}
             ledgers={ledgers}
             stockItems={stockItems}
             companyDetails={companyDetails}
             voucherType={voucherType}
           />
-        </ErrorBoundary>
-      )}
+        )
+      }
 
       {/* Invoice Scanner Modal */}
-      {isInvoiceScannerOpen && (
-        <InvoiceScannerModal
-          onClose={() => setIsInvoiceScannerOpen(false)}
-        />
-      )}
+      {
+        isInvoiceScannerOpen && (
+          <InvoiceScannerModal
+            onClose={() => setIsInvoiceScannerOpen(false)}
+          />
+        )
+      }
 
-      {/* Recent / Imported Vouchers - show below the form so imports are visible immediately */}
-      {vouchers && vouchers.length > 0 && (
-        <div className="mt-8 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Vouchers</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead className="bg-slate-100"><tr>
-                <th className="table-header">Date</th>
-                <th className="table-header">Type</th>
-                <th className="table-header">Invoice No.</th>
-                <th className="table-header">Party</th>
-                <th className="table-header">Image</th>
-                <th className="table-header text-right">Total</th>
-              </tr></thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {vouchers.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((v, idx) => (
-                  <tr key={`${v.type}-${v.date}-${(v as any).invoiceNo || (v as any).party || ''}-${idx}`}>
-                    <td className="px-4 py-2 text-sm text-gray-700">{v.date}</td>
-                    <td className="px-4 py-2 text-sm text-gray-700">{v.type}</td>
-                    <td className="px-4 py-2 text-sm text-gray-700">{(v as any).invoiceNo || ''}</td>
-                    <td className="px-4 py-2 text-sm text-gray-700">{(v as any).party || ''}</td>
-                    <td className="px-4 py-2 text-sm text-gray-700">
-                      {v.image ? (
-                        <img src={`${API_BASE_URL}${v.image}`} alt="Voucher" className="w-12 h-12 object-cover border rounded" />
-                      ) : (
-                        <span className="text-gray-400">No image</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-800 text-right font-semibold">{Number((v as any).total || (v as any).amount || 0).toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      {/* Mass Upload Modal */}
-      {isMassUploadOpen && (
-        <MassUploadModal
-          onClose={() => setIsMassUploadOpen(false)}
-          onComplete={(newVouchers) => {
-            if (onMassUploadComplete) {
-              onMassUploadComplete(newVouchers);
-            } else {
-              onAddVouchers(newVouchers);
-            }
-            setIsMassUploadOpen(false);
-          }}
-          ledgers={ledgers}
-          stockItems={stockItems}
-          companyDetails={companyDetails}
-          voucherType={voucherType}
-        />
-      )}
-
-      {/* Invoice Scanner Modal */}
-      {isInvoiceScannerOpen && (
-        <InvoiceScannerModal
-          onClose={() => setIsInvoiceScannerOpen(false)}
-        />
-      )}
-    </div>
+      {/* Create GRN Modal */}
+      {
+        isCreateGRNModalOpen && (
+          <CreateGRNModal
+            onClose={() => setIsCreateGRNModalOpen(false)}
+            onSave={(data) => {
+              console.log('GRN Created:', data);
+              setGrnRefNo(data.preview); // Auto-fill GRN Ref No with the generated preview
+              // You might want to save the full configuration somewhere if needed
+            }}
+          />
+        )
+      }
+    </div >
   );
 };
 
