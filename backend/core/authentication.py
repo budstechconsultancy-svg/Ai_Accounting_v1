@@ -32,13 +32,12 @@ class CustomJWTAuthentication(JWTAuthentication):
     def get_user(self, validated_token):
         """
         Attempts to find and return a user using the given validated token.
-        Supports both User (Owner) and TenantUser (Staff) models based on user_type claim.
+        Only supports User (Owner) model.
         Also attaches tenant_id from token to user object for easy access.
         """
         from rest_framework_simplejwt.settings import api_settings
         from rest_framework_simplejwt.exceptions import InvalidToken, AuthenticationFailed
         from django.contrib.auth import get_user_model
-        from .models import TenantUser
 
         try:
             user_id = validated_token[api_settings.USER_ID_CLAIM]
@@ -46,12 +45,7 @@ class CustomJWTAuthentication(JWTAuthentication):
             raise InvalidToken("Token contained no recognizable user identification")
 
         # Determine which model to check
-        user_type = validated_token.get('user_type', 'owner')
-
-        if user_type == 'tenant_user':
-            user_model = TenantUser
-        else:
-            user_model = get_user_model() # User (Owner)
+        user_model = get_user_model() # User (Owner)
 
         try:
             user = user_model.objects.get(**{api_settings.USER_ID_FIELD: user_id})

@@ -49,69 +49,6 @@ def health_check(request):
 def check_status(request):
     return Response({'isActive': True})
 
-class ModulePermissionsSchemaView(views.APIView):
-    permission_classes = [IsAuthenticated]
-    def get(self, request):
-        # Placeholder schema
-        return Response({
-            "accounting": ["read", "write"],
-            "inventory": ["read", "write"]
-        })
-
-class UserModulePermissionsView(views.APIView):
-    permission_classes = [IsAuthenticated]
-    
-    def get(self, request, user_id):
-        """Get permissions for a user - Owner gets all 33, TenantUser gets selected IDs"""
-        current_user = request.user
-        from .models import TenantUser
-        from .rbac import get_all_permission_ids, get_permission_codes_from_ids
-        
-        # Determine if current user is Owner (User model) or Staff (TenantUser model)
-        is_owner = not isinstance(current_user, TenantUser)
-        
-        # Owner gets ALL 33 permissions automatically
-        if is_owner:
-            all_ids = get_all_permission_ids()  # [1, 2, 3, ..., 33]
-            codes = get_permission_codes_from_ids(all_ids)
-            return Response({
-                'user_id': user_id,
-                'tenant_id': current_user.tenant_id,
-                'submodule_ids': all_ids,
-                'codes': codes,
-                'is_owner': True
-            })
-        
-        # TenantUser gets only selected permissions
-        if str(current_user.id) == str(user_id):
-            target_user = current_user
-        else:
-            # Admin viewing another user
-            try:
-                target_user = TenantUser.objects.get(id=user_id, tenant_id=current_user.tenant_id)
-            except TenantUser.DoesNotExist:
-                return Response({'error': 'User not found'}, status=404)
-        
-        # Get selected submodule IDs from TenantUser
-        selected_ids = target_user.selected_submodule_ids or []
-        codes = get_permission_codes_from_ids(selected_ids)
-        
-        return Response({
-            'user_id': user_id,
-            'tenant_id': current_user.tenant_id,
-            'submodule_ids': selected_ids,
-            'codes': codes,
-            'is_owner': False
-        })
-
-    def put(self, request, user_id):
-        """Update permissions for a user"""
-        return Response({
-            "success": True,
-            "message": "Permissions updated",
-            "codes": request.data.get('codes', [])
-        })
-
 from .ai_proxy import ai_service
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -244,12 +181,15 @@ class AdminSubscriptionsView(views.APIView):
         users = User.objects.all().order_by('-created_at')
         subscriptions = []
         for user in users:
-            # Determine Online status dynamically
+            # Determine Online status dynamically using last_login
             is_online = False
-            if user.last_activity:
-                # Online if activity within last 5 minutes
-                time_threshold = timezone.now() - timedelta(minutes=5)
-                if user.last_activity > time_threshold:
+            if user.last_login:
+                # Online if login within last 1 hour say? Or just show logged in time
+                # Without last_activity, real-time presence is harder.
+                # Just fallback to 'Offline' or base it on recent login?
+                # For now simplify to Offline unless recently created/logged in
+                time_threshold = timezone.now() - timedelta(minutes=60)
+                if user.last_login > time_threshold:
                     is_online = True
             
             login_status = 'Online' if is_online else 'Offline'
@@ -368,116 +308,3 @@ class AIProxyView(views.APIView):
                 return Response({'error': 'Unauthorized'}, status=403)
             return Response(ai_service.get_stats())
         return Response({'error': 'Unknown action'}, status=400)
-
-
-class SettingsUsersView(views.APIView):
-    permission_classes = [IsAuthenticated]
-    required_permission = 'USERS_MANAGE'
-
-    def get(self, request):
-        """Return TenantUsers for the same tenant with their selected submodule IDs"""
-        from .models import TenantUser
-        
-        tenant_id = request.user.tenant_id
-        if not tenant_id:
-             return Response({'users': []})
-
-        users = TenantUser.objects.filter(tenant_id=tenant_id).order_by('-created_at')
-        
-        user_list = []
-        for u in users:
-            user_list.append({
-                'id': u.id,
-                'name': u.username,
-                'email': u.email,
-                'is_active': u.is_active,
-                'last_login': getattr(u, 'last_login', None),
-                'submodule_ids': u.selected_submodule_ids or []
-            })
-        return Response({'users': user_list})
-
-    def post(self, request):
-        """Create TenantUser with selected submodule IDs"""
-        data = request.data
-        try:
-            username = data.get('name')
-            password = data.get('password')
-            email = data.get('email')
-            submodule_ids = data.get('submodule_ids', [])  # Array of IDs like [1, 5, 8]
-            
-            from .models import TenantUser
-            
-            if TenantUser.objects.filter(username=username).exists():
-                return Response({'error': 'Username already exists'}, status=400)
-            
-            if User.objects.filter(username=username).exists():
-                 return Response({'error': 'Username already exists (as owner)'}, status=400)
-
-            # Create TenantUser with selected submodule IDs
-            user = TenantUser.objects.create_user(
-                username=username,
-                password=password,
-                email=email,
-                tenant_id=request.user.tenant_id,
-                selected_submodule_ids=submodule_ids  # Store IDs directly
-            )
-            
-            return Response({'success': True})
-        except Exception as e:
-            return Response({'error': str(e)}, status=400)
-
-    def put(self, request):
-        """Update TenantUser permissions"""
-        user_id = request.data.get('userId')
-        submodule_ids = request.data.get('submodule_ids', [])
-        
-        if not user_id:
-            return Response({'error': 'userId is required'}, status=400)
-        
-        from .models import TenantUser
-        
-        try:
-            # Ensure user belongs to same tenant
-            user = TenantUser.objects.get(id=user_id, tenant_id=request.user.tenant_id)
-            
-            # Update selected submodule IDs
-            user.selected_submodule_ids = submodule_ids
-            user.save()
-            
-            return Response({'success': True})
-        except TenantUser.DoesNotExist:
-            return Response({'error': 'User not found'}, status=404)
-        except Exception as e:
-            return Response({'error': str(e)}, status=400)
-
-    def delete(self, request, user_id=None):
-        """Delete TenantUser"""
-        if not user_id:
-            user_id = request.data.get('userId')
-        
-        if not user_id:
-            return Response({'error': 'userId is required'}, status=400)
-        
-        from .models import TenantUser
-        
-        try:
-            # Ensure user belongs to same tenant
-            user = TenantUser.objects.get(id=user_id, tenant_id=request.user.tenant_id)
-            user.delete()
-            return Response({'success': True})
-        except TenantUser.DoesNotExist:
-            return Response({'error': 'User not found'}, status=404)
-        except Exception as e:
-            return Response({'error': str(e)}, status=400)
-
-
-# REMOVED: Role-related views - no longer using roles table
-# class SettingsRolesView(views.APIView):
-#     permission_classes = [IsAuthenticated]
-#     def get(self, request):
-#         from .models import Role
-#         ...
-# class SeedModuleRolesView(views.APIView):
-#     ...
-# class ModuleRolesView(views.APIView):
-#     ...

@@ -31,17 +31,8 @@ def authenticate_user(username, password):
     user = authenticate(username=username, password=password)
     
     if user is None:
-        # Fallback: Try TenantUser (Staff)
-        try:
-            from core.models import TenantUser
-            candidate = TenantUser.objects.get(username=username)
-            if candidate.check_password(password):
-                if candidate.is_active:
-                    user = candidate
-                else:
-                    return None, "Account is inactive"
-        except TenantUser.DoesNotExist:
-            pass
+        pass
+        # Fallback removed - no TenantUser model
             
     if user is None:
         return None, "Invalid credentials"

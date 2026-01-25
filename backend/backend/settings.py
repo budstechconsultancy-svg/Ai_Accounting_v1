@@ -51,9 +51,6 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.ExceptionLoggingMiddleware', # Catch errors from below
     'core.middleware.TenantMiddleware',
-    'core.middleware.PermissionMiddleware',
-    'core.middleware.ActivityTrackingMiddleware',
-    'core.middleware.DetailedActivityLogMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'

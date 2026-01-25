@@ -1593,3 +1593,347 @@ CREATE TABLE `inventory_master_issueslip` (
 ) ENGINE=InnoDB
 DEFAULT CHARSET=utf8mb4
 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `voucher_sales_dispatchdetails` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` VARCHAR(36) NOT NULL,
+  `created_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+
+  `dispatch_from` LONGTEXT,
+  `mode_of_transport` VARCHAR(50),
+  `dispatch_date` DATE,
+  `dispatch_time` TIME(6),
+
+  `delivery_type` VARCHAR(50),
+  `self_third_party` VARCHAR(255),
+
+  `transporter_id` VARCHAR(100),
+  `transporter_name` VARCHAR(255),
+  `vehicle_no` VARCHAR(50),
+
+  `lr_gr_consignment` VARCHAR(100),
+  `dispatch_document` VARCHAR(100),
+
+  `upto_port_shipping_bill_no` VARCHAR(100),
+  `upto_port_shipping_bill_date` DATE,
+  `upto_port_ship_port_code` VARCHAR(50),
+  `upto_port_origin` VARCHAR(100),
+
+  `beyond_port_shipping_bill_no` VARCHAR(100),
+  `beyond_port_shipping_bill_date` DATE,
+  `beyond_port_ship_port_code` VARCHAR(50),
+  `beyond_port_vessel_flight_no` VARCHAR(100),
+  `beyond_port_port_of_loading` VARCHAR(100),
+  `beyond_port_port_of_discharge` VARCHAR(100),
+  `beyond_port_final_destination` VARCHAR(100),
+  `beyond_port_origin_country` VARCHAR(100),
+  `beyond_port_dest_country` VARCHAR(100),
+
+  `rail_upto_port_delivery_type` VARCHAR(100),
+  `rail_upto_port_transporter_id` VARCHAR(100),
+  `rail_upto_port_transporter_name` VARCHAR(255),
+
+  `rail_beyond_port_receipt_no` VARCHAR(100),
+  `rail_beyond_port_receipt_date` DATE,
+  `rail_beyond_port_origin` VARCHAR(100),
+  `rail_beyond_port_origin_country` VARCHAR(100),
+  `rail_beyond_port_rail_no` VARCHAR(100),
+  `rail_beyond_port_station_loading` VARCHAR(100),
+  `rail_beyond_port_station_discharge` VARCHAR(100),
+  `rail_beyond_port_final_destination` VARCHAR(100),
+  `rail_beyond_port_dest_country` VARCHAR(100),
+
+  `invoice_id` BIGINT,
+
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_id` (`tenant_id`),
+  KEY `idx_invoice_id` (`invoice_id`)
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `voucher_sales_ewaybill` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` VARCHAR(36) NOT NULL,
+  `created_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+
+  `eway_bill_available` VARCHAR(10),
+  `eway_bill_no` VARCHAR(50),
+  `eway_bill_date` DATE,
+  `validity_period` VARCHAR(50),
+  `distance` VARCHAR(50),
+
+  `extension_date` DATE,
+  `extended_ewb_no` VARCHAR(50),
+  `extension_reason` VARCHAR(255),
+  `from_place` VARCHAR(100),
+  `remaining_distance` VARCHAR(50),
+  `new_validity` VARCHAR(50),
+  `updated_vehicle_no` VARCHAR(50),
+
+  `irn` VARCHAR(255),
+  `ack_no` VARCHAR(100),
+
+  `invoice_id` BIGINT,
+
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_id` (`tenant_id`),
+  KEY `idx_invoice_id` (`invoice_id`)
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `voucher_sales_invoicedetails` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` VARCHAR(36) NOT NULL,
+  `created_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+
+  `date` DATE,
+  `sales_invoice_no` VARCHAR(50),
+  `voucher_name` VARCHAR(100),
+  `outward_slip_no` VARCHAR(50),
+  `customer_name` VARCHAR(255),
+
+  `bill_to` LONGTEXT,
+  `ship_to` LONGTEXT,
+
+  `gstin` VARCHAR(15),
+  `contact` VARCHAR(100),
+  `tax_type` VARCHAR(50),
+  `state_type` VARCHAR(20),
+  `export_type` VARCHAR(50),
+  `exchange_rate` VARCHAR(50),
+  `supporting_document` VARCHAR(100),
+  `sales_order_no` VARCHAR(50),
+
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_id` (`tenant_id`),
+  KEY `idx_sales_invoice_no` (`sales_invoice_no`)
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `voucher_sales_items` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` VARCHAR(36) NOT NULL,
+  `created_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+
+  `item_code` VARCHAR(100),
+  `item_name` VARCHAR(255),
+  `hsn_sac` VARCHAR(50),
+
+  `qty` DECIMAL(18,4) DEFAULT 0.0000,
+  `uom` VARCHAR(50),
+  `item_rate` DECIMAL(18,2) DEFAULT 0.00,
+  `taxable_value` DECIMAL(18,2) DEFAULT 0.00,
+
+  `igst` DECIMAL(18,2) DEFAULT 0.00,
+  `cgst` DECIMAL(18,2) DEFAULT 0.00,
+  `cess` DECIMAL(18,2) DEFAULT 0.00,
+
+  `invoice_value` DECIMAL(18,2) DEFAULT 0.00,
+  `sales_ledger` VARCHAR(255),
+  `description` LONGTEXT,
+
+  `invoice_id` BIGINT,
+
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_id` (`tenant_id`),
+  KEY `idx_invoice_id` (`invoice_id`)
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `voucher_sales_items_foreign` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` VARCHAR(36) NOT NULL,
+  `created_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+
+  `description` LONGTEXT,
+  `quantity` DECIMAL(18,4) DEFAULT 0.0000,
+  `uqc` VARCHAR(50),
+  `rate` DECIMAL(18,2) DEFAULT 0.00,
+  `amount` DECIMAL(18,2) DEFAULT 0.00,
+
+  `invoice_id` BIGINT,
+
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_id` (`tenant_id`),
+  KEY `idx_invoice_id` (`invoice_id`)
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `voucher_sales_paymentdetails` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` VARCHAR(36) NOT NULL,
+  `created_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+
+  `payment_taxable_value` DECIMAL(18,2) DEFAULT 0.00,
+  `payment_igst` DECIMAL(18,2) DEFAULT 0.00,
+  `payment_cgst` DECIMAL(18,2) DEFAULT 0.00,
+  `payment_sgst` DECIMAL(18,2) DEFAULT 0.00,
+  `payment_cess` DECIMAL(18,2) DEFAULT 0.00,
+  `payment_state_cess` DECIMAL(18,2) DEFAULT 0.00,
+
+  `payment_invoice_value` DECIMAL(18,2) DEFAULT 0.00,
+  `payment_tds` DECIMAL(18,2) DEFAULT 0.00,
+  `payment_tcs` DECIMAL(18,2) DEFAULT 0.00,
+  `payment_advance` DECIMAL(18,2) DEFAULT 0.00,
+  `payment_payable` DECIMAL(18,2) DEFAULT 0.00,
+
+  `posting_note` LONGTEXT,
+  `terms_conditions` LONGTEXT,
+
+  `invoice_id` BIGINT,
+
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_id` (`tenant_id`),
+  KEY `idx_invoice_id` (`invoice_id`)
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table: voucher_payment_single
+--
+CREATE TABLE IF NOT EXISTS `voucher_payment_single` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` char(36) NOT NULL,
+  `date` date NOT NULL,
+  `voucher_type` varchar(100) DEFAULT NULL,
+  `voucher_number` varchar(100) NOT NULL,
+  `pay_from` varchar(100) DEFAULT NULL,
+  `pay_to` varchar(255) DEFAULT NULL,
+  `total_payment` decimal(15,2) DEFAULT '0.00',
+  `transaction_details` json DEFAULT NULL COMMENT 'List: [{date, referenceNumber, amount, payment, pending, advance}]',
+  `created_at` datetime(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `voucher_payment_single_tenant_id_idx` (`tenant_id`),
+  KEY `voucher_payment_single_date_idx` (`date`),
+  CONSTRAINT `voucher_payment_single_tenant_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Table: voucher_payment_bulk
+--
+CREATE TABLE IF NOT EXISTS `voucher_payment_bulk` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` char(36) NOT NULL,
+  `date` date NOT NULL,
+  `voucher_number` varchar(100) NOT NULL,
+  `pay_from` varchar(100) DEFAULT NULL,
+  `payment_rows` json DEFAULT NULL,
+  `posting_note` longtext,
+  `advance_ref_no` varchar(100) DEFAULT NULL,
+  `advance_amount` decimal(15,2) DEFAULT '0.00',
+  `transaction_details` json DEFAULT NULL COMMENT 'List: [{date, invoiceNo, amount, payNow, pending, advance}]',
+  `created_at` datetime(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `voucher_payment_bulk_tenant_id_idx` (`tenant_id`),
+  KEY `voucher_payment_bulk_date_idx` (`date`),
+  CONSTRAINT `voucher_payment_bulk_tenant_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Table: voucher_receipt_single
+--
+CREATE TABLE IF NOT EXISTS `voucher_receipt_single` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` char(36) NOT NULL,
+  `date` date NOT NULL,
+  `voucher_type` varchar(100) DEFAULT NULL,
+  `voucher_number` varchar(100) NOT NULL,
+  `receive_in` varchar(100) DEFAULT NULL,
+  `receive_from` varchar(255) DEFAULT NULL,
+  `total_receipt` decimal(15,2) DEFAULT '0.00',
+  `transaction_details` json DEFAULT NULL COMMENT 'List: [{date, referenceNumber, amount, receipt, pending, advance}]',
+  `created_at` datetime(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `voucher_receipt_single_tenant_id_idx` (`tenant_id`),
+  KEY `voucher_receipt_single_date_idx` (`date`),
+  CONSTRAINT `voucher_receipt_single_tenant_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Table: voucher_receipt_bulk
+--
+CREATE TABLE IF NOT EXISTS `voucher_receipt_bulk` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` char(36) NOT NULL,
+  `date` date NOT NULL,
+  `voucher_number` varchar(100) NOT NULL,
+  `receive_in` varchar(100) DEFAULT NULL,
+  `receipt_rows` json DEFAULT NULL,
+  `posting_note` longtext,
+  `advance_ref_no` varchar(100) DEFAULT NULL,
+  `advance_amount` decimal(15,2) DEFAULT '0.00',
+  `transaction_details` json DEFAULT NULL COMMENT 'List: [{date, invoiceNo, amount, receiveNow, pending, advance}]',
+  `created_at` datetime(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `voucher_receipt_bulk_tenant_id_idx` (`tenant_id`),
+  KEY `voucher_receipt_bulk_date_idx` (`date`),
+  CONSTRAINT `voucher_receipt_bulk_tenant_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Table: voucher_expenses
+--
+CREATE TABLE IF NOT EXISTS `voucher_expenses` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_id` char(36) NOT NULL,
+  `date` date NOT NULL,
+  `voucher_number` varchar(100) NOT NULL,
+  `expense_rows` json NOT NULL,
+  `posting_note` longtext,
+  `uploaded_files` json DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `voucher_expenses_tenant_id_idx` (`tenant_id`),
+  KEY `voucher_expenses_date_idx` (`date`),
+  CONSTRAINT `voucher_expenses_tenant_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+CREATE TABLE `voucher_contra` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` VARCHAR(36) NOT NULL,
+  `created_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `date` DATE NOT NULL,
+  `voucher_number` VARCHAR(100) NOT NULL,
+  `from_account` VARCHAR(255) NOT NULL,
+  `to_account` VARCHAR(255) NOT NULL,
+  `amount` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  `narration` LONGTEXT,
+  PRIMARY KEY (`id`),
+  INDEX `idx_voucher_contra_tenant` (`tenant_id`),
+  INDEX `idx_voucher_contra_voucher` (`voucher_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `voucher_journal` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `tenant_id` VARCHAR(36) NOT NULL,
+  `created_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `date` DATE NOT NULL,
+  `voucher_number` VARCHAR(100) NOT NULL,
+  `total_debit` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  `total_credit` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  `narration` LONGTEXT,
+  `entries` JSON NOT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_voucher_journal_tenant` (`tenant_id`),
+  INDEX `idx_voucher_journal_voucher` (`voucher_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

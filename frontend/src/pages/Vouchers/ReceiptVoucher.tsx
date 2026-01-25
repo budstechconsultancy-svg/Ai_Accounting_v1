@@ -5,12 +5,12 @@ interface PendingTransaction {
     date: string;
     referenceNumber: string;
     amount: number;
-    payment: number;
+    receipt: number;
 }
 
-interface PaymentRow {
+interface ReceiptRow {
     id: string;
-    payTo: string;
+    receiveFrom: string;
     amount: number;
 }
 
@@ -19,41 +19,46 @@ interface BulkTransaction {
     date: string;
     invoiceNo: string;
     amount: number;
-    payNow: number;
+    receiveNow: number;
     selected: boolean;
 }
 
-const PaymentVoucherSingle: React.FC = () => {
+const ReceiptVoucher: React.FC = () => {
     // Tab state
     const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
 
     // Common state
-    const [date, setDate] = useState('10-01-2026');
-    const [voucherType, setVoucherType] = useState('Payment');
+    const [date, setDate] = useState('24-01-2026');
+    const [voucherType, setVoucherType] = useState('Receipt');
     const [voucherNumber, setVoucherNumber] = useState('Auto-generated');
-    const [payFrom, setPayFrom] = useState('');
-    const [payFromBalance, setPayFromBalance] = useState('₹0 Cr');
-    const [payTo, setPayTo] = useState('');
-    const [payToBalance, setPayToBalance] = useState('₹0 Dr');
-    const [totalPayment, setTotalPayment] = useState(0);
 
-    // Payment Voucher Configuration state
-    const [paymentVoucherConfigs, setPaymentVoucherConfigs] = useState<any[]>([]);
-    const [selectedPaymentConfig, setSelectedPaymentConfig] = useState<string>('');
+    // "Receive In" (Debit Account - Bank/Cash) matches PayFrom (Credit Account) visually in the single form
+    const [receiveIn, setReceiveIn] = useState('');
+    const [receiveInBalance, setReceiveInBalance] = useState('₹0 Dr');
+
+    // "Receive From" (Credit Account - Customer) matches PayTo (Debit Account) visually
+    const [receiveFrom, setReceiveFrom] = useState('');
+    const [receiveFromBalance, setReceiveFromBalance] = useState('₹0 Cr');
+
+    const [totalReceipt, setTotalReceipt] = useState(0);
+
+    // Receipt Voucher Configuration state
+    const [receiptVoucherConfigs, setReceiptVoucherConfigs] = useState<any[]>([]);
+    const [selectedReceiptConfig, setSelectedReceiptConfig] = useState<string>('');
 
     // Single mode state
     const [pendingTransactions, setPendingTransactions] = useState<PendingTransaction[]>([
-        { date: '31-12-2025', referenceNumber: 'Adc/005', amount: 20000.00, payment: 0 },
-        { date: '02-01-2026', referenceNumber: 'Abc/008', amount: 45000.00, payment: 0 }
+        { date: '31-12-2025', referenceNumber: 'Adc/005', amount: 20000.00, receipt: 0 },
+        { date: '02-01-2026', referenceNumber: 'Abc/008', amount: 45000.00, receipt: 0 }
     ]);
 
     // Bulk mode state
-    const [paymentRows, setPaymentRows] = useState<PaymentRow[]>([
-        { id: '1', payTo: '', amount: 0 },
-        { id: '2', payTo: '', amount: 0 },
-        { id: '3', payTo: '', amount: 0 }
+    const [receiptRows, setReceiptRows] = useState<ReceiptRow[]>([
+        { id: '1', receiveFrom: '', amount: 0 },
+        { id: '2', receiveFrom: '', amount: 0 },
+        { id: '3', receiveFrom: '', amount: 0 }
     ]);
-    const [selectedVendor, setSelectedVendor] = useState<string>('');
+    const [selectedCustomer, setSelectedCustomer] = useState<string>('');
     const [bulkTransactions, setBulkTransactions] = useState<BulkTransaction[]>([]);
     const [showAdvanceSection, setShowAdvanceSection] = useState<boolean>(false);
     const [advanceRefNo, setAdvanceRefNo] = useState<string>('');
@@ -61,33 +66,32 @@ const PaymentVoucherSingle: React.FC = () => {
     const [postingNote, setPostingNote] = useState<string>('');
     const [runningBalance, setRunningBalance] = useState<number>(0);
 
-    // Fetch payment voucher configurations on mount
+    // Fetch receipt voucher configurations on mount
     useEffect(() => {
-        const fetchPaymentConfigs = async () => {
+        const fetchReceiptConfigs = async () => {
             try {
-                console.log('Fetching payment voucher configurations...');
-                const data = await httpClient.get<any[]>('/api/masters/voucher-configurations/?voucher_type=payments');
-                console.log('All payment configs fetched:', data);
+                console.log('Fetching receipt voucher configurations...');
+                const data = await httpClient.get<any[]>('/api/masters/voucher-configurations/?voucher_type=receipts');
+                console.log('All receipt configs fetched:', data);
 
-                const paymentConfigs = data?.filter(config => config.voucher_type === 'payments') || [];
-                console.log('Filtered payment configs:', paymentConfigs);
+                const receiptConfigs = data?.filter(config => config.voucher_type === 'receipts') || [];
 
-                setPaymentVoucherConfigs(paymentConfigs);
-                if (paymentConfigs && paymentConfigs.length === 1) {
-                    setSelectedPaymentConfig(paymentConfigs[0].voucher_name);
+                setReceiptVoucherConfigs(receiptConfigs);
+                if (receiptConfigs && receiptConfigs.length === 1) {
+                    setSelectedReceiptConfig(receiptConfigs[0].voucher_name);
                 }
             } catch (error) {
-                console.error('Error fetching payment voucher configurations:', error);
-                setPaymentVoucherConfigs([]);
+                console.error('Error fetching receipt voucher configurations:', error);
+                setReceiptVoucherConfigs([]);
             }
         };
-        fetchPaymentConfigs();
+        fetchReceiptConfigs();
     }, []);
 
-    // Generate voucher number when payment configuration is selected
+    // Generate voucher number when receipt configuration is selected
     useEffect(() => {
-        if (selectedPaymentConfig && paymentVoucherConfigs.length > 0) {
-            const config = paymentVoucherConfigs.find(c => c.voucher_name === selectedPaymentConfig);
+        if (selectedReceiptConfig && receiptVoucherConfigs.length > 0) {
+            const config = receiptVoucherConfigs.find(c => c.voucher_name === selectedReceiptConfig);
             if (config && config.enable_auto_numbering) {
                 const paddedNum = String(config.current_number).padStart(config.required_digits, '0');
                 const generatedNumber = `${config.prefix || ''}${paddedNum}${config.suffix || ''}`;
@@ -98,58 +102,58 @@ const PaymentVoucherSingle: React.FC = () => {
         } else {
             setVoucherNumber('Auto-generated');
         }
-    }, [selectedPaymentConfig, paymentVoucherConfigs]);
+    }, [selectedReceiptConfig, receiptVoucherConfigs]);
 
     // Single mode handlers
-    const handlePay = (index: number) => {
+    const handleReceive = (index: number) => {
         const updatedTransactions = [...pendingTransactions];
-        updatedTransactions[index].payment = updatedTransactions[index].amount;
+        updatedTransactions[index].receipt = updatedTransactions[index].amount;
         setPendingTransactions(updatedTransactions);
-        calculateTotalPayment(updatedTransactions);
+        calculateTotalReceipt(updatedTransactions);
     };
 
-    const handlePaymentChange = (index: number, value: number) => {
+    const handleReceiptChange = (index: number, value: number) => {
         const updatedTransactions = [...pendingTransactions];
-        updatedTransactions[index].payment = value;
+        updatedTransactions[index].receipt = value;
         setPendingTransactions(updatedTransactions);
-        calculateTotalPayment(updatedTransactions);
+        calculateTotalReceipt(updatedTransactions);
     };
 
-    const calculateTotalPayment = (transactions: PendingTransaction[]) => {
-        const total = transactions.reduce((sum, txn) => sum + txn.payment, 0);
-        setTotalPayment(total);
+    const calculateTotalReceipt = (transactions: PendingTransaction[]) => {
+        const total = transactions.reduce((sum, txn) => sum + txn.receipt, 0);
+        setTotalReceipt(total);
     };
 
     // Bulk mode handlers
-    const handlePaymentRowChange = (id: string, field: keyof PaymentRow, value: string | number) => {
-        setPaymentRows(prev => prev.map(row =>
+    const handleReceiptRowChange = (id: string, field: keyof ReceiptRow, value: string | number) => {
+        setReceiptRows(prev => prev.map(row =>
             row.id === id ? { ...row, [field]: value } : row
         ));
 
-        if (field === 'payTo' && typeof value === 'string' && value) {
-            handleVendorSelect(value);
+        if (field === 'receiveFrom' && typeof value === 'string' && value) {
+            handleCustomerSelect(value);
         }
     };
 
-    const handleVendorSelect = (vendorName: string) => {
-        setSelectedVendor(vendorName);
+    const handleCustomerSelect = (customerName: string) => {
+        setSelectedCustomer(customerName);
 
         // Mock transaction data
         const mockTransactions: BulkTransaction[] = [
-            { id: '1', date: 'xxx', invoiceNo: 'xxxxx', amount: 0, payNow: 0, selected: false },
-            { id: '2', date: 'xxx', invoiceNo: 'xxxxx', amount: 0, payNow: 0, selected: false }
+            { id: '1', date: 'xxx', invoiceNo: 'xxxxx', amount: 0, receiveNow: 0, selected: false },
+            { id: '2', date: 'xxx', invoiceNo: 'xxxxx', amount: 0, receiveNow: 0, selected: false }
         ];
 
         setBulkTransactions(mockTransactions);
     };
 
-    const handleAddPaymentRow = () => {
-        const newRow: PaymentRow = {
+    const handleAddReceiptRow = () => {
+        const newRow: ReceiptRow = {
             id: Date.now().toString(),
-            payTo: '',
+            receiveFrom: '',
             amount: 0
         };
-        setPaymentRows(prev => [...prev, newRow]);
+        setReceiptRows(prev => [...prev, newRow]);
     };
 
     const handleTransactionSelect = (transactionId: string, checked: boolean) => {
@@ -158,80 +162,80 @@ const PaymentVoucherSingle: React.FC = () => {
         ));
     };
 
-    const handlePayNowChange = (transactionId: string, value: number) => {
+    const handleReceiveNowChange = (transactionId: string, value: number) => {
         setBulkTransactions(prev => prev.map(t =>
-            t.id === transactionId ? { ...t, payNow: value } : t
+            t.id === transactionId ? { ...t, receiveNow: value } : t
         ));
     };
 
     const handleCancel = () => {
-        setDate('10-01-2026');
-        setPayFrom('');
-        setPayTo('');
-        setPendingTransactions(pendingTransactions.map(txn => ({ ...txn, payment: 0 })));
-        setPaymentRows([
-            { id: '1', payTo: '', amount: 0 },
-            { id: '2', payTo: '', amount: 0 },
-            { id: '3', payTo: '', amount: 0 }
+        setDate('24-01-2026');
+        setReceiveIn('');
+        setReceiveFrom('');
+        setPendingTransactions(pendingTransactions.map(txn => ({ ...txn, receipt: 0 })));
+        setReceiptRows([
+            { id: '1', receiveFrom: '', amount: 0 },
+            { id: '2', receiveFrom: '', amount: 0 },
+            { id: '3', receiveFrom: '', amount: 0 }
         ]);
         setBulkTransactions([]);
-        setSelectedVendor('');
+        setSelectedCustomer('');
         setPostingNote('');
         setShowAdvanceSection(false);
         setAdvanceRefNo('');
         setAdvanceAmount(0);
-        setTotalPayment(0);
+        setTotalReceipt(0);
     };
 
-    const handlePostPayment = async () => {
+    const handlePostReceipt = async () => {
         try {
             if (activeTab === 'single') {
                 const payload = {
-                    date: date.split('-').reverse().join('-'), // Convert dd-mm-yyyy to yyyy-mm-dd
-                    voucher_type: selectedPaymentConfig || voucherType,
+                    date: date.split('-').reverse().join('-'),
+                    voucher_type: selectedReceiptConfig || voucherType,
                     voucher_number: voucherNumber,
-                    pay_from: payFrom,
-                    pay_to: payTo,
-                    total_payment: totalPayment,
+                    receive_in: receiveIn,
+                    receive_from: receiveFrom,
+                    total_receipt: totalReceipt,
                     transaction_details: pendingTransactions.map(t => ({
                         ...t,
-                        pending: Math.max(0, t.amount - t.payment),
-                        advance: Math.max(0, t.payment - t.amount)
+                        pending: Math.max(0, t.amount - t.receipt),
+                        advance: Math.max(0, t.receipt - t.amount)
                     }))
                 };
 
-                console.log('Posting Single Payment:', payload);
-                const response = await httpClient.post('/api/vouchers/payment-single/', payload);
-                console.log('Single Payment Response:', response);
-                alert('Single Payment Voucher posted successfully!');
+                console.log('Posting Single Receipt:', payload);
+                const response = await httpClient.post('/api/vouchers/receipt-single/', payload);
+                console.log('Single Receipt Response:', response);
+                alert('Single Receipt Voucher posted successfully!');
                 handleCancel();
             } else {
                 const payload = {
                     date: date.split('-').reverse().join('-'),
                     voucher_number: voucherNumber,
-                    pay_from: payFrom,
-                    payment_rows: paymentRows,
+                    receive_in: receiveIn,
+                    receipt_rows: receiptRows,
                     posting_note: postingNote,
                     advance_ref_no: advanceRefNo,
                     advance_amount: advanceAmount,
                     transaction_details: bulkTransactions
-                        .filter(t => t.selected || t.payNow > 0)
+                        .filter(t => t.selected || t.receiveNow > 0)
                         .map(t => ({
                             ...t,
-                            pending: Math.max(0, t.amount - t.payNow),
-                            advance: Math.max(0, t.payNow - t.amount)
+                            pending: Math.max(0, t.amount - t.receiveNow),
+                            advance: Math.max(0, t.receiveNow - t.amount)
                         }))
                 };
 
-                console.log('Posting Bulk Payment:', payload);
-                const response = await httpClient.post('/api/vouchers/payment-bulk/', payload);
-                console.log('Bulk Payment Response:', response);
-                alert('Bulk Payment Voucher posted successfully!');
+                console.log('Posting Bulk Receipt:', payload);
+                const response = await httpClient.post('/api/vouchers/receipt-bulk/', payload);
+                console.log('Bulk Receipt Response:', response);
+                alert('Bulk Receipt Voucher posted successfully!');
                 handleCancel();
             }
         } catch (error) {
-            console.error('Error posting payment voucher:', error);
-            alert('Failed to post payment voucher. Please try again.');
+            console.error('Error posting receipt voucher:', error);
+            alert('Failed to post receipt voucher. Please try again.');
         }
     };
 
@@ -246,7 +250,7 @@ const PaymentVoucherSingle: React.FC = () => {
                         : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-orange-500'
                         }`}
                 >
-                    Payment Voucher - Single
+                    Receipt Voucher - Single
                 </button>
                 <button
                     onClick={() => setActiveTab('bulk')}
@@ -255,14 +259,14 @@ const PaymentVoucherSingle: React.FC = () => {
                         : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-orange-500'
                         }`}
                 >
-                    Payment Voucher - Bulk
+                    Receipt Voucher - Bulk
                 </button>
             </div>
 
             {/* Single Tab Content */}
             {activeTab === 'single' && (
                 <>
-                    {/* Top Row: Date, Voucher Type, Voucher Number */}
+                    {/* Top Row */}
                     <div className="grid grid-cols-3 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
@@ -276,12 +280,12 @@ const PaymentVoucherSingle: React.FC = () => {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Voucher Type</label>
                             <select
-                                value={selectedPaymentConfig}
-                                onChange={(e) => setSelectedPaymentConfig(e.target.value)}
+                                value={selectedReceiptConfig}
+                                onChange={(e) => setSelectedReceiptConfig(e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                             >
                                 <option value="">Select</option>
-                                {paymentVoucherConfigs.map((config) => (
+                                {receiptVoucherConfigs.map((config) => (
                                     <option key={config.id} value={config.voucher_name}>
                                         {config.voucher_name}
                                     </option>
@@ -299,39 +303,39 @@ const PaymentVoucherSingle: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Pay From and Pay To Row */}
+                    {/* Receive In and Receive From Row */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Pay From</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Receive In</label>
                             <div className="flex gap-2">
                                 <select
-                                    value={payFrom}
-                                    onChange={(e) => setPayFrom(e.target.value)}
+                                    value={receiveIn}
+                                    onChange={(e) => setReceiveIn(e.target.value)}
                                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 >
-                                    <option value="">Select Pay From</option>
+                                    <option value="">Select Receive In</option>
                                     <option value="cash">Cash</option>
                                     <option value="bank">Bank Account</option>
                                 </select>
                                 <div className="px-4 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm font-medium text-gray-700 min-w-[80px] text-center">
-                                    {payFromBalance}
+                                    {receiveInBalance}
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Pay To</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Receive From</label>
                             <div className="flex gap-2">
                                 <select
-                                    value={payTo}
-                                    onChange={(e) => setPayTo(e.target.value)}
+                                    value={receiveFrom}
+                                    onChange={(e) => setReceiveFrom(e.target.value)}
                                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 >
-                                    <option value="">Select Pay To</option>
-                                    <option value="vendor1">Vendor 1</option>
-                                    <option value="vendor2">Vendor 2</option>
+                                    <option value="">Select Receive From</option>
+                                    <option value="customer1">Customer 1</option>
+                                    <option value="customer2">Customer 2</option>
                                 </select>
                                 <div className="px-4 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm font-medium text-gray-700 min-w-[80px] text-center">
-                                    {payToBalance}
+                                    {receiveFromBalance}
                                 </div>
                                 <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md text-sm font-medium text-gray-700">
                                     Advance
@@ -343,7 +347,7 @@ const PaymentVoucherSingle: React.FC = () => {
                     {/* Pending Transactions */}
                     <div>
                         <h3 className="text-sm font-semibold text-gray-800 mb-4">Pending Transactions</h3>
-                        {payTo ? (
+                        {receiveFrom ? (
                             <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
                                 <table className="w-full">
                                     <thead className="bg-gray-50 border-b-2 border-gray-200">
@@ -353,7 +357,7 @@ const PaymentVoucherSingle: React.FC = () => {
                                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">AMOUNT</th>
                                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">PENDING</th>
                                             <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">ACTION</th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">PAYMENT</th>
+                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">RECEIPT</th>
                                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">ADVANCE</th>
                                         </tr>
                                     </thead>
@@ -366,42 +370,42 @@ const PaymentVoucherSingle: React.FC = () => {
                                                     ₹{txn.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-700 text-right font-medium text-red-600">
-                                                    ₹{Math.max(0, txn.amount - txn.payment).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    ₹{Math.max(0, txn.amount - txn.receipt).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
                                                     <button
-                                                        onClick={() => handlePay(index)}
+                                                        onClick={() => handleReceive(index)}
                                                         className="px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded"
                                                     >
-                                                        Pay
+                                                        Receive
                                                     </button>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <input
                                                         type="number"
-                                                        value={txn.payment || ''}
-                                                        onChange={(e) => handlePaymentChange(index, parseFloat(e.target.value) || 0)}
+                                                        value={txn.receipt || ''}
+                                                        onChange={(e) => handleReceiptChange(index, parseFloat(e.target.value) || 0)}
                                                         placeholder="0"
                                                         className="w-24 px-3 py-1.5 text-right border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                                                     />
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-700 text-right font-medium text-green-600">
-                                                    ₹{Math.max(0, txn.payment - txn.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    ₹{Math.max(0, txn.receipt - txn.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                 </td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                                 <div className="border-t-2 border-gray-200 bg-white px-6 py-4 flex justify-end items-center gap-4">
-                                    <span className="text-sm font-semibold text-gray-700">Total Payment</span>
+                                    <span className="text-sm font-semibold text-gray-700">Total Receipt</span>
                                     <div className="px-4 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm font-bold text-gray-900 min-w-[120px] text-right">
-                                        {totalPayment}
+                                        {totalReceipt}
                                     </div>
                                 </div>
                             </div>
                         ) : (
                             <div className="text-center py-16 text-gray-500 border-2 border-gray-200 rounded-lg bg-gray-50">
-                                <p className="text-sm">Please select a "Pay To" account to view pending transactions.</p>
+                                <p className="text-sm">Please select a "Receive From" account to view pending transactions.</p>
                             </div>
                         )}
                     </div>
@@ -415,10 +419,10 @@ const PaymentVoucherSingle: React.FC = () => {
                             Cancel
                         </button>
                         <button
-                            onClick={handlePostPayment}
+                            onClick={handlePostReceipt}
                             className="px-8 py-2 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg text-sm"
                         >
-                            Post Payment
+                            Post Receipt
                         </button>
                     </div>
                 </>
@@ -451,13 +455,13 @@ const PaymentVoucherSingle: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Pay From and Running Balance */}
+                        {/* Receive In and Running Balance */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Pay from</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Receive In</label>
                                 <select
-                                    value={payFrom}
-                                    onChange={e => setPayFrom(e.target.value)}
+                                    value={receiveIn}
+                                    onChange={e => setReceiveIn(e.target.value)}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 >
                                     <option value="">Select</option>
@@ -476,27 +480,27 @@ const PaymentVoucherSingle: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Pay To and Amount Section */}
+                        {/* Receive From and Amount Section */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Pay to</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Receive From</label>
                                 <div className="space-y-2">
-                                    {paymentRows.map((row) => (
+                                    {receiptRows.map((row) => (
                                         <select
                                             key={row.id}
-                                            value={row.payTo}
-                                            onChange={e => handlePaymentRowChange(row.id, 'payTo', e.target.value)}
+                                            value={row.receiveFrom}
+                                            onChange={e => handleReceiptRowChange(row.id, 'receiveFrom', e.target.value)}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                                         >
-                                            <option value="">Vendor Name</option>
-                                            <option value="vendor1">Vendor 1</option>
-                                            <option value="vendor2">Vendor 2</option>
+                                            <option value="">Customer Name</option>
+                                            <option value="customer1">Customer 1</option>
+                                            <option value="customer2">Customer 2</option>
                                         </select>
                                     ))}
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={handleAddPaymentRow}
+                                    onClick={handleAddReceiptRow}
                                     className="mt-2 text-orange-600 hover:text-orange-700 text-3xl font-bold"
                                 >
                                     +
@@ -506,13 +510,13 @@ const PaymentVoucherSingle: React.FC = () => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
                                 <div className="space-y-2">
-                                    {paymentRows.map((row) => (
+                                    {receiptRows.map((row) => (
                                         <input
                                             key={`amount-${row.id}`}
                                             type="number"
                                             value={row.amount || ''}
-                                            onChange={e => handlePaymentRowChange(row.id, 'amount', parseFloat(e.target.value) || 0)}
-                                            placeholder="Pay now/Advance total"
+                                            onChange={e => handleReceiptRowChange(row.id, 'amount', parseFloat(e.target.value) || 0)}
+                                            placeholder="Receive now/Advance total"
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                                         />
                                     ))}
@@ -520,10 +524,10 @@ const PaymentVoucherSingle: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Total Payment */}
+                        {/* Total Receipt */}
                         <div className="flex justify-center">
                             <button className="px-8 py-2 bg-orange-600 text-white rounded-md font-medium">
-                                Total Payment
+                                Total Receipt
                             </button>
                         </div>
 
@@ -548,7 +552,7 @@ const PaymentVoucherSingle: React.FC = () => {
                                 Cancel
                             </button>
                             <button
-                                onClick={handlePostPayment}
+                                onClick={handlePostReceipt}
                                 className="px-6 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700"
                             >
                                 Post
@@ -560,7 +564,7 @@ const PaymentVoucherSingle: React.FC = () => {
                     <div className="bg-blue-500 rounded-lg p-6">
                         <div className="text-center mb-4">
                             <h4 className="text-white font-semibold text-sm">
-                                {selectedVendor || 'Vendor Name'} (Whose data is displayed below)
+                                {selectedCustomer || 'Customer Name'} (Whose data is displayed below)
                             </h4>
                         </div>
 
@@ -574,7 +578,7 @@ const PaymentVoucherSingle: React.FC = () => {
                                                 <th className="text-left py-2 px-2 font-semibold text-gray-700">Invoice No.</th>
                                                 <th className="text-right py-2 px-2 font-semibold text-gray-700">Amount</th>
                                                 <th className="text-right py-2 px-2 font-semibold text-gray-700">Pending</th>
-                                                <th className="text-center py-2 px-2 font-semibold text-gray-700">Pay Now</th>
+                                                <th className="text-center py-2 px-2 font-semibold text-gray-700">Receive Now</th>
                                                 <th className="text-right py-2 px-2 font-semibold text-gray-700">Advance</th>
                                             </tr>
                                         </thead>
@@ -595,18 +599,18 @@ const PaymentVoucherSingle: React.FC = () => {
                                                     <td className="py-3 px-2">{transaction.invoiceNo}</td>
                                                     <td className="py-3 px-2 text-right">{transaction.amount}</td>
                                                     <td className="py-3 px-2 text-right text-red-600 font-medium">
-                                                        {(Math.max(0, transaction.amount - transaction.payNow)).toFixed(2)}
+                                                        {(Math.max(0, transaction.amount - transaction.receiveNow)).toFixed(2)}
                                                     </td>
                                                     <td className="py-3 px-2">
                                                         <input
                                                             type="number"
-                                                            value={transaction.payNow || ''}
-                                                            onChange={e => handlePayNowChange(transaction.id, parseFloat(e.target.value) || 0)}
+                                                            value={transaction.receiveNow || ''}
+                                                            onChange={e => handleReceiveNowChange(transaction.id, parseFloat(e.target.value) || 0)}
                                                             className="w-full px-2 py-1 border border-gray-300 rounded text-center"
                                                         />
                                                     </td>
                                                     <td className="py-3 px-2 text-right text-green-600 font-medium">
-                                                        {(Math.max(0, transaction.payNow - transaction.amount)).toFixed(2)}
+                                                        {(Math.max(0, transaction.receiveNow - transaction.amount)).toFixed(2)}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -615,14 +619,14 @@ const PaymentVoucherSingle: React.FC = () => {
                                 ) : (
                                     <div className="flex items-center justify-center h-full min-h-[350px]">
                                         <p className="text-sm text-gray-500 italic text-center">
-                                            Select a vendor to view transactions
+                                            Select a customer to view transactions
                                         </p>
                                     </div>
                                 )}
                             </div>
                         ) : (
                             <div className="bg-white rounded-lg p-6 min-h-[400px]">
-                                <h5 className="text-sm font-semibold text-gray-700 mb-4 text-center">Advance Payment</h5>
+                                <h5 className="text-sm font-semibold text-gray-700 mb-4 text-center">Advance Receipt</h5>
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-3">
                                         <input type="checkbox" className="w-4 h-4" />
@@ -667,4 +671,4 @@ const PaymentVoucherSingle: React.FC = () => {
     );
 };
 
-export default PaymentVoucherSingle;
+export default ReceiptVoucher;

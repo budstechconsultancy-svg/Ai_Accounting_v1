@@ -76,7 +76,7 @@ interface ReportsPageProps {
   stockItems: StockItem[];
 }
 
-type ReportType = 'DayBook' | 'LedgerReport' | 'TrialBalance' | 'StockSummary' | 'GSTReports' | 'AIReport';
+type ReportType = 'DayBook' | 'LedgerReport' | 'TrialBalance' | 'BalanceSheet' | 'StockSummary' | 'GSTReports' | 'AIReport';
 
 type GSTForm = 'GSTR-1' | 'GSTR-2' | 'GSTR-2A' | 'GSTR-2B' | 'GSTR-3B' | 'GSTR-4' | 'GSTR-5' | 'GSTR-5A' | 'GSTR-6' | 'GSTR-7' | 'GSTR-8' | 'GSTR-9' | 'GSTR-9A' | 'GSTR-9C' | 'GSTR-10';
 
@@ -88,6 +88,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
     { id: 'DayBook', label: 'Day Book' },
     { id: 'LedgerReport', label: 'Ledger Report' },
     { id: 'TrialBalance', label: 'Trial Balance' },
+    { id: 'BalanceSheet', label: 'Balance Sheet' },
     { id: 'StockSummary', label: 'Stock Summary' },
     { id: 'GSTReports', label: 'GST Reports' },
     { id: 'AIReport', label: 'AI Report' }
@@ -110,7 +111,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
     TrialBalance: { endpoint: '/api/reports/trialbalance/excel', filename: 'TrialBalance.xlsx' },
     StockSummary: { endpoint: '/api/reports/stocksummary/excel', filename: 'StockSummary.xlsx' },
     GSTReports: { endpoint: '/api/reports/gst/excel', filename: 'GstReport.xlsx' },
-    AIReport: { endpoint: '/api/reports/ai/excel', filename: 'AIReport.xlsx' }
+    AIReport: { endpoint: '/api/reports/ai/excel', filename: 'AIReport.xlsx' },
+    BalanceSheet: { endpoint: '/api/reports/balancesheet/excel', filename: 'BalanceSheet.xlsx' }
   };
 
   // Handle Excel download
@@ -1346,6 +1348,94 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
 
   return (
     <div className="bg-gray-50 min-h-screen p-6">
+      {/* PRINT STYLES */}
+      <style>{`
+        @media print {
+          /* Hide sidebar, buttons, filters, and other UI Chrome */
+          aside, 
+          button, 
+          input, 
+          select, 
+          label, 
+          .mb-8.flex.p-1.bg-gray-200, /* Tabs container */
+          .mb-6.flex.p-6.bg-gray-50, /* Filter sections */
+          nav,
+          .fixed,
+          h2.text-3xl.font-bold.mb-8 /* Page Main Title */
+          {
+            display: none !important;
+          }
+
+          /* Reset Container Styles for Print */
+          body, #root, .min-h-screen, .bg-gray-50, .p-6, .p-8 {
+            background-color: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+
+          /* Ensure Table Logic */
+          .bg-white.rounded-xl.shadow-sm.border {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+
+          /* Force Table Visibility */
+          table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            border: 1px solid #ddd !important;
+            font-size: 10pt;
+          }
+          
+          th, td {
+            border: 1px solid #ddd !important;
+            padding: 4px 8px !important;
+            text-align: left;
+          }
+
+          th {
+            background-color: #f3f4f6 !important;
+            -webkit-print-color-adjust: exact;
+            color: #1f2937 !important;
+            font-weight: bold;
+          }
+
+          /* Custom Print Header */
+          .print-header {
+            display: block !important;
+            text-align: center;
+            margin-bottom: 20px;
+          }
+          
+          .print-header h1 {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #ea580c; /* Orange-600 */
+            margin-bottom: 5px;
+          }
+          
+          .print-header p {
+            font-size: 10pt;
+            color: #6b7280;
+          }
+        }
+
+        /* Hide Print Header on Screen */
+        .print-header {
+          display: none;
+        }
+      `}</style>
+
+      <div className="print-header">
+        <h1>{allReports.find(r => r.id === reportType)?.label}</h1>
+        <p>Generated on {new Date().toLocaleDateString()}</p>
+      </div>
+
       <h2 className="text-3xl font-bold text-gray-900 mb-8">Reports</h2>
 
       <div className="mb-8 flex p-1 bg-gray-200 rounded-xl max-w-4xl shadow-sm">
@@ -1399,14 +1489,11 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
 
             <div className="flex justify-end mb-4">
               <button
-                onClick={handleDownload}
-                className="px-6 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+                onClick={() => window.print()}
+                className="px-6 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 shadow-sm transition-colors"
+                title="Create PDF"
               >
-                {reportType === 'DayBook' && 'Download Day Book Excel'}
-                {reportType === 'LedgerReport' && 'Download Ledger Excel'}
-                {reportType === 'TrialBalance' && 'Download Trial Balance Excel'}
-                {reportType === 'StockSummary' && 'Download Stock Summary Excel'}
-                {reportType === 'GSTReports' && 'Download GST Excel'}
+                Create PDF
               </button>
             </div>
           </>
@@ -1455,10 +1542,11 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
 
             <div className="flex justify-end mb-4">
               <button
-                onClick={handleDownload}
-                className="px-6 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+                onClick={() => window.print()}
+                className="px-6 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 shadow-sm transition-colors"
+                title="Create PDF"
               >
-                {reportType === 'LedgerReport' && 'Download Ledger Excel'}
+                Create PDF
               </button>
             </div>
           </>
@@ -1490,11 +1578,44 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
 
             <div className="flex justify-end mb-4">
               <button
-                onClick={handleDownload}
-                className="px-6 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+                onClick={() => window.print()}
+                className="px-6 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 shadow-sm transition-colors"
+                title="Create PDF"
               >
-                {reportType === 'TrialBalance' && 'Download Trial Balance Excel'}
+                Create PDF
               </button>
+            </div>
+          </>
+        )}
+        {reportType === 'BalanceSheet' && (
+          <>
+            <div className="mb-6 flex flex-wrap items-end gap-4 p-6 bg-gray-50 rounded-xl border border-gray-200">
+              <div className="min-w-[200px]">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">As of Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => window.print()}
+                className="px-6 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 shadow-sm transition-colors"
+                title="Create PDF"
+              >
+                Create PDF
+              </button>
+            </div>
+
+            <div className="bg-white border rounded-lg overflow-hidden">
+              <div className="p-4 bg-gray-50 border-b font-bold text-center">Balance Sheet</div>
+              <div className="p-8 text-center text-gray-500">
+                Feature coming soon
+              </div>
             </div>
           </>
         )}
@@ -1525,10 +1646,11 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
 
             <div className="flex justify-end mb-4">
               <button
-                onClick={handleDownload}
-                className="px-6 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+                onClick={() => window.print()}
+                className="px-6 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 shadow-sm transition-colors"
+                title="Create PDF"
               >
-                {reportType === 'StockSummary' && 'Download Stock Summary Excel'}
+                Create PDF
               </button>
             </div>
           </>
@@ -1585,10 +1707,11 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ vouchers = [], ledgers = [], 
 
             <div className="flex justify-end mb-4">
               <button
-                onClick={handleDownload}
-                className="px-6 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+                onClick={() => window.print()}
+                className="px-6 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 shadow-sm transition-colors"
+                title="Create PDF"
               >
-                {reportType === 'GSTReports' && 'Download GST Excel'}
+                Create PDF
               </button>
             </div>
 
