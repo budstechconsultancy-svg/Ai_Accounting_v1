@@ -24,13 +24,28 @@ const SalesVoucher: React.FC = () => {
     // Invoice Details State
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [salesInvoiceNo, setSalesInvoiceNo] = useState('');
+    const [voucherName, setVoucherName] = useState('');
+    const [outwardSlipNo, setOutwardSlipNo] = useState('');
     const [customerName, setCustomerName] = useState('');
-    const [billTo, setBillTo] = useState('');
-    const [shipTo, setShipTo] = useState('');
+    const [billToAddress1, setBillToAddress1] = useState('');
+    const [billToAddress2, setBillToAddress2] = useState('');
+    const [billToCity, setBillToCity] = useState('');
+    const [billToPincode, setBillToPincode] = useState('');
+    const [billToState, setBillToState] = useState('');
+    const [billToCountry, setBillToCountry] = useState('India');
+
+    const [shipToAddress1, setShipToAddress1] = useState('');
+    const [shipToAddress2, setShipToAddress2] = useState('');
+    const [shipToCity, setShipToCity] = useState('');
+    const [shipToPincode, setShipToPincode] = useState('');
+    const [shipToState, setShipToState] = useState('');
+    const [shipToCountry, setShipToCountry] = useState('India');
+
     const [gstin, setGstin] = useState('');
     const [contact, setContact] = useState('');
     const [taxType, setTaxType] = useState('');
     const [stateType, setStateType] = useState<'within' | 'other' | 'export'>('within');
+    const [exportType, setExportType] = useState('EXWP');
     const [supportingDocument, setSupportingDocument] = useState<File | null>(null);
 
     // Item & Tax Details State
@@ -120,26 +135,83 @@ const SalesVoucher: React.FC = () => {
     const [railBeyondPortDestCountry, setRailBeyondPortDestCountry] = useState('');
 
     // E-Invoice & E-way Bill Details State
-    const [ewayBillAvailable, setEwayBillAvailable] = useState('Yes');
-    const [ewayBillNo, setEwayBillNo] = useState('');
-    const [ewayBillDate, setEwayBillDate] = useState('');
-    const [validityPeriod, setValidityPeriod] = useState('');
-    const [distance, setDistance] = useState('');
+    // E-Invoice & E-way Bill Details State
+    interface EwayBillEntry {
+        id: number;
+        available: string;
+        ewayBillNo: string;
+        date: string;
+        validityPeriod: string;
+        distance: string;
+        // Extended details
+        extensionDate: string;
+        extendedEwbNo: string;
+        extensionReason: string;
+        fromPlace: string;
+        remainingDistance: string;
+        newValidity: string;
+        updatedVehicleNo: string;
+    }
 
-    // Extended E-way Bill
-    const [extensionDate, setExtensionDate] = useState('');
-    const [extendedEwbNo, setExtendedEwbNo] = useState('');
-    const [extensionReason, setExtensionReason] = useState('');
-    const [fromPlace, setFromPlace] = useState('');
-    const [remainingDistance, setRemainingDistance] = useState('');
-    const [newValidity, setNewValidity] = useState('');
-    const [updatedVehicleNo, setUpdatedVehicleNo] = useState('');
+    const [ewayValidationEntries, setEwayValidationEntries] = useState<EwayBillEntry[]>([{
+        id: 1,
+        available: 'Yes',
+        ewayBillNo: '',
+        date: '',
+        validityPeriod: '',
+        distance: '',
+        extensionDate: '',
+        extendedEwbNo: '',
+        extensionReason: '',
+        fromPlace: '',
+        remainingDistance: '',
+        newValidity: '',
+        updatedVehicleNo: ''
+    }]);
+
+    const handleEwayEntryChange = (id: number, field: keyof EwayBillEntry, value: string) => {
+        setEwayValidationEntries(prev => prev.map(entry =>
+            entry.id === id ? { ...entry, [field]: value } : entry
+        ));
+    };
+
+    const handleAddEwayEntry = () => {
+        setEwayValidationEntries(prev => [...prev, {
+            id: Date.now(),
+            available: 'Yes',
+            ewayBillNo: '',
+            date: '',
+            validityPeriod: '',
+            distance: '',
+            extensionDate: '',
+            extendedEwbNo: '',
+            extensionReason: '',
+            fromPlace: '',
+            remainingDistance: '',
+            newValidity: '',
+            updatedVehicleNo: ''
+        }]);
+    };
+
+    const handleRemoveEwayEntry = (id: number) => {
+        if (ewayValidationEntries.length > 1) {
+            setEwayValidationEntries(prev => prev.filter(entry => entry.id !== id));
+        }
+    };
 
     // E-Invoice
     const [irn, setIrn] = useState('');
     const [ackNo, setAckNo] = useState('');
+    const [exchangeRate, setExchangeRate] = useState('');
 
-    const tabs = [
+    const tabs = stateType === 'export' ? [
+        { id: 'invoice', label: 'Invoice Details' },
+        { id: 'item_tax_foreign', label: 'Item & Tax Details (Foreign Currency)' },
+        { id: 'item_tax_inr', label: 'Item & Tax Details (INR)' },
+        { id: 'payment', label: 'Payment Details' },
+        { id: 'dispatch', label: 'Dispatch Details' },
+        { id: 'einvoice', label: 'E-Invoice & E-way Bill Details' }
+    ] : [
         { id: 'invoice', label: 'Invoice Details' },
         { id: 'item_tax', label: 'Item & Tax Details' },
         { id: 'payment', label: 'Payment Details' },
@@ -404,7 +476,7 @@ const SalesVoucher: React.FC = () => {
                 {activeTab === 'invoice' && (
                     <div className="space-y-6">
                         {/* Row 1: Date, Sales Invoice No, Customer Name, Upload Document */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Date <span className="text-red-500">*</span>
@@ -434,6 +506,19 @@ const SalesVoucher: React.FC = () => {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Voucher Name
+                                </label>
+                                <input
+                                    type="text"
+                                    value={voucherName}
+                                    onChange={(e) => setVoucherName(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                    placeholder="Enter voucher name"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Customer Name <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -443,6 +528,19 @@ const SalesVoucher: React.FC = () => {
                                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
                                     placeholder="Search or enter customer name"
                                     required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    GSTIN
+                                </label>
+                                <input
+                                    type="text"
+                                    value={gstin}
+                                    onChange={(e) => setGstin(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                    placeholder="Enter GSTIN"
                                 />
                             </div>
 
@@ -461,68 +559,166 @@ const SalesVoucher: React.FC = () => {
                                     <button
                                         type="button"
                                         onClick={() => document.getElementById('supporting-doc')?.click()}
-                                        className="w-full h-24 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex flex-col items-center justify-center gap-1"
+                                        className="w-full h-[42px] bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
                                     >
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                         </svg>
-                                        <span className="text-xs">Upload Supporting Document</span>
+                                        <span className="text-sm">Upload Document</span>
                                     </button>
                                     {supportingDocument && (
-                                        <p className="mt-1 text-xs text-green-600">✓ {supportingDocument.name}</p>
+                                        <p className="absolute -bottom-6 left-0 text-xs text-green-600">✓ {supportingDocument.name}</p>
                                     )}
                                 </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-transparent mb-2">
+                                    Action
+                                </label>
+                                <button
+                                    type="button"
+                                    className="w-full px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md transition-colors font-medium"
+                                >
+                                    Create Outward Slip
+                                </button>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Outward Slip No.
+                                </label>
+                                <input
+                                    type="text"
+                                    value={outwardSlipNo}
+                                    onChange={(e) => setOutwardSlipNo(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                    placeholder="Enter slip no"
+                                />
                             </div>
                         </div>
 
                         {/* Row 2: Bill To and Ship To */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Bill to (Full Address)
-                                </label>
-                                <textarea
-                                    value={billTo}
-                                    onChange={(e) => setBillTo(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 resize-none"
-                                    rows={6}
-                                    placeholder="Enter billing address"
-                                />
-                                <div className="mt-3 space-y-2">
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">GSTIN</label>
-                                        <input
-                                            type="text"
-                                            value={gstin}
-                                            onChange={(e) => setGstin(e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
-                                            placeholder="Enter GSTIN"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-600 mb-1">Contact</label>
-                                        <input
-                                            type="text"
-                                            value={contact}
-                                            onChange={(e) => setContact(e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
-                                            placeholder="Enter contact number"
-                                        />
-                                    </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* Bill To Section */}
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-gray-700">Bill To (Full Address)</h3>
+                                <div>
+                                    <input
+                                        type="text"
+                                        value={billToAddress1}
+                                        onChange={(e) => setBillToAddress1(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="Address Line 1"
+                                    />
+                                </div>
+                                <div>
+                                    <input
+                                        type="text"
+                                        value={billToAddress2}
+                                        onChange={(e) => setBillToAddress2(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="Address Line 2"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input
+                                        type="text"
+                                        value={billToCity}
+                                        onChange={(e) => setBillToCity(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="City"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={billToPincode}
+                                        onChange={(e) => setBillToPincode(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="Pincode"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input
+                                        type="text"
+                                        value={billToState}
+                                        onChange={(e) => setBillToState(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="State"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={billToCountry}
+                                        onChange={(e) => setBillToCountry(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="Country"
+                                    />
+                                </div>
+
+                                <div className="mt-3">
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Contact</label>
+                                    <input
+                                        type="text"
+                                        value={contact}
+                                        onChange={(e) => setContact(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="Enter contact number"
+                                    />
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Ship to
-                                </label>
-                                <textarea
-                                    value={shipTo}
-                                    onChange={(e) => setShipTo(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 resize-none"
-                                    rows={6}
-                                    placeholder="Enter shipping address (editable format)"
-                                />
+                            {/* Ship To Section */}
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-gray-700">Ship To</h3>
+                                <div>
+                                    <input
+                                        type="text"
+                                        value={shipToAddress1}
+                                        onChange={(e) => setShipToAddress1(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="Address Line 1"
+                                    />
+                                </div>
+                                <div>
+                                    <input
+                                        type="text"
+                                        value={shipToAddress2}
+                                        onChange={(e) => setShipToAddress2(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="Address Line 2"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input
+                                        type="text"
+                                        value={shipToCity}
+                                        onChange={(e) => setShipToCity(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="City"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={shipToPincode}
+                                        onChange={(e) => setShipToPincode(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="Pincode"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input
+                                        type="text"
+                                        value={shipToState}
+                                        onChange={(e) => setShipToState(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="State"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={shipToCountry}
+                                        onChange={(e) => setShipToCountry(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                        placeholder="Country"
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -574,7 +770,7 @@ const SalesVoucher: React.FC = () => {
                                 <div>
                                     <button
                                         type="button"
-                                        onClick={() => setActiveTab('item_tax')}
+                                        onClick={() => setActiveTab(stateType === 'export' ? 'item_tax_foreign' : 'item_tax')}
                                         className="w-full px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center justify-center gap-2 font-medium"
                                     >
                                         NEXT
@@ -584,13 +780,193 @@ const SalesVoucher: React.FC = () => {
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Export Options */}
+                            {stateType === 'export' && (
+                                <div className="mt-4 flex gap-6 pl-1">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="exportType"
+                                            value="EXWP"
+                                            checked={exportType === 'EXWP'}
+                                            onChange={(e) => setExportType(e.target.value)}
+                                            className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                                        />
+                                        <span className="text-sm font-medium text-gray-700">EXWP (With Payment)</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="exportType"
+                                            value="EXWOP"
+                                            checked={exportType === 'EXWOP'}
+                                            onChange={(e) => setExportType(e.target.value)}
+                                            className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                                        />
+                                        <span className="text-sm font-medium text-gray-700">EXWOP (Without Payment)</span>
+                                    </label>
+                                </div>
+                            )}
                         </div>
 
 
                     </div>
                 )}
 
-                {activeTab === 'item_tax' && (
+                {activeTab === 'item_tax_foreign' && (
+                    <div className="space-y-6">
+                        {/* Header: Sales Order and Exchange Rate */}
+                        <div className="flex flex-wrap justify-between items-end gap-4">
+                            <div className="flex items-center gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1 whitespace-nowrap">
+                                        Sales Order/Quotation No.
+                                    </label>
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            value={salesOrderNo}
+                                            onChange={(e) => setSalesOrderNo(e.target.value)}
+                                            className="px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 min-w-[200px]"
+                                        >
+                                            <option value="">Select Sales Order</option>
+                                            <option value="SO-001">SO-001</option>
+                                            <option value="SO-002">SO-002</option>
+                                        </select>
+
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 bg-white px-4 py-2 border border-blue-200 rounded-lg shadow-sm">
+                                <span className="text-sm font-medium text-gray-700">1 Foreign Currency =</span>
+                                <input
+                                    type="text"
+                                    value={exchangeRate}
+                                    onChange={(e) => setExchangeRate(e.target.value)}
+                                    className="w-24 border-b-2 border-gray-300 focus:border-teal-500 focus:outline-none px-2 py-1 text-center font-medium text-teal-600"
+                                    placeholder="Rate"
+                                />
+                                <span className="text-sm font-medium text-gray-700">INR</span>
+                            </div>
+                        </div>
+
+                        {/* Foreign Currency Table */}
+                        <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm">
+                            <table className="w-full">
+                                <thead className="bg-blue-500 text-white">
+                                    <tr>
+                                        <th className="px-3 py-3 text-center w-12 border-r border-blue-400">
+
+                                        </th>
+                                        <th className="px-3 py-3 text-sm font-semibold text-center border-r border-blue-400">Description</th>
+                                        <th className="px-3 py-3 text-sm font-semibold text-center w-32 border-r border-blue-400">Quantity</th>
+                                        <th className="px-3 py-3 text-sm font-semibold text-center w-32 border-r border-blue-400">UQC</th>
+                                        <th className="px-3 py-3 text-sm font-semibold text-center w-40 border-r border-blue-400">Rate</th>
+                                        <th className="px-3 py-3 text-sm font-semibold text-center w-40">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {itemRows.map((row) => (
+                                        <tr key={row.id} className="hover:bg-gray-50">
+                                            <td className="px-3 py-2 text-center border-r border-gray-200">
+                                                <input
+                                                    type="checkbox"
+                                                    className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-2 border-r border-gray-200">
+                                                <input
+                                                    type="text"
+                                                    value={row.description}
+                                                    onChange={(e) => handleItemRowChange(row.id, 'description', e.target.value)}
+                                                    className="w-full px-2 py-1.5 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm bg-transparent"
+                                                    placeholder="Item description"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-2 border-r border-gray-200">
+                                                <input
+                                                    type="text"
+                                                    value={row.qty}
+                                                    onChange={(e) => handleItemRowChange(row.id, 'qty', e.target.value)}
+                                                    className="w-full px-2 py-1.5 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm text-center bg-transparent"
+                                                    placeholder="0"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-2 border-r border-gray-200">
+                                                <input
+                                                    type="text"
+                                                    value={row.uom}
+                                                    onChange={(e) => handleItemRowChange(row.id, 'uom', e.target.value)}
+                                                    className="w-full px-2 py-1.5 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm text-center bg-transparent"
+                                                    placeholder="UQC"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-2 border-r border-gray-200">
+                                                <input
+                                                    type="number"
+                                                    value={row.itemRate}
+                                                    onChange={(e) => handleItemRowChange(row.id, 'itemRate', e.target.value)}
+                                                    className="w-full px-2 py-1.5 border-0 focus:ring-1 focus:ring-teal-500 rounded text-sm text-center bg-transparent"
+                                                    placeholder="0.00"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                <input
+                                                    type="text"
+                                                    value={row.invoiceValue}
+                                                    readOnly
+                                                    className="w-full px-2 py-1.5 bg-gray-50 border-0 rounded text-sm font-medium text-center text-gray-700"
+                                                    placeholder="0.00"
+                                                />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Footer Actions */}
+                        <div className="flex items-center justify-between pt-2">
+                            <button
+                                type="button"
+                                onClick={handleAddItemRow}
+                                className="px-4 py-2 text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2 transition-colors"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add Row
+                            </button>
+
+                            <div className="flex items-center gap-4">
+                                <button
+                                    type="button"
+                                    onClick={handleDeleteSelectedItems}
+                                    className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-md transition-colors font-medium flex items-center gap-2"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Delete Items
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('item_tax_inr')}
+                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center gap-2 font-medium shadow-sm"
+                                >
+                                    NEXT
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {(activeTab === 'item_tax' || activeTab === 'item_tax_inr') && (
                     <div className="space-y-6">
                         {/* Sales Order Selection */}
                         <div className="flex items-center gap-4">
@@ -606,18 +982,7 @@ const SalesVoucher: React.FC = () => {
                                 <option value="SO-001">SO-001</option>
                                 <option value="SO-002">SO-002</option>
                             </select>
-                            <button
-                                type="button"
-                                className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-800 rounded-md transition-colors font-medium"
-                            >
-                                X
-                            </button>
-                            <button
-                                type="button"
-                                className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-800 rounded-md transition-colors font-medium"
-                            >
-                                ✓
-                            </button>
+
                         </div>
 
                         {/* Items Table */}
@@ -1238,19 +1603,7 @@ const SalesVoucher: React.FC = () => {
                                     </select>
                                 </div>
 
-                                {/* Self/Third Party/Courier */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Self/Third Party/Courier
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={selfThirdParty}
-                                        onChange={(e) => setSelfThirdParty(e.target.value)}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                        placeholder="Enter details"
-                                    />
-                                </div>
+
 
                                 {/* Transporter ID/GSTIN */}
                                 <div>
@@ -1691,183 +2044,200 @@ const SalesVoucher: React.FC = () => {
 
                 {activeTab === 'einvoice' && (
                     <div className="space-y-6">
-                        {/* E-way Bill Section */}
-                        <div className="border-b border-gray-300 pb-6">
-                            <div className="flex items-center gap-3 mb-4">
-                                <h3 className="text-lg font-semibold text-gray-800">E-way Bill</h3>
-                                <button
-                                    type="button"
-                                    className="px-4 py-1 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md transition-colors text-sm"
-                                >
-                                    +
-                                </button>
+                        {/* E-way Bill Entries */}
+                        {ewayValidationEntries.map((entry, index) => (
+                            <div key={entry.id} className="border-b border-gray-300 pb-6 mb-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-semibold text-gray-800">
+                                        E-way Bill {ewayValidationEntries.length > 1 ? `#${index + 1}` : ''}
+                                    </h3>
+                                    {ewayValidationEntries.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveEwayEntry(entry.id)}
+                                            className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                        >
+                                            Remove
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                    {/* Left Column */}
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Eway Bill - Available
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={entry.available}
+                                                onChange={(e) => handleEwayEntryChange(entry.id, 'available', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                                placeholder="Yes/No"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Eway Bill No.
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={entry.ewayBillNo}
+                                                onChange={(e) => handleEwayEntryChange(entry.id, 'ewayBillNo', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Eway Bill Date
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={entry.date}
+                                                onChange={(e) => handleEwayEntryChange(entry.id, 'date', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Right Column */}
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Validity Period
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={entry.validityPeriod}
+                                                onChange={(e) => handleEwayEntryChange(entry.id, 'validityPeriod', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Distance (KM)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={entry.distance}
+                                                onChange={(e) => handleEwayEntryChange(entry.id, 'distance', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h3 className="text-lg font-semibold text-gray-800 mb-4">Extended E-way Bill</h3>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Left Column */}
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Extension Date
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={entry.extensionDate}
+                                                onChange={(e) => handleEwayEntryChange(entry.id, 'extensionDate', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Extended EWB No.
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={entry.extendedEwbNo}
+                                                onChange={(e) => handleEwayEntryChange(entry.id, 'extendedEwbNo', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Extension Reason
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={entry.extensionReason}
+                                                onChange={(e) => handleEwayEntryChange(entry.id, 'extensionReason', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                From Place
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={entry.fromPlace}
+                                                onChange={(e) => handleEwayEntryChange(entry.id, 'fromPlace', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Right Column */}
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Remaining Distance
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={entry.remainingDistance}
+                                                onChange={(e) => handleEwayEntryChange(entry.id, 'remainingDistance', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                New Validity
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={entry.newValidity}
+                                                onChange={(e) => handleEwayEntryChange(entry.id, 'newValidity', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Updated Vehicle No.
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={entry.updatedVehicleNo}
+                                                onChange={(e) => handleEwayEntryChange(entry.id, 'updatedVehicleNo', e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+                        ))}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Left Column */}
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Eway Bill - Available
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={ewayBillAvailable}
-                                            onChange={(e) => setEwayBillAvailable(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                            placeholder="Yes/No"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Eway Bill No.
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={ewayBillNo}
-                                            onChange={(e) => setEwayBillNo(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Eway Bill Date
-                                        </label>
-                                        <input
-                                            type="date"
-                                            value={ewayBillDate}
-                                            onChange={(e) => setEwayBillDate(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Right Column */}
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Validity Period
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={validityPeriod}
-                                            onChange={(e) => setValidityPeriod(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Distance (KM)
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={distance}
-                                            onChange={(e) => setDistance(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Extended E-way Bill Section */}
-                        <div className="border-b border-gray-300 pb-6">
-                            <h3 className="text-lg font-semibold text-gray-800 mb-4">Extended E-way Bill</h3>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Left Column */}
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Extension Date
-                                        </label>
-                                        <input
-                                            type="date"
-                                            value={extensionDate}
-                                            onChange={(e) => setExtensionDate(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Extended EWB No.
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={extendedEwbNo}
-                                            onChange={(e) => setExtendedEwbNo(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Extension Reason
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={extensionReason}
-                                            onChange={(e) => setExtensionReason(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            From Place
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={fromPlace}
-                                            onChange={(e) => setFromPlace(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Right Column */}
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Remaining Distance
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={remainingDistance}
-                                            onChange={(e) => setRemainingDistance(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            New Validity
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={newValidity}
-                                            onChange={(e) => setNewValidity(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Updated Vehicle No.
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={updatedVehicleNo}
-                                            onChange={(e) => setUpdatedVehicleNo(e.target.value)}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
+                        <div className="pb-6">
+                            <button
+                                type="button"
+                                onClick={handleAddEwayEntry}
+                                className="px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md font-medium flex items-center gap-2 border border-blue-200"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add E-way Bill
+                            </button>
                         </div>
 
                         {/* E-Invoice Section */}

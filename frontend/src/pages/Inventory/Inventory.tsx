@@ -191,12 +191,20 @@ const InventoryPage: React.FC = () => {
   const [showItemDetail, setShowItemDetail] = useState(false);
   const [showIssueSlipForm, setShowIssueSlipForm] = useState(false);
   const [issueSlipTab, setIssueSlipTab] = useState<'job-work' | 'inter-unit' | 'location-change' | 'production' | 'consumption' | 'outward' | 'scrap'>('job-work');
+  const [jobWorkSubTab, setJobWorkSubTab] = useState<'received' | 'sent'>('received');
+  const [jobWorkSentType, setJobWorkSentType] = useState<'outward' | 'receipt'>('outward');
+  const [productionType, setProductionType] = useState<'materials_issued' | 'inter_process' | 'finished_goods'>('materials_issued');
   const [outwardType, setOutwardType] = useState('sales');
   const [issueSlipNumber, setIssueSlipNumber] = useState('');
   const [issueSlipDate, setIssueSlipDate] = useState('');
   const [issueSlipTime, setIssueSlipTime] = useState('');
   const [goodsFromLocation, setGoodsFromLocation] = useState('');
   const [goodsToLocation, setGoodsToLocation] = useState('');
+  const [jobWorkOrderNo, setJobWorkOrderNo] = useState('');
+  const [jobWorkReceiptNo, setJobWorkReceiptNo] = useState('');
+  const [jobWorkOutwardRefNo, setJobWorkOutwardRefNo] = useState('');
+  const [vendorDeliveryChallan, setVendorDeliveryChallan] = useState('');
+  const [jwItemTab, setJwItemTab] = useState<'outward' | 'received'>('outward');
   const [outwardSalesOrder, setOutwardSalesOrder] = useState('');
   const [outwardCustomerName, setOutwardCustomerName] = useState('');
   const [outwardBranch, setOutwardBranch] = useState('');
@@ -205,7 +213,16 @@ const InventoryPage: React.FC = () => {
   const [outwardTotalBoxes, setOutwardTotalBoxes] = useState('');
   const [outwardSupplierInvoice, setOutwardSupplierInvoice] = useState('');
   const [outwardVendorName, setOutwardVendorName] = useState('');
+  const [materialIssueSlipNo, setMaterialIssueSlipNo] = useState('');
+  const [processTransferSlipNo, setProcessTransferSlipNo] = useState('');
+  const [prodItemTab, setProdItemTab] = useState<'materials_issued' | 'converted_output'>('materials_issued');
   const [issueSlipItems, setIssueSlipItems] = useState<any[]>([{ itemCode: '', itemName: '', uom: '', quantity: '', rate: '', value: 0, noOfBoxes: '' }]);
+  const [resultingWIPItems, setResultingWIPItems] = useState<any[]>([{ itemCode: '', itemName: '', uom: '', quantity: '' }]);
+  const [convertedOutputItems, setConvertedOutputItems] = useState<any[]>([{ itemCode: '', itemName: '', uom: '', quantity: '', rate: '', amount: '' }]);
+  const [fgReceiptSlipNo, setFgReceiptSlipNo] = useState('');
+  const [fgItemTab, setFgItemTab] = useState<'materials_issued' | 'goods_produced'>('materials_issued');
+  const [fgMaterialsIssuedItems, setFgMaterialsIssuedItems] = useState<any[]>([{ itemCode: '', itemName: '', uom: '', quantityAvailable: '', quantityIssued: '', rate: '', amount: '' }]);
+  const [goodsProducedItems, setGoodsProducedItems] = useState<any[]>([{ itemCode: '', itemName: '', uom: '', quantityProduced: '', costAllocation: '100', rate: '', amount: '' }]);
   const [showGRNForm, setShowGRNForm] = useState(false);
   const [grnType, setGrnType] = useState('purchases');
   const [grnNumber, setGrnNumber] = useState('');
@@ -1077,6 +1094,546 @@ const InventoryPage: React.FC = () => {
                   ))}
                 </div>
 
+                {/* Job Work Sub Tabs */}
+                {/* Job Work Sub Tabs */}
+                {issueSlipTab === 'job-work' && (
+                  <div className="flex flex-col gap-6 mb-6">
+                    <div className="flex gap-6 border-b border-gray-100">
+                      <button
+                        onClick={() => setJobWorkSubTab('received')}
+                        className={`pb-2 text-base font-medium transition-colors relative ${jobWorkSubTab === 'received' ? 'text-teal-600 border-b-2 border-teal-600' : 'text-gray-500 hover:text-gray-700'}`}
+                      >
+                        Goods received for Jobwork
+                      </button>
+                      <button
+                        onClick={() => setJobWorkSubTab('sent')}
+                        className={`pb-2 text-base font-medium transition-colors relative ${jobWorkSubTab === 'sent' ? 'text-teal-600 border-b-2 border-teal-600' : 'text-gray-500 hover:text-gray-700'}`}
+                      >
+                        Goods sent for Jobwork
+                      </button>
+                    </div>
+
+                    {jobWorkSubTab === 'sent' && (
+                      <div className="flex gap-6 ml-1">
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                          <input
+                            type="radio"
+                            name="jobWorkSentType"
+                            value="outward"
+                            checked={jobWorkSentType === 'outward'}
+                            onChange={(e) => setJobWorkSentType(e.target.value as 'outward')}
+                            className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                          />
+                          <span className={`font-medium ${jobWorkSentType === 'outward' ? 'text-gray-900' : 'text-gray-600 group-hover:text-gray-900'}`}>Outward</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                          <input
+                            type="radio"
+                            name="jobWorkSentType"
+                            value="receipt"
+                            checked={jobWorkSentType === 'receipt'}
+                            onChange={(e) => setJobWorkSentType(e.target.value as 'receipt')}
+                            className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                          />
+                          <span className={`font-medium ${jobWorkSentType === 'receipt' ? 'text-gray-900' : 'text-gray-600 group-hover:text-gray-900'}`}>Receipt</span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Jobwork Outward Form */}
+                {issueSlipTab === 'job-work' && jobWorkSubTab === 'sent' && jobWorkSentType === 'outward' && (
+                  <div className="mt-8 space-y-6">
+                    {/* Top Row: Jobwork Outward No */}
+                    <div className="flex justify-end">
+                      <div className="w-1/4">
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Jobwork Outward No.</label>
+                        <input
+                          type="text"
+                          value={issueSlipNumber}
+                          onChange={(e) => setIssueSlipNumber(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Date & Time */}
+                    <div className="grid grid-cols-4 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Date</label>
+                        <input
+                          type="date"
+                          value={issueSlipDate}
+                          onChange={(e) => setIssueSlipDate(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Time</label>
+                        <input
+                          type="time"
+                          value={issueSlipTime}
+                          onChange={(e) => setIssueSlipTime(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Issued From & To */}
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Issued From (Company Premise)</label>
+                        <select
+                          value={goodsFromLocation}
+                          onChange={(e) => setGoodsFromLocation(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        >
+                          <option value="">Select Location</option>
+                          {locations.filter(l => l.location_type === 'company_premises').map(loc => (
+                            <option key={loc.id} value={loc.id}>{loc.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {/* Placeholder for Issued To layout alignment if needed, or just start Vendor section */}
+                    </div>
+
+                    {/* Vendor Details */}
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-800 mb-3 border-b border-gray-200 pb-1">Issued To (Job Worker)</h4>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1">Vendor Name</label>
+                          <select
+                            value={outwardVendorName}
+                            onChange={(e) => setOutwardVendorName(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          >
+                            <option value="">Select Vendor</option>
+                            <option value="Vendor A">Vendor A</option>
+                            <option value="Vendor B">Vendor B</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1">Branch</label>
+                          <select
+                            value={outwardBranch}
+                            onChange={(e) => setOutwardBranch(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          >
+                            <option value="">Select Branch</option>
+                            <option value="Main">Main</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-6 mt-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
+                          <textarea
+                            value={outwardAddress}
+                            onChange={(e) => setOutwardAddress(e.target.value)}
+                            rows={3}
+                            placeholder="Cross-check with Job worker location in inventory masters"
+                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          />
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">GSTIN No</label>
+                            <input
+                              type="text"
+                              value={outwardGstin}
+                              onChange={(e) => setOutwardGstin(e.target.value)}
+                              placeholder="Fetched from vendor master"
+                              className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Purchase Order No.</label>
+                            <select
+                              value={jobWorkOrderNo}
+                              onChange={(e) => setJobWorkOrderNo(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            >
+                              <option value="">Select PO</option>
+                              <option value="PO-001">PO-001</option>
+                              <option value="PO-002">PO-002</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Items Table */}
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                        <label className="block text-sm font-bold text-gray-800">Items</label>
+                        <button
+                          onClick={handleAddIssueSlipItem}
+                          className="text-teal-600 hover:text-teal-800 text-sm font-semibold"
+                        >
+                          + Add Item
+                        </button>
+                      </div>
+                      <div className="overflow-x-auto border border-gray-300 rounded text-sm">
+                        <table className="min-w-full">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700">Item Code</th>
+                              <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700">Item Name</th>
+                              <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700">UOM</th>
+                              <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700">Quantity</th>
+                              <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700">Rate</th>
+                              <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700">Taxable Value</th>
+                              <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {issueSlipItems.map((item, index) => (
+                              <tr key={index}>
+                                <td className="px-3 py-2"><input type="text" value={item.itemCode} onChange={(e) => handleIssueSlipItemChange(index, 'itemCode', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" /></td>
+                                <td className="px-3 py-2"><input type="text" value={item.itemName} onChange={(e) => handleIssueSlipItemChange(index, 'itemName', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" /></td>
+                                <td className="px-3 py-2"><input type="text" value={item.uom} onChange={(e) => handleIssueSlipItemChange(index, 'uom', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" /></td>
+                                <td className="px-3 py-2"><input type="number" value={item.quantity} onChange={(e) => handleIssueSlipItemChange(index, 'quantity', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" /></td>
+                                <td className="px-3 py-2"><input type="number" value={item.rate} onChange={(e) => handleIssueSlipItemChange(index, 'rate', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-sm" /></td>
+                                <td className="px-3 py-2"><input type="text" value={item.value ? item.value.toFixed(2) : ''} readOnly className="w-full px-2 py-1 bg-gray-50 border border-gray-300 rounded text-sm" /></td>
+                                <td className="px-3 py-2 text-center">
+                                  <button onClick={() => handleRemoveIssueSlipItem(index)} className="text-red-600 hover:text-red-800 text-sm font-medium">Remove</button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="mt-2 text-right text-sm font-bold text-gray-900">
+                        Total Value: ₹{getTotalValue().toFixed(2)}
+                      </div>
+                    </div>
+
+                    {/* Posting Note */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Posting Note</label>
+                      <textarea
+                        value={postingNote}
+                        onChange={(e) => setPostingNote(e.target.value)}
+                        rows={2}
+                        placeholder="Fetch the inventory item's most recent inward stock rate"
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    {/* Dispatch Details Section */}
+                    <div className="border shadow-sm rounded-lg p-4 bg-gray-50">
+                      <h4 className="text-sm font-bold text-gray-800 mb-3 border-b border-gray-200 pb-2">Dispatch Details</h4>
+                      {/* This would ideally be a collapsible section or a set of fields matching Sales Voucher dispatch details. For now, we use a placeholder or partial fields as per sketches often implying standard dispatch fields */}
+                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-500">
+                        <p>Dispatch details fields (Transporter, Vehicle No, etc.) would appear here, same as Sales Voucher.</p>
+                      </div>
+                      <div className="flex gap-4 mt-4">
+                        <button
+                          onClick={() => setShowDeliveryChallan(true)}
+                          className="px-4 py-2 border border-black text-black rounded hover:bg-gray-100 text-sm font-medium"
+                        >
+                          Generate Delivery Challan
+                        </button>
+                        <button
+                          onClick={() => setShowEWayBill(true)}
+                          className="px-4 py-2 border border-black text-black rounded hover:bg-gray-100 text-sm font-medium"
+                        >
+                          Generate E-way Bill
+                        </button>
+                      </div>
+                    </div>
+
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3 justify-end border-t border-gray-200 pt-5">
+                      <button
+                        onClick={handleIssueSlipSubmit}
+                        className="px-6 py-2 bg-white border border-black text-black font-semibold rounded hover:bg-gray-50 transition-colors text-sm"
+                      >
+                        Post & Close
+                      </button>
+                      <button
+                        onClick={() => setShowIssueSlipForm(false)}
+                        className="px-6 py-2 bg-white border border-black text-black font-semibold rounded hover:bg-gray-50 transition-colors text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Jobwork Receipt Form */}
+                {issueSlipTab === 'job-work' && jobWorkSubTab === 'sent' && jobWorkSentType === 'receipt' && (
+                  <div className="mt-8 space-y-6">
+                    {/* Top Row: Job work Receipt No */}
+                    <div className="flex justify-end">
+                      <div className="w-1/4">
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Job work Receipt No.</label>
+                        <input
+                          type="text"
+                          value={jobWorkReceiptNo}
+                          onChange={(e) => setJobWorkReceiptNo(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Date & Time */}
+                    <div className="grid grid-cols-4 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Date</label>
+                        <input
+                          type="date"
+                          value={issueSlipDate}
+                          onChange={(e) => setIssueSlipDate(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Time</label>
+                        <input
+                          type="time"
+                          value={issueSlipTime}
+                          onChange={(e) => setIssueSlipTime(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Issued From & Outward Ref */}
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Issued From (Company Premise)</label>
+                        <select
+                          value={goodsFromLocation}
+                          onChange={(e) => setGoodsFromLocation(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        >
+                          <option value="">Select Location</option>
+                          {locations.filter(l => l.location_type === 'company_premises').map(loc => (
+                            <option key={loc.id} value={loc.id}>{loc.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Job work Outward No.</label>
+                        <select
+                          value={jobWorkOutwardRefNo}
+                          onChange={(e) => setJobWorkOutwardRefNo(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        >
+                          <option value="">Select Outward No</option>
+                          <option value="JWO-001">JWO-001</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Vendor Details */}
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-800 mb-3 border-b border-gray-200 pb-1">Vendor Details (Fetched)</h4>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1">Vendor Name</label>
+                          <select
+                            value={outwardVendorName}
+                            onChange={(e) => setOutwardVendorName(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          >
+                            <option value="">Select Vendor</option>
+                            <option value="Vendor A">Vendor A</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1">Branch</label>
+                          <select
+                            value={outwardBranch}
+                            onChange={(e) => setOutwardBranch(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          >
+                            <option value="">Select Branch</option>
+                            <option value="Main">Main</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-6 mt-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
+                          <textarea
+                            value={outwardAddress}
+                            onChange={(e) => setOutwardAddress(e.target.value)}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1">GSTIN No</label>
+                          <input
+                            type="text"
+                            value={outwardGstin}
+                            onChange={(e) => setOutwardGstin(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Scanner / Manual Input Fields */}
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Vendor's Return Delivery Challan No.</label>
+                        <input
+                          type="text"
+                          value={vendorDeliveryChallan}
+                          onChange={(e) => setVendorDeliveryChallan(e.target.value)}
+                          placeholder="Pull from scan or enter"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Supplier Invoice No.</label>
+                        <input
+                          type="text"
+                          value={outwardSupplierInvoice}
+                          onChange={(e) => setOutwardSupplierInvoice(e.target.value)}
+                          placeholder="Pull from scan or enter"
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Items Section */}
+                    <div>
+                      <div className="flex gap-6 border-b border-gray-200 mb-4">
+                        <button
+                          onClick={() => setJwItemTab('outward')}
+                          className={`text-lg font-bold pb-1 border-b-2 transition-colors ${jwItemTab === 'outward' ? 'border-teal-600 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        >
+                          Outward Items
+                        </button>
+                        <button
+                          onClick={() => setJwItemTab('received')}
+                          className={`text-lg font-bold pb-1 border-b-2 transition-colors ${jwItemTab === 'received' ? 'border-teal-600 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        >
+                          Received Items
+                        </button>
+                      </div>
+
+                      <div className="overflow-x-auto border border-gray-300 rounded text-sm">
+                        {jwItemTab === 'outward' ? (
+                          <table className="min-w-full">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">Item Code</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">Item Name</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">UOM</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Total Quantity</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Consumed Quantity</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Scrapped Quantity</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Remaining Quantity</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {issueSlipItems.map((item, index) => (
+                                <tr key={index}>
+                                  <td className="px-3 py-2 border-r"><input type="text" value={item.itemCode} readOnly className="w-full px-2 py-1 bg-gray-50 border-none rounded text-sm text-gray-700" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="text" value={item.itemName} readOnly className="w-full px-2 py-1 bg-gray-50 border-none rounded text-sm text-gray-700" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="text" value={item.uom} readOnly className="w-full px-2 py-1 bg-gray-50 border-none rounded text-sm text-gray-700" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" placeholder="Total" className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-center" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" placeholder="Consumed" className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-center" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" placeholder="Scrap" className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-center" /></td>
+                                  <td className="px-3 py-2"><input type="number" placeholder="Remaining" readOnly className="w-full px-2 py-1 bg-gray-50 border-none rounded text-sm text-center text-gray-700" /></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <table className="min-w-full">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">Item Code</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">Item Name</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">UOM</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r bg-blue-50">Vendor's RDC Qty</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r bg-green-50">Received Qty</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Accepted Qty</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Rejected Qty</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Shortage/Excess</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">Remarks</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700"></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {issueSlipItems.map((item, index) => (
+                                <tr key={index}>
+                                  <td className="px-3 py-2 border-r"><input type="text" value={item.itemCode} onChange={(e) => handleIssueSlipItemChange(index, 'itemCode', e.target.value)} className="w-24 px-2 py-1 border border-gray-300 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="text" value={item.itemName} onChange={(e) => handleIssueSlipItemChange(index, 'itemName', e.target.value)} className="w-32 px-2 py-1 border border-gray-300 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="text" value={item.uom} readOnly className="w-16 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r bg-blue-50"><input type="number" placeholder="Vendor Qty" className="w-20 px-2 py-1 border border-blue-300 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r bg-green-50"><input type="number" placeholder="Recv Qty" className="w-20 px-2 py-1 border border-green-300 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" placeholder="Accept" className="w-20 px-2 py-1 border border-gray-300 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" placeholder="Reject" className="w-20 px-2 py-1 border border-gray-300 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" readOnly className="w-20 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="text" placeholder="Remarks" className="w-32 px-2 py-1 border border-gray-300 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 text-center">
+                                    <button onClick={() => handleRemoveIssueSlipItem(index)} className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded">
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                      </svg>
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr>
+                                <td colSpan={10} className="px-3 py-2">
+                                  <button onClick={handleAddIssueSlipItem} className="text-teal-600 hover:text-teal-800 text-sm font-semibold">+ Add Received Item</button>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                      <div className="mt-2 text-sm text-blue-600 italic">
+                        {jwItemTab === 'outward'
+                          ? '* Items fetched from Job Work Outward.'
+                          : '* Verify received quantities against Vendor Delivery Challan.'}
+                      </div>
+                    </div>
+
+                    {/* Posting Note */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Posting Note</label>
+                      <textarea
+                        value={postingNote}
+                        onChange={(e) => setPostingNote(e.target.value)}
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3 justify-end border-t border-gray-200 pt-5">
+                      <button
+                        onClick={handleIssueSlipSubmit}
+                        className="px-6 py-2 bg-white border border-black text-black font-semibold rounded hover:bg-gray-50 transition-colors text-sm"
+                      >
+                        Post & Close
+                      </button>
+                      <button
+                        onClick={() => setShowIssueSlipForm(false)}
+                        className="px-6 py-2 bg-white border border-black text-black font-semibold rounded hover:bg-gray-50 transition-colors text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {issueSlipTab === 'outward' && (
                   <div className="flex gap-6 mb-6">
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -1472,7 +2029,786 @@ const InventoryPage: React.FC = () => {
                   </>
                 )}
 
-                {issueSlipTab !== 'outward' && (
+                {/* Production Tab Content */}
+                {issueSlipTab === 'production' && (
+                  <div className="flex gap-8 mb-8 ml-1">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="productionType"
+                        value="materials_issued"
+                        checked={productionType === 'materials_issued'}
+                        onChange={(e) => setProductionType(e.target.value as 'materials_issued')}
+                        className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                      />
+                      <span className={`font-medium text-base ${productionType === 'materials_issued' ? 'text-gray-900' : 'text-gray-600 group-hover:text-gray-900'}`}>Materials issued for production</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="productionType"
+                        value="inter_process"
+                        checked={productionType === 'inter_process'}
+                        onChange={(e) => setProductionType(e.target.value as 'inter_process')}
+                        className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                      />
+                      <span className={`font-medium text-base ${productionType === 'inter_process' ? 'text-gray-900' : 'text-gray-600 group-hover:text-gray-900'}`}>Inter-process transfer</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="productionType"
+                        value="finished_goods"
+                        checked={productionType === 'finished_goods'}
+                        onChange={(e) => setProductionType(e.target.value as 'finished_goods')}
+                        className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                      />
+                      <span className={`font-medium text-base ${productionType === 'finished_goods' ? 'text-gray-900' : 'text-gray-600 group-hover:text-gray-900'}`}>Finished Goods produced</span>
+                    </label>
+                  </div>
+                )}
+
+
+
+                {/* Production - Materials Issued Form */}
+                {issueSlipTab === 'production' && productionType === 'materials_issued' && (
+                  <div className="mt-8 space-y-6">
+                    {/* Material Issue Slip No */}
+                    <div className="flex justify-end">
+                      <div className="w-1/4">
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Material Issue Slip No.</label>
+                        <input
+                          type="text"
+                          value={materialIssueSlipNo}
+                          onChange={(e) => setMaterialIssueSlipNo(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Date & Time */}
+                    <div className="grid grid-cols-4 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Date</label>
+                        <input
+                          type="date"
+                          value={issueSlipDate}
+                          onChange={(e) => setIssueSlipDate(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Time</label>
+                        <input
+                          type="time"
+                          value={issueSlipTime}
+                          onChange={(e) => setIssueSlipTime(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Issued From & To */}
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Issued From</label>
+                        <select
+                          value={goodsFromLocation}
+                          onChange={(e) => setGoodsFromLocation(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        >
+                          <option value="">Select Company Premises</option>
+                          {locations.filter(l => l.location_type === 'company_premises').map(loc => (
+                            <option key={loc.id} value={loc.id}>{loc.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Issued To</label>
+                        <select
+                          value={goodsToLocation}
+                          onChange={(e) => setGoodsToLocation(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        >
+                          <option value="">Select Company Premises</option>
+                          {locations.filter(l => l.location_type === 'company_premises').map(loc => (
+                            <option key={loc.id} value={loc.id}>{loc.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Side-by-Side Tables: Raw Materials & Resulting WIP */}
+                    <div className="grid grid-cols-2 gap-6">
+                      {/* Raw Materials Table */}
+                      <div className="border border-gray-300 rounded overflow-hidden">
+                        <div className="bg-gray-100 px-4 py-2 border-b border-gray-300 font-bold text-gray-800 text-center">
+                          Raw Materials
+                        </div>
+                        <div className="p-2 overflow-x-auto">
+                          <table className="min-w-full">
+                            <thead className="bg-gray-50 border-b">
+                              <tr>
+                                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">Item Code</th>
+                                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">Item Name</th>
+                                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">UOM</th>
+                                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500">Quantity</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {/* We reuse issueSlipItems for Raw Materials here */}
+                              {issueSlipItems.map((item, index) => (
+                                <tr key={index}>
+                                  <td className="p-1"><input type="text" value={item.itemCode} onChange={(e) => handleIssueSlipItemChange(index, 'itemCode', e.target.value)} className="w-full border rounded px-1 text-xs" /></td>
+                                  <td className="p-1"><input type="text" value={item.itemName} onChange={(e) => handleIssueSlipItemChange(index, 'itemName', e.target.value)} className="w-full border rounded px-1 text-xs" /></td>
+                                  <td className="p-1"><input type="text" value={item.uom} readOnly className="w-12 bg-gray-50 border rounded px-1 text-xs" /></td>
+                                  <td className="p-1"><input type="number" value={item.quantity} onChange={(e) => handleIssueSlipItemChange(index, 'quantity', e.target.value)} className="w-full border rounded px-1 text-xs text-right" /></td>
+                                </tr>
+                              ))}
+                              <tr>
+                                <td colSpan={4} className="p-2 text-center">
+                                  <button onClick={handleAddIssueSlipItem} className="text-teal-600 text-xs font-bold hover:underline">+ Add Raw Material</button>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Resulting WIP Table */}
+                      <div className="border border-gray-300 rounded overflow-hidden">
+                        <div className="bg-gray-100 px-4 py-2 border-b border-gray-300 font-bold text-gray-800 text-center">
+                          Resulting WIP
+                        </div>
+                        <div className="p-2 overflow-x-auto">
+                          <table className="min-w-full">
+                            <thead className="bg-gray-50 border-b">
+                              <tr>
+                                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">Item Code</th>
+                                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">Item Name</th>
+                                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500">UOM</th>
+                                <th className="px-2 py-1 text-right text-xs font-medium text-gray-500">Quantity</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {resultingWIPItems.map((item, index) => (
+                                <tr key={index}>
+                                  <td className="p-1">
+                                    <input
+                                      type="text"
+                                      value={item.itemCode}
+                                      onChange={(e) => {
+                                        const newWIP = [...resultingWIPItems];
+                                        newWIP[index].itemCode = e.target.value;
+                                        setResultingWIPItems(newWIP);
+                                      }}
+                                      className="w-full border rounded px-1 text-xs"
+                                    />
+                                  </td>
+                                  <td className="p-1">
+                                    <input
+                                      type="text"
+                                      value={item.itemName}
+                                      onChange={(e) => {
+                                        const newWIP = [...resultingWIPItems];
+                                        newWIP[index].itemName = e.target.value;
+                                        setResultingWIPItems(newWIP);
+                                      }}
+                                      className="w-full border rounded px-1 text-xs"
+                                    />
+                                  </td>
+                                  <td className="p-1">
+                                    <input
+                                      type="text"
+                                      value={item.uom}
+                                      readOnly
+                                      className="w-12 bg-gray-50 border rounded px-1 text-xs"
+                                    />
+                                  </td>
+                                  <td className="p-1">
+                                    <input
+                                      type="number"
+                                      value={item.quantity}
+                                      onChange={(e) => {
+                                        const newWIP = [...resultingWIPItems];
+                                        newWIP[index].quantity = e.target.value;
+                                        setResultingWIPItems(newWIP);
+                                      }}
+                                      className="w-full border rounded px-1 text-xs text-right"
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr>
+                                <td colSpan={4} className="p-2 text-center">
+                                  <button
+                                    onClick={() => setResultingWIPItems([...resultingWIPItems, { itemCode: '', itemName: '', uom: '', quantity: '' }])}
+                                    className="text-teal-600 text-xs font-bold hover:underline"
+                                  >
+                                    + Add WIP Item
+                                  </button>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Posting Note */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Posting Note</label>
+                      <textarea
+                        value={postingNote}
+                        onChange={(e) => setPostingNote(e.target.value)}
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3 justify-end border-t border-gray-200 pt-5">
+                      <button
+                        onClick={handleIssueSlipSubmit}
+                        className="px-6 py-2 bg-white border border-black text-black font-semibold rounded hover:bg-gray-50 transition-colors text-sm"
+                      >
+                        Post & Close
+                      </button>
+                      <button
+                        onClick={() => setShowIssueSlipForm(false)}
+                        className="px-6 py-2 bg-white border border-black text-black font-semibold rounded hover:bg-gray-50 transition-colors text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+
+                  </div>
+                )}
+
+
+
+                {/* Production - Inter-process Transfer Form */}
+                {issueSlipTab === 'production' && productionType === 'inter_process' && (
+                  <div className="mt-8 space-y-6">
+                    {/* Process Transfer Slip No */}
+                    <div className="flex justify-end">
+                      <div className="w-1/4">
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Process Transfer Slip No.</label>
+                        <input
+                          type="text"
+                          value={processTransferSlipNo}
+                          onChange={(e) => setProcessTransferSlipNo(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Date & Time */}
+                    <div className="grid grid-cols-4 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Date</label>
+                        <input
+                          type="date"
+                          value={issueSlipDate}
+                          onChange={(e) => setIssueSlipDate(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Time</label>
+                        <input
+                          type="time"
+                          value={issueSlipTime}
+                          onChange={(e) => setIssueSlipTime(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Material Issue Slip No Select */}
+                    <div className="w-1/2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Material Issue Slip No.</label>
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      >
+                        <option value="">Select Issue Slip(s)</option>
+                        <option value="MIS-001">MIS-001</option>
+                      </select>
+                    </div>
+
+                    {/* Issued From & To */}
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Issued From</label>
+                        <select
+                          value={goodsFromLocation}
+                          onChange={(e) => setGoodsFromLocation(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        >
+                          <option value="">Fetch from Material Issue Slip</option>
+                          {locations.filter(l => l.location_type === 'company_premises').map(loc => (
+                            <option key={loc.id} value={loc.id}>{loc.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Issued To</label>
+                        <select
+                          value={goodsToLocation}
+                          onChange={(e) => setGoodsToLocation(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        >
+                          <option value="">Select Company Premises</option>
+                          {locations.filter(l => l.location_type === 'company_premises').map(loc => (
+                            <option key={loc.id} value={loc.id}>{loc.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Tabs: Materials issued vs Converted Output */}
+                    <div>
+                      <div className="flex gap-6 border-b border-gray-200 mb-4">
+                        <button
+                          onClick={() => setProdItemTab('materials_issued')}
+                          className={`text-lg font-bold pb-1 border-b-2 transition-colors ${prodItemTab === 'materials_issued' ? 'border-teal-600 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        >
+                          Materials issued
+                        </button>
+                        <button
+                          onClick={() => setProdItemTab('converted_output')}
+                          className={`text-lg font-bold pb-1 border-b-2 transition-colors ${prodItemTab === 'converted_output' ? 'border-teal-600 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        >
+                          Converted Output
+                        </button>
+                      </div>
+
+                      <div className="overflow-x-auto border border-gray-300 rounded text-sm">
+                        {prodItemTab === 'materials_issued' ? (
+                          <table className="min-w-full">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">Item Code</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">Item Name</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">UOM</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Quantity Available</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Quantity Issued</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Rate</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {/* Mock data representing fetch from Material Issue Slip Resulting WIP */}
+                              {resultingWIPItems.map((item, index) => (
+                                <tr key={index}>
+                                  <td className="px-3 py-2 border-r"><input type="text" value={item.itemCode} readOnly className="w-full bg-gray-50 border-none rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="text" value={item.itemName} readOnly className="w-full bg-gray-50 border-none rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="text" value={item.uom} readOnly className="w-full bg-gray-50 border-none rounded text-sm text-center" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" value={item.quantity} readOnly className="w-full bg-gray-50 border-none rounded text-sm text-center" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" placeholder="Issue Qty" className="w-full border border-gray-300 rounded px-2 py-1 text-sm text-center" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" placeholder="Rate" className="w-full border border-gray-300 rounded px-2 py-1 text-sm text-center" /></td>
+                                  <td className="px-3 py-2"><input type="number" placeholder="Amount" readOnly className="w-full bg-gray-50 border-none rounded text-sm text-center" /></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <table className="min-w-full">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">Item Code</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">Item Name</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">UOM</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Quantity</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Rate</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {convertedOutputItems.map((item, index) => (
+                                <tr key={index}>
+                                  <td className="px-3 py-2 border-r">
+                                    <input
+                                      type="text"
+                                      value={item.itemCode}
+                                      onChange={(e) => {
+                                        const newItems = [...convertedOutputItems];
+                                        newItems[index].itemCode = e.target.value;
+                                        setConvertedOutputItems(newItems);
+                                      }}
+                                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 border-r">
+                                    <input
+                                      type="text"
+                                      value={item.itemName}
+                                      onChange={(e) => {
+                                        const newItems = [...convertedOutputItems];
+                                        newItems[index].itemName = e.target.value;
+                                        setConvertedOutputItems(newItems);
+                                      }}
+                                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 border-r">
+                                    <input
+                                      type="text"
+                                      value={item.uom}
+                                      readOnly
+                                      className="w-full bg-gray-50 border-none rounded px-2 py-1 text-sm text-center"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 border-r">
+                                    <input
+                                      type="number"
+                                      value={item.quantity}
+                                      onChange={(e) => {
+                                        const newItems = [...convertedOutputItems];
+                                        newItems[index].quantity = e.target.value;
+                                        setConvertedOutputItems(newItems);
+                                      }}
+                                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm text-center"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 border-r">
+                                    <input
+                                      type="number"
+                                      value={item.rate}
+                                      onChange={(e) => {
+                                        const newItems = [...convertedOutputItems];
+                                        newItems[index].rate = e.target.value;
+                                        setConvertedOutputItems(newItems);
+                                      }}
+                                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm text-center"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <input
+                                      type="number"
+                                      value={item.amount}
+                                      readOnly
+                                      className="w-full bg-gray-50 border-none rounded px-2 py-1 text-sm text-center"
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr>
+                                <td colSpan={6} className="p-2 text-center">
+                                  <button
+                                    onClick={() => setConvertedOutputItems([...convertedOutputItems, { itemCode: '', itemName: '', uom: '', quantity: '', rate: '', amount: '' }])}
+                                    className="text-teal-600 text-xs font-bold hover:underline"
+                                  >
+                                    + Add Output Item
+                                  </button>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Posting Note */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Posting Note</label>
+                      <textarea
+                        value={postingNote}
+                        onChange={(e) => setPostingNote(e.target.value)}
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3 justify-end border-t border-gray-200 pt-5">
+                      <button
+                        onClick={handleIssueSlipSubmit}
+                        className="px-6 py-2 bg-white border border-black text-black font-semibold rounded hover:bg-gray-50 transition-colors text-sm"
+                      >
+                        Post & Close
+                      </button>
+                      <button
+                        onClick={() => setShowIssueSlipForm(false)}
+                        className="px-6 py-2 bg-white border border-black text-black font-semibold rounded hover:bg-gray-50 transition-colors text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+
+                  </div>
+                )}
+
+
+
+                {/* Production - Finished Goods Produced Form */}
+                {issueSlipTab === 'production' && productionType === 'finished_goods' && (
+                  <div className="mt-8 space-y-6">
+                    {/* FG Receipt Slip No */}
+                    <div className="flex justify-end">
+                      <div className="w-1/4">
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">FG Receipt Slip No.</label>
+                        <input
+                          type="text"
+                          value={fgReceiptSlipNo}
+                          onChange={(e) => setFgReceiptSlipNo(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Date & Time */}
+                    <div className="grid grid-cols-4 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Date</label>
+                        <input
+                          type="date"
+                          value={issueSlipDate}
+                          onChange={(e) => setIssueSlipDate(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Time</label>
+                        <input
+                          type="time"
+                          value={issueSlipTime}
+                          onChange={(e) => setIssueSlipTime(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Process Transfer Slip No Select */}
+                    <div className="w-1/2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Process Transfer Slip No.</label>
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      >
+                        <option value="">Select Process Transfer Slip(s)</option>
+                        <option value="PTS-001">PTS-001</option>
+                      </select>
+                    </div>
+
+                    {/* Issued From & To */}
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Issued From</label>
+                        <select
+                          value={goodsFromLocation}
+                          onChange={(e) => setGoodsFromLocation(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        >
+                          <option value="">Fetch from Process Transfer Slip</option>
+                          {locations.filter(l => l.location_type === 'company_premises').map(loc => (
+                            <option key={loc.id} value={loc.id}>{loc.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Issued To</label>
+                        <select
+                          value={goodsToLocation}
+                          onChange={(e) => setGoodsToLocation(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        >
+                          <option value="">Select Company Premises</option>
+                          {locations.filter(l => l.location_type === 'company_premises').map(loc => (
+                            <option key={loc.id} value={loc.id}>{loc.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Tabs: Materials issued vs Goods Produced */}
+                    <div>
+                      <div className="flex gap-6 border-b border-gray-200 mb-4">
+                        <button
+                          onClick={() => setFgItemTab('materials_issued')}
+                          className={`text-lg font-bold pb-1 border-b-2 transition-colors ${fgItemTab === 'materials_issued' ? 'border-teal-600 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        >
+                          Materials issued
+                        </button>
+                        <button
+                          onClick={() => setFgItemTab('goods_produced')}
+                          className={`text-lg font-bold pb-1 border-b-2 transition-colors ${fgItemTab === 'goods_produced' ? 'border-teal-600 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        >
+                          Goods Produced
+                        </button>
+                      </div>
+
+                      <div className="overflow-x-auto border border-gray-300 rounded text-sm">
+                        {fgItemTab === 'materials_issued' ? (
+                          <table className="min-w-full">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">Item Code</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">Item Name</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">UOM</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Quantity Available</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Quantity Issued</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Rate</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {/* Mock data representing fetch from converted output */}
+                              {fgMaterialsIssuedItems.map((item, index) => (
+                                <tr key={index}>
+                                  <td className="px-3 py-2 border-r"><input type="text" value={item.itemCode} readOnly className="w-full bg-gray-50 border-none rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="text" value={item.itemName} readOnly className="w-full bg-gray-50 border-none rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="text" value={item.uom} readOnly className="w-full bg-gray-50 border-none rounded text-sm text-center" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" value={item.quantityAvailable} readOnly className="w-full bg-gray-50 border-none rounded text-sm text-center" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" value={item.quantityIssued} placeholder="Issue Qty" className="w-full border border-gray-300 rounded px-2 py-1 text-sm text-center" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" value={item.rate} readOnly className="w-full bg-gray-50 border-none rounded text-sm text-center" /></td>
+                                  <td className="px-3 py-2"><input type="number" value={item.amount} readOnly className="w-full bg-gray-50 border-none rounded text-sm text-center" /></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <table className="min-w-full">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">Item Code</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">Item Name</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 border-r">UOM</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Quantity Produced</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Cost Alloc %</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border-r">Rate</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {goodsProducedItems.map((item, index) => (
+                                <tr key={index}>
+                                  <td className="px-3 py-2 border-r">
+                                    <input
+                                      type="text"
+                                      value={item.itemCode}
+                                      onChange={(e) => {
+                                        const newItems = [...goodsProducedItems];
+                                        newItems[index].itemCode = e.target.value;
+                                        setGoodsProducedItems(newItems);
+                                      }}
+                                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 border-r">
+                                    <input
+                                      type="text"
+                                      value={item.itemName}
+                                      onChange={(e) => {
+                                        const newItems = [...goodsProducedItems];
+                                        newItems[index].itemName = e.target.value;
+                                        setGoodsProducedItems(newItems);
+                                      }}
+                                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 border-r">
+                                    <input
+                                      type="text"
+                                      value={item.uom}
+                                      readOnly
+                                      className="w-full bg-gray-50 border-none rounded px-2 py-1 text-sm text-center"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 border-r">
+                                    <input
+                                      type="number"
+                                      value={item.quantityProduced}
+                                      onChange={(e) => {
+                                        const newItems = [...goodsProducedItems];
+                                        newItems[index].quantityProduced = e.target.value;
+                                        setGoodsProducedItems(newItems);
+                                      }}
+                                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm text-center"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 border-r">
+                                    <input
+                                      type="number"
+                                      value={item.costAllocation}
+                                      onChange={(e) => {
+                                        const newItems = [...goodsProducedItems];
+                                        newItems[index].costAllocation = e.target.value;
+                                        setGoodsProducedItems(newItems);
+                                      }}
+                                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm text-center"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 border-r">
+                                    <input
+                                      type="number"
+                                      value={item.rate}
+                                      onChange={(e) => {
+                                        const newItems = [...goodsProducedItems];
+                                        newItems[index].rate = e.target.value;
+                                        setGoodsProducedItems(newItems);
+                                      }}
+                                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm text-center"
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <input
+                                      type="number"
+                                      value={item.amount}
+                                      readOnly
+                                      className="w-full bg-gray-50 border-none rounded px-2 py-1 text-sm text-center"
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr>
+                                <td colSpan={7} className="p-2 text-center">
+                                  <button
+                                    onClick={() => setGoodsProducedItems([...goodsProducedItems, { itemCode: '', itemName: '', uom: '', quantityProduced: '', costAllocation: '100', rate: '', amount: '' }])}
+                                    className="text-teal-600 text-xs font-bold hover:underline"
+                                  >
+                                    + Add Product
+                                  </button>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Posting Note */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Posting Note</label>
+                      <textarea
+                        value={postingNote}
+                        onChange={(e) => setPostingNote(e.target.value)}
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3 justify-end border-t border-gray-200 pt-5">
+                      <button
+                        onClick={handleIssueSlipSubmit}
+                        className="px-6 py-2 bg-white border border-black text-black font-semibold rounded hover:bg-gray-50 transition-colors text-sm"
+                      >
+                        Post & Close
+                      </button>
+                      <button
+                        onClick={() => setShowIssueSlipForm(false)}
+                        className="px-6 py-2 bg-white border border-black text-black font-semibold rounded hover:bg-gray-50 transition-colors text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+
+                  </div>
+                )}
+
+                {issueSlipTab !== 'outward' && issueSlipTab !== 'job-work' && issueSlipTab !== 'production' && (
                   <>
                     {/* Basic Details */}
                     <div className="grid grid-cols-4 gap-5">
@@ -1632,312 +2968,319 @@ const InventoryPage: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
+        )
+        }
 
         {/* GRN Form Modal */}
-        {showGRNForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
-            <div className="bg-white rounded-lg shadow-xl w-full h-[90vh] max-w-7xl flex flex-col">
-              <div className="bg-white border-b border-gray-200 p-5 flex justify-between items-center shrink-0">
-                <h3 className="text-2xl font-bold text-gray-900">Goods Receipt Note</h3>
-                <button onClick={() => setShowGRNForm(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
-              </div>
-
-              <div className="p-8 space-y-6 overflow-y-auto flex-1">
-                {/* Radio Buttons */}
-                <div className="flex gap-6 mb-6">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="grnType"
-                      value="purchases"
-                      checked={grnType === 'purchases'}
-                      onChange={(e) => setGrnType(e.target.value)}
-                      className="text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-gray-700 font-medium">Purchases</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="grnType"
-                      value="sales_return"
-                      checked={grnType === 'sales_return'}
-                      onChange={(e) => setGrnType(e.target.value)}
-                      className="text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-gray-700 font-medium">Sales Return</span>
-                  </label>
+        {
+          showGRNForm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
+              <div className="bg-white rounded-lg shadow-xl w-full h-[90vh] max-w-7xl flex flex-col">
+                <div className="bg-white border-b border-gray-200 p-5 flex justify-between items-center shrink-0">
+                  <h3 className="text-2xl font-bold text-gray-900">Goods Receipt Note</h3>
+                  <button onClick={() => setShowGRNForm(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
                 </div>
 
-                {/* Common Fields */}
-                <div className="grid grid-cols-4 gap-5">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">GRN No.</label>
-                    <input type="text" value={grnNumber} onChange={(e) => setGrnNumber(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <div className="p-8 space-y-6 overflow-y-auto flex-1">
+                  {/* Radio Buttons */}
+                  <div className="flex gap-6 mb-6">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="grnType"
+                        value="purchases"
+                        checked={grnType === 'purchases'}
+                        onChange={(e) => setGrnType(e.target.value)}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-gray-700 font-medium">Purchases</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="grnType"
+                        value="sales_return"
+                        checked={grnType === 'sales_return'}
+                        onChange={(e) => setGrnType(e.target.value)}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-gray-700 font-medium">Sales Return</span>
+                    </label>
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Date</label>
-                    <input type="date" value={grnDate} onChange={(e) => setGrnDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Time</label>
-                    <input type="time" value={grnTime} onChange={(e) => setGrnTime(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Location</label>
-                    <select value={grnLocation} onChange={(e) => setGrnLocation(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                      <option value="">Select Location</option>
-                      {locations.filter(l => l.location_type === 'company_premises').map(loc => (
-                        <option key={loc.id} value={loc.id}>{loc.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
 
-                {/* Conditional Fields Based on Type */}
-                {grnType === 'purchases' ? (
-                  // PURCHASES FORM
-                  <>
-                    <div className="grid grid-cols-2 gap-5 mt-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Vendor Name</label>
-                        <select value={grnVendorName} onChange={(e) => setGrnVendorName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                          <option value="">Select Vendor</option>
-                          <option value="Vendor A">Vendor A</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Branch</label>
-                        <select value={grnBranch} onChange={(e) => setGrnBranch(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                          <option value="">Select Branch</option>
-                          <option value="Main">Main</option>
-                        </select>
-                      </div>
+                  {/* Common Fields */}
+                  <div className="grid grid-cols-4 gap-5">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">GRN No.</label>
+                      <input type="text" value={grnNumber} onChange={(e) => setGrnNumber(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
-
-                    <div className="grid grid-cols-2 gap-5 mt-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
-                        <textarea value={grnAddress} onChange={(e) => setGrnAddress(e.target.value)} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">GSTIN No.</label>
-                        <input type="text" value={grnGstin} onChange={(e) => setGrnGstin(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Date</label>
+                      <input type="date" value={grnDate} onChange={(e) => setGrnDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
-
-                    <div className="grid grid-cols-2 gap-5 mt-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Purchase Order No.</label>
-                        <select value={grnReferenceNo} onChange={(e) => setGrnReferenceNo(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                          <option value="">Select Pending PO</option>
-                          <option value="PO-001">PO-001</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Supplier Invoice No.</label>
-                        <input type="text" value={grnSecondaryRefNo} onChange={(e) => setGrnSecondaryRefNo(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Time</label>
+                      <input type="time" value={grnTime} onChange={(e) => setGrnTime(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
-                  </>
-                ) : (
-                  // SALES RETURN FORM
-                  <>
-                    <div className="grid grid-cols-2 gap-5 mt-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Customer Name</label>
-                        <select value={grnCustomerName} onChange={(e) => setGrnCustomerName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                          <option value="">Select Customer</option>
-                          <option value="Customer A">Customer A</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Branch</label>
-                        <select value={grnBranch} onChange={(e) => setGrnBranch(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                          <option value="">Select Branch</option>
-                          <option value="Main">Main</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-5 mt-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
-                        <textarea value={grnAddress} onChange={(e) => setGrnAddress(e.target.value)} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">GSTIN No.</label>
-                        <input type="text" value={grnGstin} onChange={(e) => setGrnGstin(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-5 mt-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Sales Voucher No.</label>
-                        <select value={grnReferenceNo} onChange={(e) => setGrnReferenceNo(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                          <option value="">Select Sales Voucher</option>
-                          <option value="SV-001">SV-001</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Debit Note No.</label>
-                        <input type="text" value={grnSecondaryRefNo} onChange={(e) => setGrnSecondaryRefNo(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* Items Table */}
-                <div className="mt-6">
-                  <h4 className="text-lg font-bold text-gray-800 mb-3 block border-b border-gray-200 pb-2">Items</h4>
-                  <div className="overflow-x-auto border border-gray-300 rounded text-sm">
-                    <table className="min-w-full">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Item Code</th>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Item Name</th>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">UOM</th>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">{grnType === 'purchases' ? 'PO Qty' : 'Sales Voucher Qty'}</th>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">{grnType === 'purchases' ? 'Inv Qty' : 'Debit Note Qty'}</th>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Received</th>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Accepted</th>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Rejected</th>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Shrt/Excess</th>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Remarks</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {grnItems.map((item, index) => (
-                          <tr key={index}>
-                            <td className="px-3 py-2"><input type="text" className="w-20 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                            <td className="px-3 py-2"><input type="text" className="w-24 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                            <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                            <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs bg-gray-50" readOnly /></td>
-                            <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                            <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                            <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                            <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                            <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                            <td className="px-3 py-2"><input type="text" className="w-24 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                          </tr>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Location</label>
+                      <select value={grnLocation} onChange={(e) => setGrnLocation(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select Location</option>
+                        {locations.filter(l => l.location_type === 'company_premises').map(loc => (
+                          <option key={loc.id} value={loc.id}>{loc.name}</option>
                         ))}
-                      </tbody>
-                    </table>
-                    <div className="p-2">
-                      <button onClick={() => setGrnItems([...grnItems, {}])} className="text-blue-600 font-semibold text-sm">+ Add Item</button>
+                      </select>
                     </div>
                   </div>
-                </div>
 
-                {/* Additional Fields for Sales Return */}
-                {grnType === 'sales_return' && (
-                  <div className="mt-4">
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Reasons for Return (mandatory) <span className="text-red-500">*</span></label>
-                    <textarea value={grnReason} onChange={(e) => setGrnReason(e.target.value)} rows={3} className="w-full px-3 py-2 border-2 border-blue-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter reason..." />
+                  {/* Conditional Fields Based on Type */}
+                  {grnType === 'purchases' ? (
+                    // PURCHASES FORM
+                    <>
+                      <div className="grid grid-cols-2 gap-5 mt-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Vendor Name</label>
+                          <select value={grnVendorName} onChange={(e) => setGrnVendorName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select Vendor</option>
+                            <option value="Vendor A">Vendor A</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Branch</label>
+                          <select value={grnBranch} onChange={(e) => setGrnBranch(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select Branch</option>
+                            <option value="Main">Main</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-5 mt-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
+                          <textarea value={grnAddress} onChange={(e) => setGrnAddress(e.target.value)} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">GSTIN No.</label>
+                          <input type="text" value={grnGstin} onChange={(e) => setGrnGstin(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-5 mt-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Purchase Order No.</label>
+                          <select value={grnReferenceNo} onChange={(e) => setGrnReferenceNo(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select Pending PO</option>
+                            <option value="PO-001">PO-001</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Supplier Invoice No.</label>
+                          <input type="text" value={grnSecondaryRefNo} onChange={(e) => setGrnSecondaryRefNo(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    // SALES RETURN FORM
+                    <>
+                      <div className="grid grid-cols-2 gap-5 mt-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Customer Name</label>
+                          <select value={grnCustomerName} onChange={(e) => setGrnCustomerName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select Customer</option>
+                            <option value="Customer A">Customer A</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Branch</label>
+                          <select value={grnBranch} onChange={(e) => setGrnBranch(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select Branch</option>
+                            <option value="Main">Main</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-5 mt-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
+                          <textarea value={grnAddress} onChange={(e) => setGrnAddress(e.target.value)} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">GSTIN No.</label>
+                          <input type="text" value={grnGstin} onChange={(e) => setGrnGstin(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-5 mt-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Sales Voucher No.</label>
+                          <select value={grnReferenceNo} onChange={(e) => setGrnReferenceNo(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select Sales Voucher</option>
+                            <option value="SV-001">SV-001</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">Debit Note No.</label>
+                          <input type="text" value={grnSecondaryRefNo} onChange={(e) => setGrnSecondaryRefNo(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Items Table */}
+                  <div className="mt-6">
+                    <h4 className="text-lg font-bold text-gray-800 mb-3 block border-b border-gray-200 pb-2">Items</h4>
+                    <div className="overflow-x-auto border border-gray-300 rounded text-sm">
+                      <table className="min-w-full">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Item Code</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Item Name</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">UOM</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">{grnType === 'purchases' ? 'PO Qty' : 'Sales Voucher Qty'}</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">{grnType === 'purchases' ? 'Inv Qty' : 'Debit Note Qty'}</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Received</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Accepted</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Rejected</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Shrt/Excess</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Remarks</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {grnItems.map((item, index) => (
+                            <tr key={index}>
+                              <td className="px-3 py-2"><input type="text" className="w-20 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
+                              <td className="px-3 py-2"><input type="text" className="w-24 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
+                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
+                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs bg-gray-50" readOnly /></td>
+                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
+                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
+                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
+                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
+                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
+                              <td className="px-3 py-2"><input type="text" className="w-24 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="p-2">
+                        <button onClick={() => setGrnItems([...grnItems, {}])} className="text-blue-600 font-semibold text-sm">+ Add Item</button>
+                      </div>
+                    </div>
                   </div>
-                )}
 
-                <div className="mt-6">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Posting Note</label>
-                  <textarea value={grnPostingNote} onChange={(e) => setGrnPostingNote(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
+                  {/* Additional Fields for Sales Return */}
+                  {grnType === 'sales_return' && (
+                    <div className="mt-4">
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Reasons for Return (mandatory) <span className="text-red-500">*</span></label>
+                      <textarea value={grnReason} onChange={(e) => setGrnReason(e.target.value)} rows={3} className="w-full px-3 py-2 border-2 border-blue-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter reason..." />
+                    </div>
+                  )}
 
-                <div className="flex gap-3 justify-end border-t border-gray-200 pt-5 mt-4">
-                  <button onClick={() => setShowGRNForm(false)} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold text-sm">Post & Close</button>
-                  <button onClick={() => setShowGRNForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 font-semibold text-sm">Cancel</button>
+                  <div className="mt-6">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Posting Note</label>
+                    <textarea value={grnPostingNote} onChange={(e) => setGrnPostingNote(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+
+                  <div className="flex gap-3 justify-end border-t border-gray-200 pt-5 mt-4">
+                    <button onClick={() => setShowGRNForm(false)} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold text-sm">Post & Close</button>
+                    <button onClick={() => setShowGRNForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 font-semibold text-sm">Cancel</button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        }
 
         {/* Delivery Challan Modal */}
-        {showDeliveryChallan && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-96 overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-gray-900">Delivery Challan Details</h3>
-                <button
-                  onClick={() => setShowDeliveryChallan(false)}
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Dispatch Address</label>
-                    <input type="text" value={deliveryChallanAddress} onChange={(e) => setDeliveryChallanAddress(e.target.value)} placeholder="Address" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Dispatch Date</label>
-                    <input type="date" value={deliveryChallanDate} onChange={(e) => setDeliveryChallanDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
-                  </div>
+        {
+          showDeliveryChallan && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-96 overflow-y-auto">
+                <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+                  <h3 className="text-xl font-bold text-gray-900">Delivery Challan Details</h3>
+                  <button
+                    onClick={() => setShowDeliveryChallan(false)}
+                    className="text-gray-400 hover:text-gray-600 text-2xl"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <div className="flex gap-3 justify-end border-t border-gray-200 pt-4">
-                  <button
-                    onClick={() => setShowDeliveryChallan(false)}
-                    className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 font-medium text-sm"
-                  >
-                    Save & Close
-                  </button>
-                  <button
-                    onClick={() => setShowDeliveryChallan(false)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium text-sm"
-                  >
-                    Cancel
-                  </button>
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Dispatch Address</label>
+                      <input type="text" value={deliveryChallanAddress} onChange={(e) => setDeliveryChallanAddress(e.target.value)} placeholder="Address" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Dispatch Date</label>
+                      <input type="date" value={deliveryChallanDate} onChange={(e) => setDeliveryChallanDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                    </div>
+                  </div>
+                  <div className="flex gap-3 justify-end border-t border-gray-200 pt-4">
+                    <button
+                      onClick={() => setShowDeliveryChallan(false)}
+                      className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 font-medium text-sm"
+                    >
+                      Save & Close
+                    </button>
+                    <button
+                      onClick={() => setShowDeliveryChallan(false)}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        }
 
         {/* E-Way Bill Modal */}
-        {showEWayBill && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-96 overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-gray-900">E-Way Bill Details</h3>
-                <button
-                  onClick={() => setShowEWayBill(false)}
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Number</label>
-                    <input type="text" value={ewayBillVehicleNo} onChange={(e) => setEwayBillVehicleNo(e.target.value)} placeholder="Vehicle No" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Valid Till</label>
-                    <input type="date" value={ewayBillValidTill} onChange={(e) => setEwayBillValidTill(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
-                  </div>
+        {
+          showEWayBill && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-96 overflow-y-auto">
+                <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+                  <h3 className="text-xl font-bold text-gray-900">E-Way Bill Details</h3>
+                  <button
+                    onClick={() => setShowEWayBill(false)}
+                    className="text-gray-400 hover:text-gray-600 text-2xl"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <div className="flex gap-3 justify-end border-t border-gray-200 pt-4">
-                  <button
-                    onClick={() => setShowEWayBill(false)}
-                    className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 font-medium text-sm"
-                  >
-                    Save & Close
-                  </button>
-                  <button
-                    onClick={() => setShowEWayBill(false)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium text-sm"
-                  >
-                    Cancel
-                  </button>
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Number</label>
+                      <input type="text" value={ewayBillVehicleNo} onChange={(e) => setEwayBillVehicleNo(e.target.value)} placeholder="Vehicle No" className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Valid Till</label>
+                      <input type="date" value={ewayBillValidTill} onChange={(e) => setEwayBillValidTill(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+                    </div>
+                  </div>
+                  <div className="flex gap-3 justify-end border-t border-gray-200 pt-4">
+                    <button
+                      onClick={() => setShowEWayBill(false)}
+                      className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 font-medium text-sm"
+                    >
+                      Save & Close
+                    </button>
+                    <button
+                      onClick={() => setShowEWayBill(false)}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )
+        }
+      </div >
     );
   };
 
