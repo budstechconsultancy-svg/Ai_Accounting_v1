@@ -228,6 +228,24 @@ const SalesVoucher: React.FC = () => {
             };
             const formatDate = (val: string) => (!val || val.trim() === '') ? null : val;
 
+            const billTo = {
+                address_line_1: billToAddress1,
+                address_line_2: billToAddress2,
+                city: billToCity,
+                pincode: billToPincode,
+                state: billToState,
+                country: billToCountry
+            };
+
+            const shipTo = {
+                address_line_1: shipToAddress1,
+                address_line_2: shipToAddress2,
+                city: shipToCity,
+                pincode: shipToPincode,
+                state: shipToState,
+                country: shipToCountry
+            };
+
             const payload = {
                 // Invoice Details
                 date: formatDate(date),
@@ -322,18 +340,18 @@ const SalesVoucher: React.FC = () => {
 
                 // E-way Bill Details
                 eway_bill_details: {
-                    eway_bill_available: ewayBillAvailable,
-                    eway_bill_no: ewayBillNo,
-                    eway_bill_date: formatDate(ewayBillDate),
-                    validity_period: validityPeriod,
-                    distance: distance,
-                    extension_date: formatDate(extensionDate),
-                    extended_ewb_no: extendedEwbNo,
-                    extension_reason: extensionReason,
-                    from_place: fromPlace,
-                    remaining_distance: remainingDistance,
-                    new_validity: newValidity,
-                    updated_vehicle_no: updatedVehicleNo,
+                    eway_bill_available: ewayValidationEntries[0]?.available || '',
+                    eway_bill_no: ewayValidationEntries[0]?.ewayBillNo || '',
+                    eway_bill_date: formatDate(ewayValidationEntries[0]?.date || ''),
+                    validity_period: ewayValidationEntries[0]?.validityPeriod || '',
+                    distance: ewayValidationEntries[0]?.distance || '',
+                    extension_date: formatDate(ewayValidationEntries[0]?.extensionDate || ''),
+                    extended_ewb_no: ewayValidationEntries[0]?.extendedEwbNo || '',
+                    extension_reason: ewayValidationEntries[0]?.extensionReason || '',
+                    from_place: ewayValidationEntries[0]?.fromPlace || '',
+                    remaining_distance: ewayValidationEntries[0]?.remainingDistance || '',
+                    new_validity: ewayValidationEntries[0]?.newValidity || '',
+                    updated_vehicle_no: ewayValidationEntries[0]?.updatedVehicleNo || '',
                     irn: irn,
                     ack_no: ackNo
                 }
