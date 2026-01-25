@@ -167,6 +167,137 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
   const [fromAccount, setFromAccount] = useState('');
   const [toAccount, setToAccount] = useState('');
 
+  // Purchase Voucher Tabs
+  const [purchaseActiveTab, setPurchaseActiveTab] = useState<'supplier' | 'supply' | 'due' | 'transit'>('supplier');
+  const [grnRefNo, setGrnRefNo] = useState('');
+  const [billFrom, setBillFrom] = useState(''); // Correspond to 'billTo' in wireframe if needed, but 'From' is better for Purchase
+  const [shipFrom, setShipFrom] = useState(''); // Correspond to 'shipTo' in wireframe if needed
+  const [purchaseInputType, setPurchaseInputType] = useState('Intrastate'); // Default to Same State
+  const [purchaseSupportingDocument, setPurchaseSupportingDocument] = useState<File | null>(null);
+
+  // Purchase Supply Details Tab State
+  const [purchaseOrderNo, setPurchaseOrderNo] = useState('');
+  const [purchaseLedger, setPurchaseLedger] = useState('');
+  const [purchaseDescription, setPurchaseDescription] = useState('');
+  const [purchaseItems, setPurchaseItems] = useState([
+    { id: '1', itemCode: '', itemName: '', hsnSac: '', qty: 1, uom: '', rate: 0, taxableValue: 0, igst: 0, cgst: 0, cess: 0, invoiceValue: 0 }
+  ]);
+
+  // Purchase Due Details State
+  const [purchaseTdsGst, setPurchaseTdsGst] = useState('0.00');
+  const [purchaseTdsIt, setPurchaseTdsIt] = useState('0.00');
+  const [purchaseAdvancePaid, setPurchaseAdvancePaid] = useState('0.00');
+  const [purchaseToPay, setPurchaseToPay] = useState('0.00');
+  const [purchasePostingNote, setPurchasePostingNote] = useState('');
+  const [purchaseTerms, setPurchaseTerms] = useState('');
+  const [purchaseAdvanceRefs, setPurchaseAdvanceRefs] = useState<Array<{
+    id: number;
+    date: string;
+    refNo: string;
+    amount: string;
+    appliedNow: boolean;
+  }>>([]);
+
+  // Purchase Transit Details State
+  const [purchaseTransitMode, setPurchaseTransitMode] = useState('Road');
+
+  // Basic / Road Details (Left Column)
+  const [purchaseTransitReceivedIn, setPurchaseTransitReceivedIn] = useState(''); // Equivalent to Dispatch From
+  const [purchaseTransitReceiptDate, setPurchaseTransitReceiptDate] = useState(getTodayDate());
+  const [purchaseTransitReceiptTime, setPurchaseTransitReceiptTime] = useState('');
+
+  // Basic / Road Details (Right Column)
+  const [purchaseTransitDeliveryType, setPurchaseTransitDeliveryType] = useState('Self');
+  const [purchaseTransitSelfThirdParty, setPurchaseTransitSelfThirdParty] = useState('');
+  const [purchaseTransitTransporterId, setPurchaseTransitTransporterId] = useState('');
+  const [purchaseTransitTransporterName, setPurchaseTransitTransporterName] = useState('');
+  const [purchaseTransitVehicleNo, setPurchaseTransitVehicleNo] = useState('');
+  const [purchaseTransitLrGrConsignment, setPurchaseTransitLrGrConsignment] = useState('');
+
+  // Document
+  const [purchaseTransitDocument, setPurchaseTransitDocument] = useState<File | null>(null);
+
+  // From PORT (Local) - Renaming or reusing variables for clarity if needed, 
+  // but keeping 'FromPort' prefix for consistency with older code if referenced, 
+  // though UI uses the Right Column variables above for Road. 
+  // The 'From PORT' section in UI (reverted) uses purchaseTransitFromPort... variables if applicable? 
+  // No, the reverted UI uses the 'Right Column' vars above for Road?
+  // Let's check the UI code again.
+  // The UI uses: purchaseTransitFromPortDeliveryType, purchaseTransitFromPortVehicleNo... 
+  // Wait, in Step 376, I removed 'From PORT' Section and used 'Right Column'.
+  // But did I update the variables in the UI?
+  // Step 376 UI:
+  // value={purchaseTransitDeliveryType}
+  // value={purchaseTransitTransporterId}
+  // value={purchaseTransitVehicleNo}
+  // So the UI uses the 'Basic' right column vars.
+  // So I don't need 'From Port' vars anymore.
+
+  // Upto PORT (Air/Sea)
+  const [purchaseTransitUptoPortBolNo, setPurchaseTransitUptoPortBolNo] = useState('');
+  const [purchaseTransitUptoPortBolDate, setPurchaseTransitUptoPortBolDate] = useState('');
+  const [purchaseTransitUptoPortShippingBillNo, setPurchaseTransitUptoPortShippingBillNo] = useState('');
+  const [purchaseTransitUptoPortShippingBillDate, setPurchaseTransitUptoPortShippingBillDate] = useState('');
+  const [purchaseTransitUptoPortShipPortCode, setPurchaseTransitUptoPortShipPortCode] = useState('');
+  const [purchaseTransitUptoPortOriginCity, setPurchaseTransitUptoPortOriginCity] = useState('');
+  const [purchaseTransitUptoPortOriginCountry, setPurchaseTransitUptoPortOriginCountry] = useState('');
+  const [purchaseTransitUptoPortVesselFlightNo, setPurchaseTransitUptoPortVesselFlightNo] = useState(''); // If used in Upto
+  const [purchaseTransitUptoPortPortOfLoading, setPurchaseTransitUptoPortPortOfLoading] = useState('');
+  const [purchaseTransitUptoPortPortOfDischarge, setPurchaseTransitUptoPortPortOfDischarge] = useState('');
+  const [purchaseTransitUptoPortFinalDestCity, setPurchaseTransitUptoPortFinalDestCity] = useState('');
+  const [purchaseTransitUptoPortFinalDestCountry, setPurchaseTransitUptoPortFinalDestCountry] = useState('');
+
+  // Upto PORT (Rail)
+  const [purchaseTransitUptoPortRrNo, setPurchaseTransitUptoPortRrNo] = useState('');
+  const [purchaseTransitUptoPortRrDate, setPurchaseTransitUptoPortRrDate] = useState('');
+  const [purchaseTransitUptoPortFnrNo, setPurchaseTransitUptoPortFnrNo] = useState('');
+  const [purchaseTransitUptoPortStationLoading, setPurchaseTransitUptoPortStationLoading] = useState('');
+  const [purchaseTransitUptoPortStationDischarge, setPurchaseTransitUptoPortStationDischarge] = useState('');
+
+  // Also Rail generic Upto vars if different
+  const [purchaseTransitRailUptoDeliveryType, setPurchaseTransitRailUptoDeliveryType] = useState('');
+  const [purchaseTransitRailUptoTransporterName, setPurchaseTransitRailUptoTransporterName] = useState('');
+  const [purchaseTransitRailUptoTransporterId, setPurchaseTransitRailUptoTransporterId] = useState('');
+
+  // Beyond PORT (Air/Sea)
+  const [purchaseTransitBeyondPortSbNo, setPurchaseTransitBeyondPortSbNo] = useState('');
+  const [purchaseTransitBeyondPortSbDate, setPurchaseTransitBeyondPortSbDate] = useState('');
+  const [purchaseTransitBeyondPortShipPortCode, setPurchaseTransitBeyondPortShipPortCode] = useState('');
+  const [purchaseTransitBeyondPortVesselFlightNo, setPurchaseTransitBeyondPortVesselFlightNo] = useState('');
+  const [purchaseTransitBeyondPortPortOfLoading, setPurchaseTransitBeyondPortPortOfLoading] = useState('');
+  const [purchaseTransitBeyondPortPortOfDischarge, setPurchaseTransitBeyondPortPortOfDischarge] = useState('');
+  const [purchaseTransitBeyondPortFinalDest, setPurchaseTransitBeyondPortFinalDest] = useState('');
+  const [purchaseTransitBeyondPortDestCountry, setPurchaseTransitBeyondPortDestCountry] = useState('');
+  const [purchaseTransitBeyondPortOriginCountry, setPurchaseTransitBeyondPortOriginCountry] = useState('');
+
+  // Beyond PORT (Rail)
+  const [purchaseTransitRailBeyondRrNo, setPurchaseTransitRailBeyondRrNo] = useState('');
+  const [purchaseTransitRailBeyondOrigin, setPurchaseTransitRailBeyondOrigin] = useState('');
+  const [purchaseTransitRailBeyondRrDate, setPurchaseTransitRailBeyondRrDate] = useState('');
+  const [purchaseTransitRailBeyondRailNo, setPurchaseTransitRailBeyondRailNo] = useState('');
+  const [purchaseTransitRailBeyondStationLoading, setPurchaseTransitRailBeyondStationLoading] = useState('');
+  const [purchaseTransitRailBeyondOriginCountry, setPurchaseTransitRailBeyondOriginCountry] = useState('');
+  const [purchaseTransitRailBeyondStationDischarge, setPurchaseTransitRailBeyondStationDischarge] = useState('');
+  const [purchaseTransitRailBeyondFinalDest, setPurchaseTransitRailBeyondFinalDest] = useState('');
+  const [purchaseTransitRailBeyondDestCountry, setPurchaseTransitRailBeyondDestCountry] = useState('');
+
+  // Mock Data for Verification
+  const mockPurchaseOrders: Record<string, typeof purchaseItems> = {
+    'PO-001': [
+      { id: '1', itemCode: 'ITM001', itemName: 'Dell Laptop', hsnSac: '8471', qty: 2, uom: 'Nos', rate: 50000, taxableValue: 100000, igst: 18000, cgst: 0, cess: 0, invoiceValue: 118000 },
+      { id: '2', itemCode: 'ITM002', itemName: 'Wireless Mouse', hsnSac: '8471', qty: 5, uom: 'Nos', rate: 500, taxableValue: 2500, igst: 450, cgst: 0, cess: 0, invoiceValue: 2950 }
+    ],
+    'PO-002': [
+      { id: '1', itemCode: 'ITM003', itemName: 'Office Chair', hsnSac: '9403', qty: 10, uom: 'Nos', rate: 4500, taxableValue: 45000, igst: 8100, cgst: 0, cess: 0, invoiceValue: 53100 }
+    ]
+  };
+
+  useEffect(() => {
+    if (purchaseOrderNo && mockPurchaseOrders[purchaseOrderNo]) {
+      setPurchaseItems(mockPurchaseOrders[purchaseOrderNo]);
+    }
+  }, [purchaseOrderNo]);
+
   // Journal
   const [entries, setEntries] = useState<JournalEntry[]>([{ ledger: '', note: '', refNo: '', debit: 0, credit: 0 }, { ledger: '', note: '', refNo: '', debit: 0, credit: 0 }]);
 
@@ -863,61 +994,991 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
   };
 
 
-  const renderSalesPurchaseForm = () => (
-    <>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div><label className="form-label">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="form-input" /></div>
-        <div><label className="form-label">Invoice No.</label><input type="text" value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)} className="form-input" /></div>
-        <div><label className="form-label">Party</label><SearchableSelect value={party} onChange={setParty} options={partyLedgers.map(l => l.name)} placeholder="Select Party" /></div>
-      </div>
-      <div className="mb-4 p-2 bg-slate-100 rounded-md text-center">
-        <p className="text-sm font-semibold text-gray-700">
-          Transaction Type: <span className="text-orange-600">{isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST & SGST)'}</span>
-        </p>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full"><thead className="bg-slate-100"><tr>
-          <th className="table-header">Item</th><th className="table-header w-24">Qty</th><th className="table-header w-28">Rate</th>
-          <th className="table-header w-32">Taxable Amt</th>
-          {!isInterState && <><th className="table-header w-28">CGST</th><th className="table-header w-28">SGST</th></>}
-          {isInterState && <th className="table-header w-28">IGST</th>}
-          <th className="table-header w-32">Total</th><th className="w-12"></th></tr></thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {items.map((item, index) => (<tr key={index}>
-              <td><input type="text" list="stock-items-datalist" value={item.name} onChange={e => handleItemChange(index, 'name', e.target.value)} className="table-input" /></td>
-              <td><input type="number" value={item.qty} onChange={e => handleItemChange(index, 'qty', e.target.value)} className="table-input text-right" /></td>
-              <td><input type="number" value={item.rate} onChange={e => handleItemChange(index, 'rate', e.target.value)} className="table-input text-right" /></td>
-              <td><input type="number" value={item.taxableAmount.toFixed(2)} readOnly className="table-input text-right" /></td>
-              {!isInterState && <>
-                <td><input type="number" value={item.cgstAmount.toFixed(2)} readOnly className="table-input text-right" /></td>
-                <td><input type="number" value={item.sgstAmount.toFixed(2)} readOnly className="table-input text-right" /></td>
-              </>}
-              {isInterState && <td><input type="number" value={item.igstAmount.toFixed(2)} readOnly className="table-input text-right" /></td>}
-              <td><input type="number" value={item.totalAmount.toFixed(2)} readOnly className="table-input text-right font-semibold" /></td>
-              <td><button onClick={() => handleRemoveItemRow(index)} className="text-red-500 hover:text-red-700 p-1"><Icon name="trash" className="w-4 h-4" /></button></td>
-            </tr>))}
-          </tbody>
-        </table>
-        <datalist id="stock-items-datalist">{stockItems.map(i => <option key={i.name} value={i.name} />)}</datalist>
-      </div>
-      <button onClick={handleAddItemRow} className="mt-2 text-sm text-orange-600 hover:text-orange-800 font-medium flex items-center"><Icon name="plus" className="w-4 h-4 mr-1" /> Add Row</button>
-      <div className="mt-6 space-y-4">
-        <div className="flex justify-between items-start">
-          <div className="relative"><label className="form-label">Narration</label><textarea value={narration} onChange={e => setNarration(e.target.value)} className="form-input w-80 pr-10" rows={3}></textarea><button onClick={handleGenerateNarration} disabled={isNarrationLoading} className="absolute top-7 right-2 text-orange-500 hover:text-orange-700 disabled:text-gray-300" title="Generate Narration with AI">{isNarrationLoading ? <Icon name="spinner" className="w-5 h-5 animate-spin" /> : <Icon name="wand-sparkles" className="w-5 h-5" />}</button></div>
-          <div className="w-full max-w-sm space-y-2">
-            <div className="flex justify-between items-center"><span className="text-sm text-gray-600">Total Taxable Amount</span><span className="font-semibold text-gray-800">{totalTaxableAmount.toFixed(2)}</span></div>
-            {!isInterState && <>
-              <div className="flex justify-between items-center"><span className="text-sm text-gray-600">Total CGST</span><span className="font-semibold text-gray-800">{totalCgst.toFixed(2)}</span></div>
-              <div className="flex justify-between items-center"><span className="text-sm text-gray-600">Total SGST</span><span className="font-semibold text-gray-800">{totalSgst.toFixed(2)}</span></div>
-            </>}
-            {isInterState && <div className="flex justify-between items-center"><span className="text-sm text-gray-600">Total IGST</span><span className="font-semibold text-gray-800">{totalIgst.toFixed(2)}</span></div>}
-            <div className="flex justify-between items-center border-t pt-2 mt-2"><span className="text-lg font-bold text-gray-800">Grand Total</span><span className="text-lg font-bold text-gray-800">{grandTotal.toFixed(2)}</span></div>
-          </div>
+  // New Purchase Voucher Form with Tabs
+  const renderPurchaseForm = () => {
+    return (
+      <div className="space-y-6">
+        {/* Tabs Navigation */}
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setPurchaseActiveTab('supplier')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${purchaseActiveTab === 'supplier'
+              ? 'border-orange-600 text-orange-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+          >
+            Supplier Details
+          </button>
+          <button
+            onClick={() => setPurchaseActiveTab('supply')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${purchaseActiveTab === 'supply'
+              ? 'border-orange-600 text-orange-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+          >
+            Supply Details
+          </button>
+          <button
+            onClick={() => setPurchaseActiveTab('due')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${purchaseActiveTab === 'due'
+              ? 'border-orange-600 text-orange-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+          >
+            Due Details
+          </button>
+          <button
+            onClick={() => setPurchaseActiveTab('transit')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${purchaseActiveTab === 'transit'
+              ? 'border-orange-600 text-orange-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+          >
+            Transit Details
+          </button>
         </div>
 
-      </div>
-    </>
-  );
+        {/* Tab Content */}
+        <div className="p-4 bg-white rounded-lg border border-gray-200 min-h-[200px]">
+          {purchaseActiveTab === 'supplier' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {/* Upload Section - Spanning 1 column on MD */}
+                <div className="md:col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Upload Supporting Document
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      id="purchase-supporting-doc"
+                      onChange={(e) => {
+                        if (e.target.files) setPurchaseSupportingDocument(e.target.files[0]);
+                      }}
+                      className="hidden"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('purchase-supporting-doc')?.click()}
+                      className="w-full h-48 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex flex-col items-center justify-center gap-2 p-4 text-center"
+                    >
+                      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <span className="text-sm font-medium">Click to Upload Supporting Document</span>
+                    </button>
+                    {purchaseSupportingDocument && (
+                      <p className="mt-2 text-xs text-green-600 font-medium truncate">✓ {purchaseSupportingDocument.name}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Form Fields - Spanning 3 columns on MD */}
+                <div className="md:col-span-3 space-y-4">
+                  {/* Row 0: GRN Buttons */}
+                  <div className="flex gap-4 items-end">
+                    <div>
+                      <button className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 text-sm font-medium">Create GRN</button>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">GRN Ref. No.</label>
+                      <input
+                        type="text"
+                        value={grnRefNo}
+                        onChange={(e) => setGrnRefNo(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
+                        placeholder="GRN Reference"
+                      />
+                    </div>
+                    {/* Date & Voucher No */}
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
+                      <input
+                        type="date"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Purchase Voucher No.</label>
+                      <input
+                        type="text"
+                        value={voucherNumber} /* Reusing default voucherNumber or need new state? Using voucherNumber for now as it's auto-generated usually */
+                        readOnly
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-500 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 1: Supplier Invoice & Vendor */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Supplier Invoice No.</label>
+                      <input
+                        type="text"
+                        value={invoiceNo} /* Reusing invoiceNo for supplier invoice no in purchase context */
+                        onChange={(e) => setInvoiceNo(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
+                        placeholder="From Document"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Vendor Name</label>
+                      <input
+                        type="text"
+                        value={party}
+                        onChange={(e) => setParty(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
+                        placeholder="Select Vendor"
+                        list="party-list"
+                      />
+                      <datalist id="party-list">
+                        {/* Placeholder options */}
+                        <option value="Vendor A" />
+                        <option value="Vendor B" />
+                      </datalist>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Bill From & Ship From */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Bill From</label>
+                      <textarea
+                        value={billFrom}
+                        onChange={(e) => setBillFrom(e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm resize-none"
+                        placeholder="Auto-populate from Vendor"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Ship From</label>
+                      <textarea
+                        value={shipFrom}
+                        onChange={(e) => setShipFrom(e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm resize-none"
+                        placeholder="Auto-populate from Vendor"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer / Controls */}
+              <div className="flex flex-wrap items-center gap-4 pt-4 border-t mt-4">
+                <div className="w-48">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Input Type</label>
+                  <select
+                    value={purchaseInputType}
+                    onChange={(e) => setPurchaseInputType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-sm"
+                  >
+                    <option value="Intrastate">Same State (CGST/SGST)</option>
+                    <option value="Interstate">Other State (IGST)</option>
+                    <option value="Import">Import</option>
+                  </select>
+                </div>
+
+                {/* Visual indicators for taxes based on Input Type */}
+                <div className="flex gap-2">
+                  <div className={`px-3 py-2 border rounded text-xs font-medium ${purchaseInputType === 'Intrastate' ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-gray-50 text-gray-400'}`}>
+                    CGST & SGST
+                  </div>
+                  <div className={`px-3 py-2 border rounded text-xs font-medium ${purchaseInputType !== 'Intrastate' ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-gray-50 text-gray-400'}`}>
+                    IGST
+                  </div>
+                  <div className="px-3 py-2 border rounded text-xs font-medium bg-orange-50 border-orange-200 text-orange-700">
+                    Cess
+                  </div>
+                </div>
+
+
+              </div>
+            </div>
+          )}
+
+          {/* Supply Details Tab Content */}
+          {
+            purchaseActiveTab === 'supply' && (
+              <div className="space-y-6">
+                {/* Purchase Order Selection */}
+                <div className="flex items-center gap-4">
+                  <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                    Purchase Order No.
+                  </label>
+                  <select
+                    value={purchaseOrderNo}
+                    onChange={(e) => setPurchaseOrderNo(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 w-64"
+                  >
+                    <option value="">Select Purchase Order</option>
+                    <option value="PO-001">PO-001</option>
+                    <option value="PO-002">PO-002</option>
+                  </select>
+                </div>
+
+                {/* Items Table */}
+                <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm">
+                  <table className="w-full">
+                    <thead className="bg-blue-600 text-white">
+                      <tr>
+                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">S. No.</th>
+                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">Item Code</th>
+                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">Item Name</th>
+                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">HSN/SAC</th>
+                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">Qty</th>
+                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">UQC</th>
+                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">Rate</th>
+                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">Taxable Value</th>
+                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">IGST</th>
+                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">CESS</th>
+                        <th className="px-3 py-3 text-xs font-semibold text-center">Invoice Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {purchaseItems.map((row, index) => (
+                        <tr key={row.id} className="border-b border-gray-200 hover:bg-gray-50">
+                          <td className="px-2 py-2 text-center text-sm border-r border-gray-200">
+                            <div className="flex items-center justify-center gap-2">
+                              <input type="checkbox" className="w-4 h-4 rounded text-blue-600" />
+                              {index + 1}
+                            </div>
+                          </td>
+                          <td className="px-2 py-2 border-r border-gray-200">
+                            <div className="font-mono text-sm">{row.itemCode || '---'}</div>
+                          </td>
+                          <td className="px-2 py-2 border-r border-gray-200">
+                            <div className="text-sm">{row.itemName || '---'}</div>
+                          </td>
+                          <td className="px-2 py-2 border-r border-gray-200">
+                            <div className="text-sm">{row.hsnSac || '---'}</div>
+                          </td>
+                          <td className="px-2 py-2 border-r border-gray-200">
+                            <input
+                              type="number"
+                              value={row.qty}
+                              className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm"
+                            />
+                          </td>
+                          <td className="px-2 py-2 border-r border-gray-200">
+                            <div className="text-sm">{row.uom || '---'}</div>
+                          </td>
+                          <td className="px-2 py-2 border-r border-gray-200">
+                            <div className="text-right text-sm">{row.rate.toFixed(2)}</div>
+                          </td>
+                          <td className="px-2 py-2 border-r border-gray-200 bg-gray-50">
+                            <div className="text-right text-sm font-medium">{row.taxableValue.toFixed(2)}</div>
+                          </td>
+                          <td className="px-2 py-2 border-r border-gray-200">
+                            <div className="text-right text-sm">{row.igst.toFixed(2)}</div>
+                          </td>
+                          <td className="px-2 py-2 border-r border-gray-200">
+                            <div className="text-right text-sm">{row.cess.toFixed(2)}</div>
+                          </td>
+                          <td className="px-2 py-2">
+                            <div className="text-right text-sm font-bold">{row.invoiceValue.toFixed(2)}</div>
+                          </td>
+                        </tr>
+                      ))}
+                      {/* Empty Row for Visuals if needed or Add Item Button Row */}
+                      <tr className="border-b border-gray-200 bg-blue-50/10">
+                        <td colSpan={11} className="px-4 py-2">
+                          <button className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            Add Item
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Bottom Fields: Purchase Ledger & Description */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Ledger</label>
+                    <select
+                      value={purchaseLedger}
+                      onChange={(e) => setPurchaseLedger(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Select Ledger</option>
+                      <option value="Local Purchases">Local Purchases</option>
+                      <option value="Interstate Purchases">Interstate Purchases</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea
+                      value={purchaseDescription}
+                      onChange={(e) => setPurchaseDescription(e.target.value)}
+                      rows={1}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter remarks..."
+                    />
+                  </div>
+                </div>
+
+                {/* Navigation */}
+
+              </div>
+            )
+          }
+          {
+            purchaseActiveTab === 'due' && (
+              <div className="space-y-6">
+                {/* Tax Summary Table */}
+                <div className="border border-gray-300 rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-r border-gray-300">Taxable Value</th>
+                        <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-r border-gray-300">IGST</th>
+                        <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-r border-gray-300">CGST</th>
+                        <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-r border-gray-300">SGST/UTGST</th>
+                        <th className="px-4 py-2 text-sm font-semibold text-gray-700 border-r border-gray-300">Cess</th>
+                        <th className="px-4 py-2 text-sm font-semibold text-gray-700">State Cess</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="bg-white">
+                        <td className="px-4 py-3 border-r border-gray-200 text-center text-sm font-medium">
+                          {(purchaseItems.reduce((sum, item) => sum + (Number(item.taxableValue) || 0), 0)).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 border-r border-gray-200 text-center text-sm font-medium">
+                          {(purchaseItems.reduce((sum, item) => sum + (Number(item.igst) || 0), 0)).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 border-r border-gray-200 text-center text-sm font-medium">
+                          {(purchaseItems.reduce((sum, item) => sum + (Number(item.cgst) || 0), 0)).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 border-r border-gray-200 text-center text-sm font-medium">
+                          {(purchaseItems.reduce((sum, item) => sum + (Number(item.cgst) || 0), 0)).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 border-r border-gray-200 text-center text-sm font-medium">
+                          {(purchaseItems.reduce((sum, item) => sum + (Number(item.cess) || 0), 0)).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm font-medium">
+                          0.00
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Left Column: Payment Summary */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Value</label>
+                      <input
+                        type="text"
+                        readOnly
+                        value={(purchaseItems.reduce((sum, item) => sum + (Number(item.invoiceValue) || 0), 0)).toFixed(2)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50 text-right font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">TDS/TCS under GST</label>
+                      <input
+                        type="text"
+                        value={purchaseTdsGst}
+                        onChange={(e) => setPurchaseTdsGst(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-right"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">TDS/TCS under Income Tax</label>
+                      <input
+                        type="text"
+                        value={purchaseTdsIt}
+                        onChange={(e) => setPurchaseTdsIt(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-right"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Advance Paid</label>
+                      <input
+                        type="text"
+                        value={purchaseAdvancePaid}
+                        onChange={(e) => setPurchaseAdvancePaid(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-right"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Amount Due</label>
+                      <input
+                        type="text"
+                        readOnly
+                        value={((purchaseItems.reduce((sum, item) => sum + (Number(item.invoiceValue) || 0), 0)) - (Number(purchaseTdsGst) || 0) - (Number(purchaseTdsIt) || 0) - (Number(purchaseAdvancePaid) || 0)).toFixed(2)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50 text-right font-bold text-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Posting Note:</label>
+                      <textarea
+                        value={purchasePostingNote}
+                        onChange={(e) => setPurchasePostingNote(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 resize-none h-24"
+                        placeholder="Enter posting notes..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Middle Column: Advance Reference Grid */}
+                  <div className="border border-gray-300 rounded-lg p-4 bg-blue-50">
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-gray-700">
+                        <div className="text-center">Date</div>
+                        <div className="text-center">Advance Ref. No.</div>
+                        <div className="text-center">Amount</div>
+                        <div className="text-center">Applied Now</div>
+                      </div>
+                      {/* Placeholder for Advance Refs - Empty State for now as logic is complex */}
+                      <div className="text-center py-8 text-gray-500 text-sm">
+                        No advance references available for selected Purchase Order.
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Terms & Conditions */}
+                  <div className="border border-gray-200 rounded-lg p-6 bg-white">
+                    <div className="flex items-center justify-between mb-6">
+                      <button
+                        type="button"
+                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                      >
+                        Terms & Conditions
+                      </button>
+                      <button
+                        type="button"
+                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                      >
+                        Edit Masters
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-gray-700">Edit Here</h4>
+                      <textarea
+                        value={purchaseTerms}
+                        onChange={(e) => setPurchaseTerms(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 text-gray-600 placeholder-gray-400 resize-none h-64"
+                        placeholder="Enter terms and conditions..."
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Navigation Button */}
+
+              </div>
+            )
+          }
+          {
+            purchaseActiveTab === 'transit' && (
+              <div className="space-y-6">
+                {/* Main Two-Column Layout (Matching SalesVoucher structure) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-6 rounded-lg border border-gray-200">
+
+                  {/* Left Column */}
+                  <div className="space-y-4">
+                    {/* Received In / Dispatch From */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Received In
+                      </label>
+                      <textarea
+                        value={purchaseTransitReceivedIn}
+                        onChange={(e) => setPurchaseTransitReceivedIn(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 resize-none"
+                        rows={3}
+                        placeholder="Warehouse (If connected with the inventory module) / Location (As full address with Pincode)"
+                      />
+                    </div>
+
+                    {/* Mode of Transport */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Mode of Transport
+                      </label>
+                      <select
+                        value={purchaseTransitMode}
+                        onChange={(e) => setPurchaseTransitMode(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 bg-white"
+                      >
+                        <option value="Road">Road</option>
+                        <option value="Air">Air</option>
+                        <option value="Sea">Sea</option>
+                        <option value="Rail">Rail</option>
+                      </select>
+                    </div>
+
+                    {/* Receipt Date */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Receipt Date
+                      </label>
+                      <input
+                        type="date"
+                        value={purchaseTransitReceiptDate}
+                        onChange={(e) => setPurchaseTransitReceiptDate(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+
+                    {/* Receipt Time */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Receipt Time
+                      </label>
+                      <input
+                        type="time"
+                        value={purchaseTransitReceiptTime}
+                        onChange={(e) => setPurchaseTransitReceiptTime(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+
+                    {/* Upload Document */}
+                    <div className="mt-6">
+                      <input
+                        type="file"
+                        id="transit-doc"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) setPurchaseTransitDocument(file);
+                        }}
+                        className="hidden"
+                        accept=".jpg,.jpeg,.pdf"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById('transit-doc')?.click()}
+                        className="w-full h-40 border-2 border-dashed border-gray-300 hover:border-teal-500 bg-white hover:bg-teal-50 text-gray-600 rounded-lg transition-colors flex flex-col items-center justify-center gap-2"
+                      >
+                        <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <span className="text-sm font-medium">UPLOAD DOCUMENT</span>
+                        {purchaseTransitDocument && (
+                          <span className="text-xs mt-2 text-teal-600 font-medium">✓ {purchaseTransitDocument.name}</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right Column (Transport Details) */}
+                  <div className="space-y-4">
+                    {/* Delivery Type */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Delivery Type
+                      </label>
+                      <select
+                        value={purchaseTransitDeliveryType}
+                        onChange={(e) => {
+                          setPurchaseTransitDeliveryType(e.target.value);
+                          if (e.target.value === 'Courier') {
+                            setPurchaseTransitTransporterId('');
+                            setPurchaseTransitTransporterName('');
+                            setPurchaseTransitVehicleNo('');
+                            setPurchaseTransitLrGrConsignment('');
+                          }
+                        }}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 bg-white"
+                      >
+                        <option value="Self">Self</option>
+                        <option value="Third Party">Third Party</option>
+                        <option value="Courier">Courier</option>
+                      </select>
+                    </div>
+
+                    {/* Self/Third Party/Courier */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Self/Third Party/Courier
+                      </label>
+                      <input
+                        type="text"
+                        value={purchaseTransitSelfThirdParty}
+                        onChange={(e) => setPurchaseTransitSelfThirdParty(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                        placeholder="Enter details"
+                      />
+                    </div>
+
+                    {/* Transporter ID/GSTIN */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Transporter ID/GSTIN
+                      </label>
+                      <input
+                        type="text"
+                        value={purchaseTransitTransporterId}
+                        onChange={(e) => setPurchaseTransitTransporterId(e.target.value)}
+                        disabled={purchaseTransitDeliveryType === 'Courier'}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        placeholder="Editable with numerics and alphabet"
+                      />
+                    </div>
+
+                    {/* Transporter Name */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Transporter Name
+                      </label>
+                      <input
+                        type="text"
+                        value={purchaseTransitTransporterName}
+                        onChange={(e) => setPurchaseTransitTransporterName(e.target.value)}
+                        disabled={purchaseTransitDeliveryType === 'Courier'}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        placeholder="Editable with numerics and alphabet"
+                      />
+                    </div>
+
+                    {/* Vehicle No. */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Vehicle No.
+                      </label>
+                      <input
+                        type="text"
+                        value={purchaseTransitVehicleNo}
+                        onChange={(e) => setPurchaseTransitVehicleNo(e.target.value)}
+                        disabled={purchaseTransitDeliveryType === 'Courier'}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        placeholder="Editable with numerics and alphabet"
+                      />
+                    </div>
+
+                    {/* LR/GR/Consignment */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        LR/GR/Consignment
+                      </label>
+                      <input
+                        type="text"
+                        value={purchaseTransitLrGrConsignment}
+                        onChange={(e) => setPurchaseTransitLrGrConsignment(e.target.value)}
+                        disabled={purchaseTransitDeliveryType === 'Courier'}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        placeholder="Editable with numerics and alphabet"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Air/Sea Mode */}
+                {(purchaseTransitMode === 'Air' || purchaseTransitMode === 'Sea') && (
+                  <div className="space-y-6 mt-6">
+                    {/* Upto PORT (Consolidated for Air/Sea) */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">UPTO PORT</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-6 rounded-lg border border-gray-200">
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Bill of Lading No.</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortBolNo}
+                              onChange={(e) => setPurchaseTransitUptoPortBolNo(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Shipping Bill No.</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortShippingBillNo}
+                              onChange={(e) => setPurchaseTransitUptoPortShippingBillNo(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Shipping Bill Date</label>
+                            <input
+                              type="date"
+                              value={purchaseTransitUptoPortShippingBillDate}
+                              onChange={(e) => setPurchaseTransitUptoPortShippingBillDate(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Ship/Port Code</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortShipPortCode}
+                              onChange={(e) => setPurchaseTransitUptoPortShipPortCode(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Origin</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortOriginCity}
+                              onChange={(e) => setPurchaseTransitUptoPortOriginCity(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 mb-2"
+                              placeholder="City"
+                            />
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortOriginCountry}
+                              onChange={(e) => setPurchaseTransitUptoPortOriginCountry(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                              placeholder="Country"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Bill of Lading Date</label>
+                            <input
+                              type="date"
+                              value={purchaseTransitUptoPortBolDate}
+                              onChange={(e) => setPurchaseTransitUptoPortBolDate(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Vessel/Flight No.</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortVesselFlightNo}
+                              onChange={(e) => setPurchaseTransitUptoPortVesselFlightNo(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Port of Loading</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortPortOfLoading}
+                              onChange={(e) => setPurchaseTransitUptoPortPortOfLoading(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Port of Discharge</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortPortOfDischarge}
+                              onChange={(e) => setPurchaseTransitUptoPortPortOfDischarge(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Final Destination</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortFinalDestCity}
+                              onChange={(e) => setPurchaseTransitUptoPortFinalDestCity(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 mb-2"
+                              placeholder="City"
+                            />
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortFinalDestCountry}
+                              onChange={(e) => setPurchaseTransitUptoPortFinalDestCountry(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                              placeholder="Country"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Rail Mode */}
+                {purchaseTransitMode === 'Rail' && (
+                  <div className="space-y-6 mt-6">
+                    {/* Upto PORT (Consolidated for Rail) */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">UPTO PORT</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-6 rounded-lg border border-gray-200">
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Bill of Lading No.</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortBolNo}
+                              onChange={(e) => setPurchaseTransitUptoPortBolNo(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Railway Receipt No.</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortRrNo}
+                              onChange={(e) => setPurchaseTransitUptoPortRrNo(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Railway Receipt Date</label>
+                            <input
+                              type="date"
+                              value={purchaseTransitUptoPortRrDate}
+                              onChange={(e) => setPurchaseTransitUptoPortRrDate(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Origin</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortOriginCity}
+                              onChange={(e) => setPurchaseTransitUptoPortOriginCity(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 mb-2"
+                              placeholder="City"
+                            />
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortOriginCountry}
+                              onChange={(e) => setPurchaseTransitUptoPortOriginCountry(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                              placeholder="Country"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Bill of Lading Date</label>
+                            <input
+                              type="date"
+                              value={purchaseTransitUptoPortBolDate}
+                              onChange={(e) => setPurchaseTransitUptoPortBolDate(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">FNR No.</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortFnrNo}
+                              onChange={(e) => setPurchaseTransitUptoPortFnrNo(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Station of Loading</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortStationLoading}
+                              onChange={(e) => setPurchaseTransitUptoPortStationLoading(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Station of Discharge</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortStationDischarge}
+                              onChange={(e) => setPurchaseTransitUptoPortStationDischarge(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Final Destination</label>
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortFinalDestCity}
+                              onChange={(e) => setPurchaseTransitUptoPortFinalDestCity(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500 mb-2"
+                              placeholder="City"
+                            />
+                            <input
+                              type="text"
+                              value={purchaseTransitUptoPortFinalDestCountry}
+                              onChange={(e) => setPurchaseTransitUptoPortFinalDestCountry(e.target.value)}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-teal-500 focus:border-teal-500"
+                              placeholder="Country"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          }
+        </div >
+
+        {/* Common Action Buttons (Save/Cancel) can go here if needed globally for the tabs */}
+      </div >
+    );
+  };
+
+  const renderSalesPurchaseForm = () => {
+    if (voucherType === 'Purchase') return renderPurchaseForm();
+
+    return (
+      <>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div><label className="form-label">Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="form-input" /></div>
+          <div><label className="form-label">Invoice No.</label><input type="text" value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)} className="form-input" /></div>
+          <div><label className="form-label">Party</label><SearchableSelect value={party} onChange={setParty} options={partyLedgers.map(l => l.name)} placeholder="Select Party" /></div>
+        </div>
+        <div className="mb-4 p-2 bg-slate-100 rounded-md text-center">
+          <p className="text-sm font-semibold text-gray-700">
+            Transaction Type: <span className="text-orange-600">{isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST & SGST)'}</span>
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full"><thead className="bg-slate-100"><tr>
+            <th className="table-header">Item</th><th className="table-header w-24">Qty</th><th className="table-header w-28">Rate</th>
+            <th className="table-header w-32">Taxable Amt</th>
+            {!isInterState && <><th className="table-header w-28">CGST</th><th className="table-header w-28">SGST</th></>}
+            {isInterState && <th className="table-header w-28">IGST</th>}
+            <th className="table-header w-32">Total</th><th className="w-12"></th></tr></thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {items.map((item, index) => (<tr key={index}>
+                <td><input type="text" list="stock-items-datalist" value={item.name} onChange={e => handleItemChange(index, 'name', e.target.value)} className="table-input" /></td>
+                <td><input type="number" value={item.qty} onChange={e => handleItemChange(index, 'qty', e.target.value)} className="table-input text-right" /></td>
+                <td><input type="number" value={item.rate} onChange={e => handleItemChange(index, 'rate', e.target.value)} className="table-input text-right" /></td>
+                <td><input type="number" value={item.taxableAmount.toFixed(2)} readOnly className="table-input text-right" /></td>
+                {!isInterState && <>
+                  <td><input type="number" value={item.cgstAmount.toFixed(2)} readOnly className="table-input text-right" /></td>
+                  <td><input type="number" value={item.sgstAmount.toFixed(2)} readOnly className="table-input text-right" /></td>
+                </>}
+                {isInterState && <td><input type="number" value={item.igstAmount.toFixed(2)} readOnly className="table-input text-right" /></td>}
+                <td><input type="number" value={item.totalAmount.toFixed(2)} readOnly className="table-input text-right font-semibold" /></td>
+                <td><button onClick={() => handleRemoveItemRow(index)} className="text-red-500 hover:text-red-700 p-1"><Icon name="trash" className="w-4 h-4" /></button></td>
+              </tr>))}
+            </tbody>
+          </table>
+          <datalist id="stock-items-datalist">{stockItems.map(i => <option key={i.name} value={i.name} />)}</datalist>
+        </div>
+        <button onClick={handleAddItemRow} className="mt-2 text-sm text-orange-600 hover:text-orange-800 font-medium flex items-center"><Icon name="plus" className="w-4 h-4 mr-1" /> Add Row</button>
+        <div className="mt-6 space-y-4">
+          <div className="flex justify-between items-start">
+            <div className="relative"><label className="form-label">Narration</label><textarea value={narration} onChange={e => setNarration(e.target.value)} className="form-input w-80 pr-10" rows={3}></textarea><button onClick={handleGenerateNarration} disabled={isNarrationLoading} className="absolute top-7 right-2 text-orange-500 hover:text-orange-700 disabled:text-gray-300" title="Generate Narration with AI">{isNarrationLoading ? <Icon name="spinner" className="w-5 h-5 animate-spin" /> : <Icon name="wand-sparkles" className="w-5 h-5" />}</button></div>
+            <div className="w-full max-w-sm space-y-2">
+              <div className="flex justify-between items-center"><span className="text-sm text-gray-600">Total Taxable Amount</span><span className="font-semibold text-gray-800">{totalTaxableAmount.toFixed(2)}</span></div>
+              {!isInterState && <>
+                <div className="flex justify-between items-center"><span className="text-sm text-gray-600">Total CGST</span><span className="font-semibold text-gray-800">{totalCgst.toFixed(2)}</span></div>
+                <div className="flex justify-between items-center"><span className="text-sm text-gray-600">Total SGST</span><span className="font-semibold text-gray-800">{totalSgst.toFixed(2)}</span></div>
+              </>}
+              {isInterState && <div className="flex justify-between items-center"><span className="text-sm text-gray-600">Total IGST</span><span className="font-semibold text-gray-800">{totalIgst.toFixed(2)}</span></div>}
+              <div className="flex justify-between items-center border-t pt-2 mt-2"><span className="text-lg font-bold text-gray-800">Grand Total</span><span className="text-lg font-bold text-gray-800">{grandTotal.toFixed(2)}</span></div>
+            </div>
+          </div>
+
+        </div>
+      </>
+    );
+  };
 
   // Handle "Receive" button click - copies amount to receipt field
   const handleReceiveClick = (transactionId: string) => {
@@ -2994,9 +4055,28 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
             <button onClick={resetForm} className="inline-flex items-center justify-center px-6 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
               Cancel
             </button>
-            <button onClick={handleSaveVoucher} className="inline-flex items-center justify-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
-              Save Voucher
-            </button>
+
+            {voucherType === 'Purchase' && purchaseActiveTab !== 'transit' ? (
+              <button
+                onClick={() => {
+                  if (purchaseActiveTab === 'supplier') setPurchaseActiveTab('supply');
+                  else if (purchaseActiveTab === 'supply') setPurchaseActiveTab('due');
+                  else if (purchaseActiveTab === 'due') setPurchaseActiveTab('transit');
+                }}
+                className="inline-flex items-center justify-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Next
+              </button>
+            ) : (
+              <>
+                <button onClick={handleSaveVoucher} className="inline-flex items-center justify-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                  Post & Close
+                </button>
+                <button onClick={handleSaveVoucher} className="inline-flex items-center justify-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                  Post & Print/Email
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
