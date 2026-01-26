@@ -689,6 +689,9 @@ class CustomerTransactionSalesQuotationGeneral(models.Model):
     effective_from = models.DateField(null=True, blank=True)
     effective_to = models.DateField(null=True, blank=True)
     
+    # Items (Stored as JSON)
+    items = models.JSONField(default=list, blank=True, null=True)
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -703,32 +706,6 @@ class CustomerTransactionSalesQuotationGeneral(models.Model):
 
     def __str__(self):
         return self.quote_number
-
-
-class CustomerTransactionSalesQuotationGeneralItem(models.Model):
-    """
-    Customer Transaction - Sales Quotation General Item Table
-    """
-    id = models.AutoField(primary_key=True)
-    general_quote = models.ForeignKey(
-        CustomerTransactionSalesQuotationGeneral,
-        on_delete=models.CASCADE,
-        related_name='items',
-        db_column='general_quote_id'
-    )
-    
-    item_code = models.CharField(max_length=50, null=True, blank=True)
-    item_name = models.CharField(max_length=255, null=True, blank=True)
-    min_order_qty = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    base_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    max_discount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    best_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    
-    class Meta:
-        db_table = 'customer_transaction_salesquotation_general_item'
-    
-    def __str__(self):
-        return f"{self.item_code} - {self.general_quote.quote_number}"
 
 
 class CustomerTransactionSalesQuotationSpecific(models.Model):
@@ -751,6 +728,9 @@ class CustomerTransactionSalesQuotationSpecific(models.Model):
     tentative_delivery_date = models.DateField(null=True, blank=True)
     payment_terms = models.TextField(null=True, blank=True)
     
+    # Items (Stored as JSON)
+    items = models.JSONField(default=list, blank=True, null=True)
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -765,33 +745,6 @@ class CustomerTransactionSalesQuotationSpecific(models.Model):
 
     def __str__(self):
         return f"{self.quote_number} - {self.customer_name}"
-
-
-class CustomerTransactionSalesQuotationSpecificItem(models.Model):
-    """
-    Customer Transaction - Sales Quotation Specific Item Table
-    """
-    id = models.AutoField(primary_key=True)
-    specific_quote = models.ForeignKey(
-        CustomerTransactionSalesQuotationSpecific,
-        on_delete=models.CASCADE,
-        related_name='items',
-        db_column='specific_quote_id'
-    )
-    
-    item_code = models.CharField(max_length=50, null=True, blank=True)
-    item_name = models.CharField(max_length=255, null=True, blank=True)
-    customer_item_name = models.CharField(max_length=255, null=True, blank=True)
-    min_order_qty = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    base_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    discount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    negotiated_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    
-    class Meta:
-        db_table = 'customer_transaction_salesquotation_specific_item'
-    
-    def __str__(self):
-        return f"{self.item_code} - {self.specific_quote.quote_number}"
 
 
 class CustomerTransactionSalesOrderBasicDetails(models.Model):

@@ -213,6 +213,14 @@ class ApiService {
         return httpClient.delete<any>(`/api/inventory/master-voucher-issue-slip/${id}/`);
     }
 
+    async createInventoryOperationGRN(data: any) {
+        return httpClient.post<any>('/api/inventory/operations/grn/', data);
+    }
+
+    async createInventoryOperationOutward(data: any) {
+        return httpClient.post<any>('/api/inventory/operations/outward/', data);
+    }
+
     // ============================================================================
     // MASTERS - VOUCHER CONFIG
     // ============================================================================

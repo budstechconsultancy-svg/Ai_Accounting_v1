@@ -22,6 +22,7 @@ from .views_payment import VoucherPaymentSingleViewSet, VoucherPaymentBulkViewSe
 from .views_receipt import VoucherReceiptSingleViewSet, VoucherReceiptBulkViewSet
 from .views_expense import VoucherExpenseViewSet
 from .views_contra_journal import VoucherContraViewSet, VoucherJournalViewSet
+from .views_voucher_purchase import VoucherPurchaseViewSet
 
 router = routers.DefaultRouter()
 
@@ -37,6 +38,8 @@ router.register('hierarchy', MasterHierarchyRawViewSet, basename='hierarchy')
 # Sales Voucher endpoints (Must register BEFORE generic 'vouchers')
 router.register('vouchers/receipt-types', ReceiptVoucherTypeViewSet, basename='receipt-voucher-types')
 router.register('vouchers/sales', SalesVoucherViewSet, basename='sales-vouchers')
+router.register('vouchers/purchase', VoucherPurchaseViewSet, basename='purchase-vouchers')
+
 router.register('vouchers/payment-single', VoucherPaymentSingleViewSet, basename='payment-voucher-single')
 router.register('vouchers/payment-bulk', VoucherPaymentBulkViewSet, basename='payment-voucher-bulk')
 router.register('vouchers/receipt-single', VoucherReceiptSingleViewSet, basename='receipt-voucher-single')

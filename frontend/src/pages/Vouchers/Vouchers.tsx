@@ -945,43 +945,91 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
   const handleAddEntryRow = () => setEntries([...entries, { ledger: '', debit: 0, credit: 0 }]);
   const handleRemoveEntryRow = (index: number) => entries.length > 2 && setEntries(entries.filter((_, i) => i !== index));
 
-  const handleSaveVoucher = () => {
+  const handleSaveVoucher = async () => {
     let voucher: Voucher | null = null;
 
-    switch (voucherType) {
-      case 'Purchase':
-        // Calculate totals for Purchase items
-        const pTotalTaxable = purchaseItems.reduce((sum, item) => sum + (Number(item.taxableValue) || 0), 0);
-        const pTotalCgst = purchaseItems.reduce((sum, item) => sum + (Number(item.cgst) || 0), 0);
-        const pTotalSgst = purchaseItems.reduce((sum, item) => sum + (Number(item.sgst) || 0), 0);
-        const pTotalIgst = purchaseItems.reduce((sum, item) => sum + (Number(item.igst) || 0), 0);
-        const pGrandTotal = purchaseItems.reduce((sum, item) => sum + (Number(item.invoiceValue) || 0), 0);
+    if (voucherType === 'Purchase') {
+      // Construct Payload for Purchase Voucher
+      const purchaseData: any = {
+        date: date,
+        supplier_invoice_no: invoiceNo,
+        purchase_voucher_no: voucherNumber,
+        vendor_name: party,
+        gstin: gstin,
+        grn_reference: grnRefNo,
+        bill_from: billFrom,
+        ship_from: shipFrom,
+        input_type: purchaseInputType,
+        invoice_in_foreign_currency: invoiceInForeignCurrency,
 
-        voucher = {
-          id: '',
-          type: voucherType,
-          date,
-          isInterState,
-          invoiceNo,
-          party,
-          items: purchaseItems.map(pi => ({
-            name: pi.itemName,
-            qty: pi.qty,
-            rate: pi.rate,
-            taxableAmount: pi.taxableValue,
-            cgstAmount: pi.cgst,
-            sgstAmount: pi.sgst || 0,
-            igstAmount: pi.igst,
-            totalAmount: pi.invoiceValue
-          })),
-          totalTaxableAmount: pTotalTaxable,
-          totalCgst: pTotalCgst,
-          totalSgst: pTotalSgst,
-          totalIgst: pTotalIgst,
-          total: pGrandTotal,
-          narration
+        due_details: {
+          tds_gst: purchaseTdsGst || 0,
+          tds_it: purchaseTdsIt || 0,
+          advance_paid: purchaseAdvancePaid || 0,
+          to_pay: purchaseToPay || 0,
+          posting_note: purchasePostingNote,
+          terms: purchaseTerms,
+          advance_references: purchaseAdvanceRefs
+        },
+        transit_details: {
+          mode: purchaseTransitMode,
+          received_in: purchaseTransitReceivedIn,
+          receipt_date: purchaseTransitReceiptDate || null,
+          receipt_time: purchaseTransitReceiptTime || null,
+          delivery_type: purchaseTransitDeliveryType,
+          self_third_party: purchaseTransitSelfThirdParty,
+          transporter_id: purchaseTransitTransporterId,
+          transporter_name: purchaseTransitTransporterName,
+          vehicle_no: purchaseTransitVehicleNo,
+          lr_gr_consignment: purchaseTransitLrGrConsignment
+        }
+      };
+
+      // Conditionally add Supply Details to avoid sending 'null' which creates strict validation errors
+      // Always include Supply INR Details
+      purchaseData.supply_inr_details = {
+        purchase_order_no: purchaseOrderNo,
+        purchase_ledger: purchaseLedger,
+        items: purchaseItems
+      };
+
+      // Conditionally add Supply Foreign Details
+      if (invoiceInForeignCurrency === 'Yes') {
+        purchaseData.supply_foreign_details = {
+          purchase_order_no: purchaseOrderNo,
+          exchange_rate: exchangeRate || 1.0,
+          description: purchaseDescription,
+          items: purchaseItems
         };
-        break;
+      }
+
+      // DEBUG: Alert/log the final payload
+      console.log('Final Purchase Data Payload:', JSON.stringify(purchaseData, null, 2));
+      // alert('Debug: Sending Payload. Check Console.');
+
+      try {
+        console.log('Sending Purchase Voucher Data:', purchaseData);
+        const response = await httpClient.post('/api/vouchers/purchase/', purchaseData);
+        console.log('Purchase Voucher Saved:', response);
+        alert('Purchase Voucher Saved Successfully!');
+
+        // Optional: Handle file upload separately if needed, or if we switch to FormData later.
+
+        resetForm();
+        // Refresh logic if needed
+      } catch (error: any) {
+        console.error('Error saving purchase voucher:', error);
+        const serverError = error.response?.data;
+        const errorMessage = serverError
+          ? (typeof serverError === 'object' ? JSON.stringify(serverError, null, 2) : serverError)
+          : error.message;
+        alert(`Failed to save Purchase Voucher.\n${errorMessage}`);
+      }
+      return;
+    }
+
+    switch (voucherType) {
+      // (Removed Purchase case from switch and handled above)
       case 'Sales':
         voucher = { id: '', type: voucherType, date, isInterState, invoiceNo, party, items, totalTaxableAmount, totalCgst, totalSgst, totalIgst, total: grandTotal, narration };
         break;
@@ -1567,6 +1615,21 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                   </select>
                 </div>
 
+                {/* Purchase Ledger Selection (Added) */}
+                <div className="flex items-center gap-4">
+                  <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                    Purchase Ledger
+                  </label>
+                  <div className="w-64">
+                    <SearchableSelect
+                      value={purchaseLedger}
+                      onChange={setPurchaseLedger}
+                      options={ledgers.filter(l => l.group === 'Purchase Accounts').map(l => l.name)} // Assuming 'Purchase Accounts' group
+                      placeholder="Select Purchase Ledger"
+                    />
+                  </div>
+                </div>
+
                 {/* Items Table */}
                 <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm">
                   <table className="w-full">
@@ -1580,7 +1643,14 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                         <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">UQC</th>
                         <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">Item Rate</th>
                         <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">Taxable Value</th>
-                        <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">IGST</th>
+                        {isInterState ? (
+                          <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">IGST</th>
+                        ) : (
+                          <>
+                            <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">CGST</th>
+                            <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">SGST</th>
+                          </>
+                        )}
                         <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">CESS</th>
                         <th className="px-3 py-3 text-xs font-semibold text-center border-r border-blue-500">Invoice Value</th>
                         <th className="px-3 py-3 text-xs font-semibold text-center">Delete</th>
@@ -1596,13 +1666,31 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                             </div>
                           </td>
                           <td className="px-2 py-2 border-r border-gray-200">
-                            <div className="font-mono text-sm">{row.itemCode || '---'}</div>
+                            <input
+                              type="text"
+                              value={row.itemCode}
+                              onChange={(e) => handlePurchaseItemChange(index, 'itemCode', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm font-mono"
+                              placeholder="Code"
+                            />
                           </td>
                           <td className="px-2 py-2 border-r border-gray-200">
-                            <div className="text-sm">{row.itemName || '---'}</div>
+                            <input
+                              type="text"
+                              value={row.itemName}
+                              onChange={(e) => handlePurchaseItemChange(index, 'itemName', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                              placeholder="Item Name"
+                            />
                           </td>
                           <td className="px-2 py-2 border-r border-gray-200">
-                            <div className="text-sm">{row.hsnSac || '---'}</div>
+                            <input
+                              type="text"
+                              value={row.hsnSac}
+                              onChange={(e) => handlePurchaseItemChange(index, 'hsnSac', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                              placeholder="HSN/SAC"
+                            />
                           </td>
                           <td className="px-2 py-2 border-r border-gray-200">
                             <input
@@ -1613,7 +1701,13 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                             />
                           </td>
                           <td className="px-2 py-2 border-r border-gray-200">
-                            <div className="text-sm">{row.uom || '---'}</div>
+                            <input
+                              type="text"
+                              value={row.uom}
+                              onChange={(e) => handlePurchaseItemChange(index, 'uom', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                              placeholder="UOM"
+                            />
                           </td>
                           <td className="px-2 py-2 border-r border-gray-200">
                             <input
@@ -1623,7 +1717,7 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                               className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm"
                             />
                           </td>
-                          <td className="px-2 py-2 border-r border-gray-200 bg-gray-50">
+                          <td className="px-2 py-2 border-r border-gray-200">
                             <input
                               type="number"
                               value={row.taxableValue}
@@ -1631,14 +1725,35 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                               className="w-24 px-2 py-1 bg-transparent border-0 text-right text-sm font-medium"
                             />
                           </td>
-                          <td className="px-2 py-2 border-r border-gray-200">
-                            <input
-                              type="number"
-                              value={row.igst}
-                              onChange={(e) => handlePurchaseItemChange(index, 'igst', e.target.value)}
-                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm"
-                            />
-                          </td>
+                          {isInterState ? (
+                            <td className="px-2 py-2 border-r border-gray-200">
+                              <input
+                                type="number"
+                                value={row.igst}
+                                onChange={(e) => handlePurchaseItemChange(index, 'igst', e.target.value)}
+                                className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm"
+                              />
+                            </td>
+                          ) : (
+                            <>
+                              <td className="px-2 py-2 border-r border-gray-200">
+                                <input
+                                  type="number"
+                                  value={row.cgst}
+                                  onChange={(e) => handlePurchaseItemChange(index, 'cgst', e.target.value)}
+                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm"
+                                />
+                              </td>
+                              <td className="px-2 py-2 border-r border-gray-200">
+                                <input
+                                  type="number"
+                                  value={row.sgst}
+                                  onChange={(e) => handlePurchaseItemChange(index, 'sgst', e.target.value)}
+                                  className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-sm"
+                                />
+                              </td>
+                            </>
+                          )}
 
 
                           <td className="px-2 py-2 border-r border-gray-200">
@@ -4555,10 +4670,17 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
         isCreateGRNModalOpen && (
           <CreateGRNModal
             onClose={() => setIsCreateGRNModalOpen(false)}
-            onSave={(data) => {
-              console.log('GRN Created:', data);
-              setGrnRefNo(data.preview); // Auto-fill GRN Ref No with the generated preview
-              // You might want to save the full configuration somewhere if needed
+            onSave={async (data) => {
+              try {
+                console.log('Creating GRN...', data);
+                const response = await apiService.createInventoryOperationGRN(data);
+                console.log('GRN Created:', response);
+                setGrnRefNo(response.grn_no);
+                alert('GRN Created Successfully!');
+              } catch (error) {
+                console.error("Failed to create GRN", error);
+                alert("Failed to create GRN. Please check inputs.");
+              }
             }}
           />
         )

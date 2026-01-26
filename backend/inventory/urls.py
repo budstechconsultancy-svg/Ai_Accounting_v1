@@ -13,7 +13,9 @@ from .views import (
     InventoryOperationProductionViewSet,
     InventoryOperationConsumptionViewSet,
     InventoryOperationScrapViewSet,
-    InventoryOperationOutwardViewSet
+    InventoryOperationGRNViewSet,
+    InventoryOperationOutwardViewSet,
+    InventoryOperationNewGRNViewSet
 )
 
 router = DefaultRouter()
@@ -31,7 +33,9 @@ router.register('operations/location-change', InventoryOperationLocationChangeVi
 router.register('operations/production', InventoryOperationProductionViewSet, basename='inventory-operation-production')
 router.register('operations/consumption', InventoryOperationConsumptionViewSet, basename='inventory-operation-consumption')
 router.register('operations/scrap', InventoryOperationScrapViewSet, basename='inventory-operation-scrap')
+router.register('operations/grn', InventoryOperationGRNViewSet, basename='inventory-operation-grn')
 router.register('operations/outward', InventoryOperationOutwardViewSet, basename='inventory-operation-outward')
+router.register('operations/new-grn', InventoryOperationNewGRNViewSet, basename='inventory-operation-new-grn')
 
 urlpatterns = [
     path('', include(router.urls)),

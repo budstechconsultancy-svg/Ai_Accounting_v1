@@ -105,6 +105,7 @@ class HttpClient {
                     const refreshResponse = await fetch(`${this.baseURL}/api/auth/refresh/`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ refresh: localStorage.getItem('refreshToken') }),
                         credentials: 'include' // Send refresh cookie
                     });
 

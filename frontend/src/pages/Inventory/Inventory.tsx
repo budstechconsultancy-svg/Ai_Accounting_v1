@@ -799,8 +799,152 @@ const InventoryPage: React.FC = () => {
           } : null
         };
         await httpClient.post('/api/inventory/operations/outward/', outwardPayload);
+      } else if (issueSlipTab === 'job-work') {
+        // Job Work Payload
+        const jobWorkPayload = {
+          operation_type: jobWorkSentType, // 'outward' or 'receipt'
+          transaction_date: issueSlipDate || new Date().toISOString().split('T')[0],
+          transaction_time: issueSlipTime || new Date().toTimeString().split(' ')[0],
+          location_id: itemLocation || goodsFromLocation || null, // Map correctly
+
+          // Outward specific
+          job_work_outward_no: jobWorkSentType === 'outward' ? issueSlipNumber : null,
+          po_reference_no: jobWorkSentType === 'outward' ? jobWorkOrderNo : null,
+
+          // Receipt specific
+          job_work_receipt_no: jobWorkSentType === 'receipt' ? jobWorkReceiptNo : null,
+          related_outward_no: jobWorkSentType === 'receipt' ? jobWorkOutwardRefNo : null,
+          vendor_delivery_challan_no: jobWorkSentType === 'receipt' ? vendorDeliveryChallan : null,
+          supplier_invoice_no: jobWorkSentType === 'receipt' ? outwardSupplierInvoice : null,
+
+          // Vendor details
+          vendor_name: outwardVendorName,
+          vendor_branch: outwardBranch,
+          vendor_address: outwardAddress,
+          vendor_gstin: outwardGstin,
+
+          posting_note: postingNote,
+          status: 'Posted',
+
+          items: issueSlipItems.map(item => ({
+            item_code: item.itemCode,
+            item_name: item.itemName,
+            uom: item.uom,
+            // Outward
+            quantity: item.quantity || 0,
+            rate: item.rate || 0,
+            taxable_value: item.value || 0,
+
+            // Receipt columns
+            vendor_qty: item.vendorQty || 0,
+            received_qty: item.receivedQty || 0,
+            accepted_qty: item.acceptedQty || 0,
+            rejected_qty: item.rejectedQty || 0,
+            shortage_excess_qty: item.shortageExcessQty || 0,
+            remarks: item.remarks || ''
+          })),
+
+          delivery_challan: (deliveryChallanAddress || deliveryChallanDate) ? {
+            dispatch_address: deliveryChallanAddress,
+            dispatch_date: deliveryChallanDate || null
+          } : null,
+          eway_bill: (ewayBillVehicleNo || ewayBillValidTill) ? {
+            vehicle_number: ewayBillVehicleNo,
+            valid_till: ewayBillValidTill || null
+          } : null
+        };
+        await httpClient.post('/api/inventory/operations/job-work/', jobWorkPayload);
+      } else if (issueSlipTab === 'production') {
+        // Production Payload
+        let productionItems = [];
+
+        if (productionType === 'materials_issued') {
+          // Input: issueSlipItems (Raw Materials)
+          const inputs = issueSlipItems.map(item => ({
+            item_code: item.itemCode,
+            item_name: item.itemName,
+            uom: item.uom,
+            quantity: item.quantity || 0,
+            qty_issued: item.quantity || 0, // In this context, same
+            item_type: 'input' // Raw Material
+          }));
+          // Output: resultingWIPItems
+          const outputs = resultingWIPItems.map(item => ({
+            item_code: item.itemCode,
+            item_name: item.itemName,
+            uom: item.uom,
+            quantity: item.quantity || 0,
+            item_type: 'output' // WIP
+          }));
+          productionItems = [...inputs, ...outputs];
+        } else if (productionType === 'inter_process') {
+          // For Inter-process, logic might be different if tabs are used.
+          // Input: 'Materials issued' tab -> resultingWIPItems (reused name in form)
+          // Output: 'Converted Output' tab -> convertedOutputItems
+
+          // Check which tab or data is relevant. Usually both are submitted.
+          const inputs = resultingWIPItems.map(item => ({
+            item_code: item.itemCode,
+            item_name: item.itemName,
+            uom: item.uom,
+            quantity: item.quantity || 0, // Available
+            qty_issued: item.issueQty || 0, // Should be bound to input
+            rate: item.rate || 0,
+            amount: item.amount || 0,
+            item_type: 'input'
+          }));
+          const outputs = convertedOutputItems.map(item => ({
+            item_code: item.itemCode,
+            item_name: item.itemName,
+            uom: item.uom,
+            quantity: item.quantity || 0,
+            rate: item.rate || 0,
+            amount: item.amount || 0,
+            item_type: 'output'
+          }));
+          productionItems = [...inputs, ...outputs];
+        } else {
+          // Finished Goods (Implied 'finished_goods' type)
+          // Assuming standard issueSlipItems for consumption and maybe another list for output?
+          // For now, mapping standard input items if that's what the form uses
+          productionItems = issueSlipItems.map(item => ({
+            item_code: item.itemCode,
+            item_name: item.itemName,
+            uom: item.uom,
+            quantity: item.quantity || 0,
+            item_type: 'input'
+          }));
+        }
+
+        const productionPayload = {
+          issue_slip_no: issueSlipNumber, // Production Entry No can basically use this field
+          date: issueSlipDate || null,
+          time: issueSlipTime || null,
+          status: 'Posted',
+          goods_from_location: goodsFromLocation,
+          goods_to_location: goodsToLocation,
+          posting_note: postingNote,
+
+          production_type: productionType,
+          material_issue_slip_no: materialIssueSlipNo,
+          process_transfer_slip_no: processTransferSlipNo,
+          // finished_goods_production_no: ... (add if variable exists, else map to issueSlipNumber)
+
+          items: productionItems,
+
+          delivery_challan: (deliveryChallanAddress || deliveryChallanDate) ? {
+            dispatch_address: deliveryChallanAddress,
+            dispatch_date: deliveryChallanDate || null
+          } : null,
+          eway_bill: (ewayBillVehicleNo || ewayBillValidTill) ? {
+            vehicle_number: ewayBillVehicleNo,
+            valid_till: ewayBillValidTill || null
+          } : null
+        };
+        await httpClient.post('/api/inventory/operations/production/', productionPayload);
+
       } else {
-        // Common payload for other tabs
+        // Common payload for other tabs (Inter-unit, etc.)
         const commonPayload = {
           issue_slip_no: issueSlipNumber,
           date: issueSlipDate || null,
@@ -828,7 +972,7 @@ const InventoryPage: React.FC = () => {
         };
 
         const endpoints: { [key: string]: string } = {
-          'job-work': '/api/inventory/operations/job-work/',
+          // 'job-work': '/api/inventory/operations/job-work/', // Handled above
           'inter-unit': '/api/inventory/operations/inter-unit/',
           'location-change': '/api/inventory/operations/location-change/',
           'production': '/api/inventory/operations/production/',
@@ -851,6 +995,52 @@ const InventoryPage: React.FC = () => {
     }
   };
 
+  const handleGRNSubmit = async () => {
+    try {
+      const payload = {
+        grn_type: grnType,
+        grn_no: grnNumber,
+        date: grnDate || null,
+        time: grnTime || null,
+        location_id: grnLocation || null, // Assuming this is ID
+
+        vendor_name: grnVendorName,
+        customer_name: grnCustomerName,
+        branch: grnBranch,
+        address: grnAddress,
+        gstin: grnGstin,
+
+        reference_no: grnReferenceNo,
+        secondary_ref_no: grnSecondaryRefNo,
+
+        return_reason: grnReason,
+        posting_note: grnPostingNote,
+        status: 'Posted',
+
+        items: grnItems.map(item => ({
+          item_code: item.itemCode,
+          item_name: item.itemName,
+          uom: item.uom,
+          ref_qty: item.refQty || 0,
+          secondary_qty: item.secondaryQty || 0,
+          received_qty: item.receivedQty || 0,
+          accepted_qty: item.acceptedQty || 0,
+          rejected_qty: item.rejectedQty || 0,
+          short_excess_qty: item.shortExcessQty || 0,
+          remarks: item.remarks
+        }))
+      };
+
+      await httpClient.post('/api/inventory/operations/new-grn/', payload);
+      alert('GRN saved successfully!');
+      setShowGRNForm(false);
+      // Reset logic if needed
+    } catch (error) {
+      console.error('Error saving GRN:', error);
+      alert('Failed to save GRN. Please check your inputs.');
+    }
+  };
+
   const handleAddIssueSlipItem = () => {
     setIssueSlipItems([...issueSlipItems, { itemCode: '', itemName: '', uom: '', quantity: '', rate: '', value: 0, noOfBoxes: '' }]);
   };
@@ -862,11 +1052,30 @@ const InventoryPage: React.FC = () => {
   const handleIssueSlipItemChange = (index: number, field: string, value: any) => {
     const updatedItems = [...issueSlipItems];
     updatedItems[index][field] = value;
+
+    // Calculate Value (Qty * Rate)
     if (field === 'quantity' || field === 'rate') {
       const qty = parseFloat(updatedItems[index].quantity) || 0;
       const rate = parseFloat(updatedItems[index].rate) || 0;
       updatedItems[index].value = qty * rate;
     }
+
+    // Calculate Shortage/Excess for Receipt (Received - Vendor)
+    if (field === 'vendorQty' || field === 'receivedQty') {
+      const vendorQty = parseFloat(updatedItems[index].vendorQty) || 0;
+      const receivedQty = parseFloat(updatedItems[index].receivedQty) || 0;
+      updatedItems[index].shortageExcessQty = receivedQty - vendorQty;
+    }
+
+    // Calculate Remaining for Outward (Total - Consumed - Scrapped)
+    // Note: 'quantity' is the Total Quantity here
+    if (field === 'quantity' || field === 'consumedQty' || field === 'scrappedQty') {
+      const total = parseFloat(updatedItems[index].quantity) || 0;
+      const consumed = parseFloat(updatedItems[index].consumedQty) || 0;
+      const scrapped = parseFloat(updatedItems[index].scrappedQty) || 0;
+      updatedItems[index].remainingQty = total - consumed - scrapped;
+    }
+
     setIssueSlipItems(updatedItems);
   };
 
@@ -1543,10 +1752,10 @@ const InventoryPage: React.FC = () => {
                                   <td className="px-3 py-2 border-r"><input type="text" value={item.itemCode} readOnly className="w-full px-2 py-1 bg-gray-50 border-none rounded text-sm text-gray-700" /></td>
                                   <td className="px-3 py-2 border-r"><input type="text" value={item.itemName} readOnly className="w-full px-2 py-1 bg-gray-50 border-none rounded text-sm text-gray-700" /></td>
                                   <td className="px-3 py-2 border-r"><input type="text" value={item.uom} readOnly className="w-full px-2 py-1 bg-gray-50 border-none rounded text-sm text-gray-700" /></td>
-                                  <td className="px-3 py-2 border-r"><input type="number" placeholder="Total" className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-center" /></td>
-                                  <td className="px-3 py-2 border-r"><input type="number" placeholder="Consumed" className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-center" /></td>
-                                  <td className="px-3 py-2 border-r"><input type="number" placeholder="Scrap" className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-center" /></td>
-                                  <td className="px-3 py-2"><input type="number" placeholder="Remaining" readOnly className="w-full px-2 py-1 bg-gray-50 border-none rounded text-sm text-center text-gray-700" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" value={item.quantity || ''} onChange={(e) => handleIssueSlipItemChange(index, 'quantity', e.target.value)} placeholder="Total" className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-center" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" value={item.consumedQty || ''} onChange={(e) => handleIssueSlipItemChange(index, 'consumedQty', e.target.value)} placeholder="Consumed" className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-center" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" value={item.scrappedQty || ''} onChange={(e) => handleIssueSlipItemChange(index, 'scrappedQty', e.target.value)} placeholder="Scrap" className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-center" /></td>
+                                  <td className="px-3 py-2"><input type="number" value={item.remainingQty || ''} placeholder="Remaining" readOnly className="w-full px-2 py-1 bg-gray-50 border-none rounded text-sm text-center text-gray-700" /></td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1573,12 +1782,12 @@ const InventoryPage: React.FC = () => {
                                   <td className="px-3 py-2 border-r"><input type="text" value={item.itemCode} onChange={(e) => handleIssueSlipItemChange(index, 'itemCode', e.target.value)} className="w-24 px-2 py-1 border border-gray-300 rounded text-sm" /></td>
                                   <td className="px-3 py-2 border-r"><input type="text" value={item.itemName} onChange={(e) => handleIssueSlipItemChange(index, 'itemName', e.target.value)} className="w-32 px-2 py-1 border border-gray-300 rounded text-sm" /></td>
                                   <td className="px-3 py-2 border-r"><input type="text" value={item.uom} readOnly className="w-16 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-sm" /></td>
-                                  <td className="px-3 py-2 border-r bg-blue-50"><input type="number" placeholder="Vendor Qty" className="w-20 px-2 py-1 border border-blue-300 rounded text-sm" /></td>
-                                  <td className="px-3 py-2 border-r bg-green-50"><input type="number" placeholder="Recv Qty" className="w-20 px-2 py-1 border border-green-300 rounded text-sm" /></td>
-                                  <td className="px-3 py-2 border-r"><input type="number" placeholder="Accept" className="w-20 px-2 py-1 border border-gray-300 rounded text-sm" /></td>
-                                  <td className="px-3 py-2 border-r"><input type="number" placeholder="Reject" className="w-20 px-2 py-1 border border-gray-300 rounded text-sm" /></td>
-                                  <td className="px-3 py-2 border-r"><input type="number" readOnly className="w-20 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-sm" /></td>
-                                  <td className="px-3 py-2 border-r"><input type="text" placeholder="Remarks" className="w-32 px-2 py-1 border border-gray-300 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r bg-blue-50"><input type="number" value={item.vendorQty || ''} onChange={(e) => handleIssueSlipItemChange(index, 'vendorQty', e.target.value)} placeholder="Vendor Qty" className="w-20 px-2 py-1 border border-blue-300 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r bg-green-50"><input type="number" value={item.receivedQty || ''} onChange={(e) => handleIssueSlipItemChange(index, 'receivedQty', e.target.value)} placeholder="Recv Qty" className="w-20 px-2 py-1 border border-green-300 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" value={item.acceptedQty || ''} onChange={(e) => handleIssueSlipItemChange(index, 'acceptedQty', e.target.value)} placeholder="Accept" className="w-20 px-2 py-1 border border-gray-300 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" value={item.rejectedQty || ''} onChange={(e) => handleIssueSlipItemChange(index, 'rejectedQty', e.target.value)} placeholder="Reject" className="w-20 px-2 py-1 border border-gray-300 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="number" value={item.shortageExcessQty || ''} onChange={(e) => handleIssueSlipItemChange(index, 'shortageExcessQty', e.target.value)} readOnly className="w-20 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-sm" /></td>
+                                  <td className="px-3 py-2 border-r"><input type="text" value={item.remarks || ''} onChange={(e) => handleIssueSlipItemChange(index, 'remarks', e.target.value)} placeholder="Remarks" className="w-32 px-2 py-1 border border-gray-300 rounded text-sm" /></td>
                                   <td className="px-3 py-2 text-center">
                                     <button onClick={() => handleRemoveIssueSlipItem(index)} className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded">
                                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -3148,16 +3357,126 @@ const InventoryPage: React.FC = () => {
                         <tbody className="divide-y divide-gray-200">
                           {grnItems.map((item, index) => (
                             <tr key={index}>
-                              <td className="px-3 py-2"><input type="text" className="w-20 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                              <td className="px-3 py-2"><input type="text" className="w-24 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs bg-gray-50" readOnly /></td>
-                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                              <td className="px-3 py-2"><input type="text" className="w-16 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
-                              <td className="px-3 py-2"><input type="text" className="w-24 px-2 py-1 border border-gray-300 rounded text-xs" /></td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="text"
+                                  value={item.itemCode || ''}
+                                  onChange={(e) => {
+                                    const newItems = [...grnItems];
+                                    newItems[index].itemCode = e.target.value;
+                                    setGrnItems(newItems);
+                                  }}
+                                  className="w-24 px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="text"
+                                  value={item.itemName || ''}
+                                  onChange={(e) => {
+                                    const newItems = [...grnItems];
+                                    newItems[index].itemName = e.target.value;
+                                    setGrnItems(newItems);
+                                  }}
+                                  className="w-32 px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="text"
+                                  value={item.uom || ''}
+                                  onChange={(e) => {
+                                    const newItems = [...grnItems];
+                                    newItems[index].uom = e.target.value;
+                                    setGrnItems(newItems);
+                                  }}
+                                  className="w-16 px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  value={item.refQty || ''}
+                                  onChange={(e) => {
+                                    const newItems = [...grnItems];
+                                    newItems[index].refQty = e.target.value;
+                                    setGrnItems(newItems);
+                                  }}
+                                  className="w-16 px-2 py-1 border border-gray-300 rounded text-xs bg-gray-50"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  value={item.secondaryQty || ''}
+                                  onChange={(e) => {
+                                    const newItems = [...grnItems];
+                                    newItems[index].secondaryQty = e.target.value;
+                                    setGrnItems(newItems);
+                                  }}
+                                  className="w-16 px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  value={item.receivedQty || ''}
+                                  onChange={(e) => {
+                                    const newItems = [...grnItems];
+                                    newItems[index].receivedQty = e.target.value;
+                                    setGrnItems(newItems);
+                                  }}
+                                  className="w-16 px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  value={item.acceptedQty || ''}
+                                  onChange={(e) => {
+                                    const newItems = [...grnItems];
+                                    newItems[index].acceptedQty = e.target.value;
+                                    setGrnItems(newItems);
+                                  }}
+                                  className="w-16 px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  value={item.rejectedQty || ''}
+                                  onChange={(e) => {
+                                    const newItems = [...grnItems];
+                                    newItems[index].rejectedQty = e.target.value;
+                                    setGrnItems(newItems);
+                                  }}
+                                  className="w-16 px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  value={item.shortExcessQty || ''}
+                                  onChange={(e) => {
+                                    const newItems = [...grnItems];
+                                    newItems[index].shortExcessQty = e.target.value;
+                                    setGrnItems(newItems);
+                                  }}
+                                  className="w-16 px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="text"
+                                  value={item.remarks || ''}
+                                  onChange={(e) => {
+                                    const newItems = [...grnItems];
+                                    newItems[index].remarks = e.target.value;
+                                    setGrnItems(newItems);
+                                  }}
+                                  className="w-24 px-2 py-1 border border-gray-300 rounded text-xs"
+                                />
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -3182,7 +3501,7 @@ const InventoryPage: React.FC = () => {
                   </div>
 
                   <div className="flex gap-3 justify-end border-t border-gray-200 pt-5 mt-4">
-                    <button onClick={() => setShowGRNForm(false)} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold text-sm">Post & Close</button>
+                    <button onClick={handleGRNSubmit} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold text-sm">Post & Close</button>
                     <button onClick={() => setShowGRNForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 font-semibold text-sm">Cancel</button>
                   </div>
                 </div>

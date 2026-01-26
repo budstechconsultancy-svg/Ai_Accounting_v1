@@ -15,10 +15,7 @@ from .database import (
     CustomerMasterLongTermContractProductService,
     CustomerMasterLongTermContractTermsCondition,
     CustomerTransactionSalesQuotationGeneral,
-    CustomerTransactionSalesQuotationGeneralItem,
     CustomerTransactionSalesQuotationSpecific,
-    CustomerTransactionSalesQuotationSpecific,
-    CustomerTransactionSalesQuotationSpecificItem,
     CustomerTransactionSalesOrderBasicDetails,
     CustomerTransactionSalesOrderItemDetails,
     CustomerTransactionSalesOrderDeliveryTerms,
@@ -559,25 +556,6 @@ class CustomerSalesOrderSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-# TODO: Uncomment when CustomerMasterLongTermContract model is created
-# class CustomerMasterLongTermContractSerializer(serializers.ModelSerializer):
-#     """Serializer for Customer Master Long-term Contracts"""
-#     
-#     class Meta:
-#         model = CustomerMasterLongTermContract
-#         fields = [
-#             'id', 'tenant_id', 'contract_number', 'customer_id', 'customer_name',
-#             'branch_id', 'contract_type', 'contract_validity_from', 'contract_validity_to',
-#             'contract_document', 'automate_billing', 'bill_start_date', 'billing_frequency',
-#             'voucher_name', 'bill_period_from', 'bill_period_to', 'products_services',
-#             'payment_terms', 'penalty_terms', 'force_majeure', 'termination_clause',
-#             'dispute_terms', 'other_terms', 'is_active', 'is_deleted',
-#             'created_at', 'updated_at', 'created_by'
-#         ]
-#         read_only_fields = ['id', 'tenant_id', 'created_by', 'created_at', 'updated_at']
-
-
-
 # ============================================================================
 # LONG-TERM CONTRACTS SERIALIZERS
 # ============================================================================
@@ -626,48 +604,18 @@ class CustomerMasterLongTermContractBasicDetailSerializer(serializers.ModelSeria
         read_only_fields = ['id', 'tenant_id', 'created_by', 'created_at', 'updated_at']
 
 
-class CustomerTransactionSalesQuotationGeneralItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CustomerTransactionSalesQuotationGeneralItem
-        fields = ['id', 'item_code', 'item_name', 'min_order_qty', 'base_price', 'max_discount', 'best_price']
-
-
 class CustomerTransactionSalesQuotationGeneralSerializer(serializers.ModelSerializer):
-    items = CustomerTransactionSalesQuotationGeneralItemSerializer(many=True)
-    
     class Meta:
         model = CustomerTransactionSalesQuotationGeneral
         fields = '__all__'
         read_only_fields = ['id', 'tenant_id', 'created_at', 'updated_at']
 
-    def create(self, validated_data):
-        items_data = validated_data.pop('items')
-        general_quote = CustomerTransactionSalesQuotationGeneral.objects.create(**validated_data)
-        for item_data in items_data:
-            CustomerTransactionSalesQuotationGeneralItem.objects.create(general_quote=general_quote, **item_data)
-        return general_quote
-
-
-class CustomerTransactionSalesQuotationSpecificItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CustomerTransactionSalesQuotationSpecificItem
-        fields = ['id', 'item_code', 'item_name', 'customer_item_name', 'min_order_qty', 'base_price', 'discount', 'negotiated_price']
-
 
 class CustomerTransactionSalesQuotationSpecificSerializer(serializers.ModelSerializer):
-    items = CustomerTransactionSalesQuotationSpecificItemSerializer(many=True)
-
     class Meta:
         model = CustomerTransactionSalesQuotationSpecific
         fields = '__all__'
         read_only_fields = ['id', 'tenant_id', 'created_at', 'updated_at']
-
-    def create(self, validated_data):
-        items_data = validated_data.pop('items')
-        specific_quote = CustomerTransactionSalesQuotationSpecific.objects.create(**validated_data)
-        for item_data in items_data:
-            CustomerTransactionSalesQuotationSpecificItem.objects.create(specific_quote=specific_quote, **item_data)
-        return specific_quote
 
 
 class CustomerTransactionSalesOrderItemDetailsSerializer(serializers.ModelSerializer):
@@ -783,4 +731,3 @@ class CustomerTransactionSalesOrderSerializer(serializers.ModelSerializer):
             import traceback
             logger.error(traceback.format_exc())
             raise
-

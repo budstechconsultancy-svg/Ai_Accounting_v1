@@ -9,6 +9,13 @@ from .models_voucher_receipt import VoucherReceiptSingle, VoucherReceiptBulk
 from .models_voucher_expense import VoucherExpense
 from .models_voucher_contra import VoucherContra
 from .models_voucher_journal import VoucherJournal
+from .models_voucher_purchase import (
+    VoucherPurchaseSupplierDetails, 
+    VoucherPurchaseSupplyForeignDetails, 
+    VoucherPurchaseSupplyINRDetails,
+    VoucherPurchaseDueDetails, 
+    VoucherPurchaseTransitDetails
+)
 
 
 # ============================================================================

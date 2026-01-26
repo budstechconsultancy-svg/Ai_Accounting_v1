@@ -8,7 +8,8 @@ from .models import (
     InventoryOperationJobWork, InventoryOperationInterUnit, 
     InventoryOperationLocationChange, InventoryOperationProduction,
     InventoryOperationConsumption, InventoryOperationScrap,
-    InventoryOperationOutward
+    InventoryOperationGRN, InventoryOperationOutward,
+    InventoryOperationNewGRN
 )
 from .serializers import (
     InventoryMasterCategorySerializer, 
@@ -22,8 +23,12 @@ from .serializers import (
     InventoryOperationLocationChangeSerializer,
     InventoryOperationProductionSerializer,
     InventoryOperationConsumptionSerializer,
+    InventoryOperationConsumptionSerializer,
     InventoryOperationScrapSerializer,
-    InventoryOperationOutwardSerializer
+    InventoryOperationGRNSerializer,
+    InventoryOperationGRNSerializer,
+    InventoryOperationOutwardSerializer,
+    InventoryOperationNewGRNSerializer
 )
 from core.tenant import get_tenant_from_request
 
@@ -241,6 +246,18 @@ class InventoryOperationScrapViewSet(viewsets.ModelViewSet):
         tenant_id = get_tenant_from_request(self.request)
         serializer.save(tenant_id=tenant_id)
 
+class InventoryOperationGRNViewSet(viewsets.ModelViewSet):
+    serializer_class = InventoryOperationGRNSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        tenant_id = get_tenant_from_request(self.request)
+        return InventoryOperationGRN.objects.filter(tenant_id=tenant_id)
+
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)
+
 class InventoryOperationOutwardViewSet(viewsets.ModelViewSet):
     serializer_class = InventoryOperationOutwardSerializer
     permission_classes = [IsAuthenticated]
@@ -250,5 +267,19 @@ class InventoryOperationOutwardViewSet(viewsets.ModelViewSet):
         return InventoryOperationOutward.objects.filter(tenant_id=tenant_id)
 
     def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)
+
+class InventoryOperationNewGRNViewSet(viewsets.ModelViewSet):
+    serializer_class = InventoryOperationNewGRNSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        tenant_id = get_tenant_from_request(self.request)
+        return InventoryOperationNewGRN.objects.filter(tenant_id=tenant_id)
+
+    def perform_create(self, serializer):
+        tenant_id = get_tenant_from_request(self.request)
+        serializer.save(tenant_id=tenant_id)
         tenant_id = get_tenant_from_request(self.request)
         serializer.save(tenant_id=tenant_id)

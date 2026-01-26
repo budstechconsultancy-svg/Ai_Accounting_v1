@@ -2328,10 +2328,17 @@ const SalesVoucher: React.FC = () => {
             {isIssueSlipModalOpen && (
                 <CreateIssueSlipModal
                     onClose={() => setIsIssueSlipModalOpen(false)}
-                    onSave={(data) => {
-                        console.log('Issue Slip Created:', data);
-                        setOutwardSlipNo(data.outwardSlipNo);
-                        // You can populate other fields here if needed
+                    onSave={async (data) => {
+                        try {
+                            console.log('Creating Issue Slip...', data);
+                            const response = await apiService.createInventoryOperationOutward(data);
+                            console.log('Issue Slip Created:', response);
+                            setOutwardSlipNo(response.outward_slip_no);
+                            alert('Issue Slip Created Successfully!');
+                        } catch (error) {
+                            console.error("Failed to create Issue Slip", error);
+                            alert("Failed to create Issue Slip. Please check inputs.");
+                        }
                     }}
                 />
             )}

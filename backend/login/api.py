@@ -104,7 +104,11 @@ class TokenRefreshView(APIView):
     
     def post(self, request):
         """Handle token refresh request."""
+        # Try both 'refresh_token' (cookie name) and 'refresh' (standard JSON payload)
         refresh_token = request.COOKIES.get('refresh_token')
+        
+        if not refresh_token:
+            refresh_token = request.data.get('refresh') or request.data.get('refresh_token')
         
         if not refresh_token:
             return Response(
@@ -125,7 +129,12 @@ class TokenRefreshView(APIView):
             response.delete_cookie('refresh_token')
             return response
         
-        response = Response({'success': True}, status=status.HTTP_200_OK)
+        # Return tokens in body so client can update localStorage
+        response = Response({
+            'success': True,
+            'access': tokens['access'],
+            'refresh': tokens.get('refresh')
+        }, status=status.HTTP_200_OK)
         
         # Update cookies
         if tokens.get('access'):
