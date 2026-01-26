@@ -1,4 +1,4 @@
-create database Finpixe_AI_Accounting;;
+create database Finpixe_AI_Accounting;
 
 -- Table: tenants
 --------------------------------------------------------------------------------
