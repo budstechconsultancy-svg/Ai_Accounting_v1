@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { httpClient } from '../../services';
 
+import { ExtractedInvoiceData } from '../../types';
+
 interface PendingTransaction {
     date: string;
     referenceNumber: string;
@@ -23,7 +25,12 @@ interface BulkTransaction {
     selected: boolean;
 }
 
-const PaymentVoucherSingle: React.FC = () => {
+interface PaymentVoucherSingleProps {
+    prefilledData?: ExtractedInvoiceData | null;
+    clearPrefilledData?: () => void;
+}
+
+const PaymentVoucherSingle: React.FC<PaymentVoucherSingleProps> = ({ prefilledData, clearPrefilledData }) => {
     // Tab state
     const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
 
@@ -60,6 +67,35 @@ const PaymentVoucherSingle: React.FC = () => {
     const [advanceAmount, setAdvanceAmount] = useState<number>(0);
     const [postingNote, setPostingNote] = useState<string>('');
     const [runningBalance, setRunningBalance] = useState<number>(0);
+
+    // Populate from AI Extraction
+    useEffect(() => {
+        if (prefilledData) {
+            console.log('PaymentVoucherSingle received data:', prefilledData);
+            // Assuming prefilledData.invoiceDate is YYYY-MM-DD
+            if (prefilledData.invoiceDate) {
+                setDate(prefilledData.invoiceDate);
+            }
+            if (prefilledData.sellerName) {
+                // Map Seller Name to Pay To (Vendor)
+                // Note: This sets the value, but the dropdown options (vendor1, vendor2) might not match the name string.
+                // ideally we should match against a list of vendors, but for now we set the value. 
+                // If it's a select box, it must match an option value.
+                // The current component mocks options (vendor1, vendor2).
+                // I will try to set it, but real implementation needs ID matching.
+                // For now, I'll set it to the name to see if it works or if user can type.
+                // The select at line 328 is hardcoded.
+                // I will skip setting 'payTo' if it's strictly a select with hardcoded values.
+                // But I should log it. And maybe set it if it matches 'vendor1' etc? NO.
+                // I'll leave 'payTo' empty unless I can match it.
+                // However, the user wants "Import Voucher" to work.
+
+                // Let's just set the date at least. And if 'payTo' can be free text? No, it's a select.
+                // setPayTo(prefilledData.sellerName); 
+            }
+            if (clearPrefilledData) clearPrefilledData();
+        }
+    }, [prefilledData, clearPrefilledData]);
 
     // Fetch payment voucher configurations on mount
     useEffect(() => {

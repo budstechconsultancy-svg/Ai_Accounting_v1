@@ -553,6 +553,8 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
     const file = event.target.files?.[0];
     if (file) {
       onInvoiceUpload(file, voucherType);
+      // Reset input value to allow selecting the same file again
+      event.target.value = '';
     }
   };
 
@@ -565,6 +567,9 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
   const handleJsonFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // Reset input value to allow selecting the same file again
+    event.target.value = '';
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -602,6 +607,9 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Reset input value to allow selecting the same file again
+    event.target.value = '';
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -614,13 +622,38 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
           const sheet = workbook.Sheets[sheetName];
           if (sheet) {
             const rows = XLSX.utils.sheet_to_json(sheet);
+
+            // Helper for robust parsing
+            const parseDate = (val: any) => {
+              if (!val) return new Date().toISOString().split('T')[0];
+              if (typeof val === 'number') {
+                // Excel serial date
+                return new Date((val - (25567 + 1)) * 86400 * 1000).toISOString().split('T')[0];
+              }
+              // Try parsing string/date
+              const d = new Date(val);
+              return isNaN(d.getTime()) ? new Date().toISOString().split('T')[0] : d.toISOString().split('T')[0];
+            };
+
+            const parseBool = (val: any) => String(val).toUpperCase() === 'TRUE' || val === true;
+
             rows.forEach((row: any) => {
               try {
                 // Override type with current voucherType to ensure consistency
-                let voucher: Partial<Voucher> = { date: new Date((row.date - (25567 + 1)) * 86400 * 1000).toISOString().split('T')[0], type: voucherType, narration: row.narration };
+                let voucher: Partial<Voucher> = {
+                  date: parseDate(row.date),
+                  type: voucherType,
+                  narration: row.narration
+                };
 
                 if (type === 'SalesPurchases') {
-                  voucher = { ...voucher, party: row.party, invoiceNo: row.invoiceNo, isInterState: row.isInterState === 'TRUE', items: JSON.parse(row.items) } as Partial<SalesPurchaseVoucher>;
+                  voucher = {
+                    ...voucher,
+                    party: row.party,
+                    invoiceNo: row.invoiceNo,
+                    isInterState: parseBool(row.isInterState),
+                    items: JSON.parse(row.items)
+                  } as Partial<SalesPurchaseVoucher>;
                   // Recalculate totals for data integrity
                   const { items, isInterState } = voucher as SalesPurchaseVoucher;
                   const totals = items.reduce((acc, item) => {
@@ -670,10 +703,65 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
           processSheet('Journal', 'Journal');
         }
 
-        if (allVouchers.length > 0) {
+        if (allVouchers.length === 1) {
+          // Single voucher - Populate form
+          const voucher = allVouchers[0];
+
+          if (voucher.type === 'Sales' || voucher.type === 'Purchase') {
+            const spVoucher = voucher as SalesPurchaseVoucher;
+            setDate(spVoucher.date);
+            setInvoiceNo(spVoucher.invoiceNo);
+            setParty(spVoucher.party);
+            setIsInterState(spVoucher.isInterState || false);
+
+            // Map items
+            const mappedItems = spVoucher.items.map(item => ({
+              name: item.name,
+              qty: item.qty,
+              rate: item.rate,
+              taxableAmount: item.taxableAmount,
+              cgstAmount: item.cgstAmount,
+              sgstAmount: item.sgstAmount,
+              igstAmount: item.igstAmount,
+              totalAmount: item.totalAmount
+            }));
+            setItems(mappedItems);
+            setNarration(spVoucher.narration || '');
+
+          } else if (voucher.type === 'Payment' || voucher.type === 'Receipt') {
+            const prVoucher = voucher as PaymentReceiptVoucher;
+            setDate(prVoucher.date);
+            setAccount(prVoucher.account);
+            setParty(prVoucher.party);
+            setSimpleAmount(prVoucher.amount);
+            setNarration(prVoucher.narration || '');
+
+          } else if (voucher.type === 'Contra') {
+            const cVoucher = voucher as ContraVoucher;
+            setDate(cVoucher.date);
+            setFromAccount(cVoucher.fromAccount);
+            setToAccount(cVoucher.toAccount);
+            setSimpleAmount(cVoucher.amount);
+            setNarration(cVoucher.narration || '');
+
+          } else if (voucher.type === 'Journal') {
+            const jVoucher = voucher as JournalVoucher;
+            setDate(jVoucher.date);
+            setEntries(jVoucher.entries);
+            setNarration(jVoucher.narration || '');
+          }
+
+          setImportSummary({ success: 1, failed });
+          alert("Voucher data loaded into form. Please review and save.");
+
+        } else if (allVouchers.length > 1) {
+          // Multiple vouchers - Bulk Add
           onAddVouchers(allVouchers);
+          setImportSummary({ success: allVouchers.length, failed });
+        } else {
+          setImportSummary({ success: 0, failed });
+          if (failed > 0) alert("No valid vouchers found.");
         }
-        setImportSummary({ success: allVouchers.length, failed });
 
       } catch (error) {
         console.error("Error parsing Excel file:", error);
@@ -806,9 +894,12 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
 
   useEffect(() => {
     if (prefilledData) {
+      console.log('🔍 PREFILLED DATA RECEIVED:', prefilledData);
+      console.log('🔍 Current Voucher Type:', voucherType);
+
       // Keep current voucher type - don't change tabs, just populate form data
 
-      if (voucherType === 'Purchase' || voucherType === 'Sales') {
+      if (voucherType === 'Purchase') {
         const partyLedger = ledgers.find(l => l.name.toLowerCase() === (prefilledData.sellerName || '').toLowerCase());
         const newIsInterState = (partyLedger && partyLedger.state && companyDetails.state)
           ? partyLedger.state.toLowerCase() !== companyDetails.state.toLowerCase()
@@ -841,11 +932,6 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
         } else {
           setItems([{ name: '', qty: 1, rate: 0, taxableAmount: 0, cgstAmount: 0, sgstAmount: 0, igstAmount: 0, totalAmount: 0 }]);
         }
-      } else if (voucherType === 'Payment' || voucherType === 'Receipt') {
-        setDate(formatDateForInput(prefilledData.invoiceDate) || getTodayDate());
-        setParty(prefilledData.sellerName || '');
-        setAccount(prefilledData.invoiceNumber || ''); // Use invoice number as account
-        setSimpleAmount(prefilledData.totalAmount || 0);
       } else if (voucherType === 'Contra') {
         setDate(formatDateForInput(prefilledData.invoiceDate) || getTodayDate());
         setFromAccount(prefilledData.sellerName || '');
@@ -4485,7 +4571,7 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
                 <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
                   <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
                     <a href="#" onClick={(e) => { e.preventDefault(); setIsInvoiceScannerOpen(true); setIsImportMenuOpen(false); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">Upload Invoices (Scan)</a>
-                    <a href="#" onClick={(e) => { e.preventDefault(); triggerFileUpload(imageInputRef); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">From Image {(voucherType === 'Purchase' || voucherType === 'Sales') ? '(AI)' : ''}</a>
+                    <a href="#" onClick={(e) => { e.preventDefault(); triggerFileUpload(imageInputRef); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">From Image/PDF {(voucherType === 'Purchase' || voucherType === 'Sales') ? '(AI)' : ''}</a>
                     <a href="#" onClick={(e) => { e.preventDefault(); triggerFileUpload(jsonInputRef); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">From JSON</a>
                     <a href="#" onClick={(e) => { e.preventDefault(); triggerFileUpload(excelInputRef); }} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">From Excel</a>
                     <a href="#" onClick={(e) => { e.preventDefault(); handleDownloadTemplate(); }} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" role="menuitem">
@@ -4497,7 +4583,7 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
               )}
             </div>
           </div>
-          <input type="file" ref={imageInputRef} onChange={handleImageFileChange} accept="image/png, image/jpeg" className="hidden" />
+          <input type="file" ref={imageInputRef} onChange={handleImageFileChange} accept="image/png, image/jpeg, application/pdf" className="hidden" />
           <input type="file" ref={jsonInputRef} onChange={handleJsonFileChange} accept=".json" className="hidden" />
           <input type="file" ref={excelInputRef} onChange={handleExcelFileChange} accept=".xlsx, .xls" className="hidden" />
         </div>
@@ -4528,9 +4614,9 @@ const VouchersPage: React.FC<VouchersPageProps> = ({ vouchers, ledgers, stockIte
           .table-header { padding: 0.75rem 1rem; text-align: center; font-size: 0.75rem; font-weight: 600; color: #4b5563; text-transform: uppercase; letter-spacing: 0.05em; background-color: #f9fafb; }
         `}
         </style>
-        {voucherType === 'Sales' && <SalesVoucher />}
-        {voucherType === 'Payment' && <PaymentVoucherSingle />}
-        {voucherType === 'Receipt' && <ReceiptVoucher />}
+        {voucherType === 'Sales' && <SalesVoucher prefilledData={prefilledData} clearPrefilledData={clearPrefilledData} />}
+        {voucherType === 'Payment' && <PaymentVoucherSingle prefilledData={prefilledData} clearPrefilledData={clearPrefilledData} />}
+        {voucherType === 'Receipt' && <ReceiptVoucher prefilledData={prefilledData} clearPrefilledData={clearPrefilledData} />}
         {voucherType === 'Purchase' && renderSalesPurchaseForm()}
         {voucherType === 'Contra' && renderSimpleForm(voucherType)}
         {voucherType === 'Journal' && renderJournalForm()}

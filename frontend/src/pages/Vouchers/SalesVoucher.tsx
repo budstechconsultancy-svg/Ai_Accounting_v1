@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { apiService } from '../../services/api';
 import CreateIssueSlipModal from '../../components/CreateIssueSlipModal';
 
+import { ExtractedInvoiceData } from '../../types';
+
 interface ItemRow {
     id: number;
     itemCode: string;
@@ -19,9 +21,57 @@ interface ItemRow {
     description: string;
 }
 
-const SalesVoucher: React.FC = () => {
+interface SalesVoucherProps {
+    prefilledData?: ExtractedInvoiceData | null;
+    clearPrefilledData?: () => void;
+}
+
+const SalesVoucher: React.FC<SalesVoucherProps> = ({ prefilledData, clearPrefilledData }) => {
     const [activeTab, setActiveTab] = useState('invoice');
     const [isIssueSlipModalOpen, setIsIssueSlipModalOpen] = useState(false);
+
+    // Populate from AI Extraction
+    React.useEffect(() => {
+        if (prefilledData) {
+            console.log('SalesVoucher received data:', prefilledData);
+            setDate(prefilledData.invoiceDate || new Date().toISOString().split('T')[0]);
+            setSalesInvoiceNo(prefilledData.invoiceNumber || '');
+            setCustomerName(prefilledData.sellerName || ''); // Maps Seller/Party -> Customer Name
+
+            // Map items
+            if (prefilledData.lineItems && prefilledData.lineItems.length > 0) {
+                const newRows = prefilledData.lineItems.map((item, index) => {
+                    const qty = item.quantity || 1;
+                    const rate = item.rate || 0;
+                    const taxable = qty * rate;
+                    // Default GST to 18% if not extracted (mostly not extracted in simple prompt)
+                    const gstRate = 18;
+                    const tax = taxable * (gstRate / 100);
+
+                    return {
+                        id: index + 1,
+                        itemCode: '',
+                        itemName: '', // AI extracted "description" usually goes to itemName in our simple setup
+                        salesLedger: '',
+                        description: item.itemDescription || '',
+                        hsnSac: item.hsnCode || '',
+                        qty: qty.toString(),
+                        uom: '',
+                        itemRate: rate.toString(),
+                        taxableValue: taxable.toFixed(2),
+                        igst: '0',
+                        cgst: (tax / 2).toFixed(2),
+                        sgst: (tax / 2).toFixed(2),
+                        cess: '0',
+                        invoiceValue: (taxable + tax).toFixed(2)
+                    };
+                });
+                setItemRows(newRows);
+            }
+
+            if (clearPrefilledData) clearPrefilledData();
+        }
+    }, [prefilledData, clearPrefilledData]);
 
     // Invoice Details State
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);

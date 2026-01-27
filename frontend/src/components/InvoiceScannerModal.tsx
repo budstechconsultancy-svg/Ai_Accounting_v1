@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { httpClient } from '../services/httpClient';
 declare const XLSX: any;
 
 // Icon component inline
@@ -88,20 +89,8 @@ const InvoiceScannerModal: React.FC<InvoiceScannerModalProps> = ({ onClose }) =>
                 formData.append('file', file);
 
                 try {
-                    // Use credentials: 'include' to send HttpOnly access_token cookie
-                    const response = await fetch(`${API_URL}/api/ai/extract-invoice/`, {
-                        method: 'POST',
-                        body: formData,
-                        credentials: 'include',
-                    });
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error(`Server Error (${response.status}):`, errorText);
-                        throw new Error(`Failed to process ${file.name} (Status: ${response.status})`);
-                    }
-
-                    const result = await response.json();
+                    // Use httpClient to ensure proper JWT authentication
+                    const result = await httpClient.postFormData<any>('/api/ai/extract-invoice/', formData);
 
                     if (result.error) {
                         throw new Error(result.error);

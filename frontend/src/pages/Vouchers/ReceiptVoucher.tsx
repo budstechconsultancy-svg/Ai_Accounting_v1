@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { httpClient } from '../../services';
 
+import { ExtractedInvoiceData } from '../../types';
+
 interface PendingTransaction {
     date: string;
     referenceNumber: string;
@@ -23,7 +25,12 @@ interface BulkTransaction {
     selected: boolean;
 }
 
-const ReceiptVoucher: React.FC = () => {
+interface ReceiptVoucherProps {
+    prefilledData?: ExtractedInvoiceData | null;
+    clearPrefilledData?: () => void;
+}
+
+const ReceiptVoucher: React.FC<ReceiptVoucherProps> = ({ prefilledData, clearPrefilledData }) => {
     // Tab state
     const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
 
@@ -65,6 +72,21 @@ const ReceiptVoucher: React.FC = () => {
     const [advanceAmount, setAdvanceAmount] = useState<number>(0);
     const [postingNote, setPostingNote] = useState<string>('');
     const [runningBalance, setRunningBalance] = useState<number>(0);
+
+    // Populate from AI Extraction
+    useEffect(() => {
+        if (prefilledData) {
+            console.log('ReceiptVoucher received data:', prefilledData);
+            if (prefilledData.invoiceDate) {
+                setDate(prefilledData.invoiceDate);
+            }
+            if (prefilledData.sellerName) {
+                // Map to Receive From (Customer) - assuming mocked/select field. 
+                // We won't force set it unless we can match ID.
+            }
+            if (clearPrefilledData) clearPrefilledData();
+        }
+    }, [prefilledData, clearPrefilledData]);
 
     // Fetch receipt voucher configurations on mount
     useEffect(() => {

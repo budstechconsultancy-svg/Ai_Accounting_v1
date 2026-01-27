@@ -30,6 +30,8 @@
  * - All functions return Promises with typed responses
  */
 
+import { httpClient } from './httpClient';
+
 // Import TypeScript types
 import type { ExtractedInvoiceData } from '../types';
 
@@ -81,55 +83,67 @@ export const extractInvoiceDataWithRetry = async (
         await new Promise((r) => setTimeout(r, delay));
       }
 
-      // Get API base URL from environment or use default
-      const baseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
-      const token = localStorage.getItem('token');
+      // Use httpClient for authenticated request with automatic token refresh
+      const response: any = await httpClient.postFormData('/api/ai/extract-invoice/', formData);
 
-      // Make API request to backend
-      const response = await fetch(`${baseUrl}/api/ai/extract-invoice/`, {
-        method: 'POST',
-        headers: {
-          // Authorization via HttpOnly cookies (not header)
-        },
-        credentials: 'include',  // Send cookies for authentication
-        body: formData,
-      });
+      // Backend returns { reply: "stringified json" }
+      // We need to parse it to get the actual object
+      if (response && response.reply) {
+        let cleanJson = response.reply.replace(/```json\n?|```/g, '').trim();
+        let parsedData: any = JSON.parse(cleanJson);
 
-      // Handle error responses
-      if (!response.ok) {
-        let errorMessage = `Server error: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorData.detail || await response.text();
-        } catch (e) {
-          errorMessage = await response.text();
+        // API might return an array [ { invoice... } ]
+        if (Array.isArray(parsedData) && parsedData.length > 0) {
+          parsedData = parsedData[0];
         }
 
-        // Handle specific error codes
-        if (response.status === 429) {
-          // Rate limit exceeded - AI service is busy
-          throw new Error(errorMessage || 'AI service is temporarily overloaded. Please try again in a few minutes.');
-        } else if (response.status === 500) {
-          // Server error
-          throw new Error(errorMessage || 'Server error occurred. Please check the backend logs.');
+        // MAP BACKEND KEYS TO FRONTEND INTERFACE
+        // Backend returns: "Voucher Date", "Invoice Number", "Supplier Name", "Invoice Value", etc.
+        const mappedData: ExtractedInvoiceData = {
+          sellerName: parsedData["Supplier Name"] || parsedData["Party Name"] || parsedData["sellerName"] || '',
+          invoiceNumber: parsedData["Invoice Number"] || parsedData["invoiceNumber"] || '',
+          invoiceDate: parsedData["Voucher Date"] || parsedData["invoiceDate"] || new Date().toISOString().split('T')[0],
+          dueDate: parsedData["Due Date"] || parsedData["dueDate"] || '',
+          subtotal: parseFloat(parsedData["Taxable Value"] || parsedData["subtotal"] || '0'),
+          cgstAmount: parseFloat(parsedData["CGST Amount"] || parsedData["cgstAmount"] || '0'),
+          sgstAmount: parseFloat(parsedData["SGST/UTGST Amount"] || parsedData["sgstAmount"] || '0'),
+          totalAmount: parseFloat(parsedData["Invoice Value"] || parsedData["totalAmount"] || '0'),
+          lineItems: []
+        };
+
+        // If backend provided "lineItems" array directly (old format):
+        if (Array.isArray(parsedData.lineItems)) {
+          mappedData.lineItems = parsedData.lineItems;
         } else {
-          throw new Error(errorMessage);
-        }
-      }
+          // Construct line item from flat fields ("Item/Description", "Quantity", "Item Rate")
+          // The backend prompt aggregates them into strings.
+          const desc = parsedData["Item/Description"] || 'Item';
+          const qty = parseFloat(parsedData["Quantity"] || '1');
+          const rate = parseFloat(parsedData["Item Rate"] || '0');
+          // If totalAmount is present but rate is 0, infer rate
+          const finalRate = rate === 0 && qty > 0 && mappedData.subtotal > 0 ? (mappedData.subtotal / qty) : rate;
 
-      // Success - parse and return extracted data
-      const data = await response.json();
-      return data as ExtractedInvoiceData;
+          mappedData.lineItems = [{
+            itemDescription: desc,
+            quantity: qty,
+            rate: finalRate,
+            hsnCode: parsedData["HSN/SAC Details"] || ''
+          }];
+        }
+
+        return mappedData;
+      }
     } catch (error: any) {
       attempt++;
 
       // If all retries exhausted, throw error
       if (attempt >= maxRetries) {
-        throw new Error(`❌ Failed to extract invoice data after ${maxRetries} attempts. ${error.message}`);
+        throw new Error(`❌ Failed to extract invoice data after ${maxRetries} attempts. ${error.message || error}`);
       }
 
       // Adjust delay based on error type
-      if (error.message?.includes('429') || error.message?.includes('overloaded')) {
+      const errMsg = error.message || JSON.stringify(error);
+      if (errMsg.includes('429') || errMsg.includes('overloaded') || errMsg.includes('rate limit')) {
         // Rate limiting - increase delay more aggressively
         delay = Math.min(delay * 3, 30000); // Max 30 seconds
       } else {
