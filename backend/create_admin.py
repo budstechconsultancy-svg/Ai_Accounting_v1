@@ -40,11 +40,11 @@ def create_admin():
             INSERT INTO users (
                 username, password, email, company_name, selected_plan,
                 tenant_id, is_active, is_superuser, is_staff,
-                login_status, created_at, updated_at
+                created_at, updated_at
             ) VALUES (
                 %s, %s, %s, %s, %s,
                 %s, 1, 1, 1,
-                'Offline', %s, %s
+                %s, %s
             )
         """, [username, password_hash, email, company_name, 'Enterprise',
               tid, now, now])

@@ -16,11 +16,15 @@ User = get_user_model()
 print("Creating seed data with explicit IDs...")
 
 # Get demo user
+# Get demo user or fallback to first user
 try:
     user = User.objects.get(email='demo@example.com')
 except User.DoesNotExist:
-    print('Demo user not found. Please login first.')
-    exit(1)
+    user = User.objects.first()
+    if not user:
+        print('No users found. Please run create_admin.py first.')
+        exit(1)
+    print(f'Demo user not found. Using first available user: {user.email}')
 
 tenant_id = str(user.id)
 if not user.tenant_id:
